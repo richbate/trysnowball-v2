@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <title>Snowball – Debt Payoff Forecast</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="styles.css" />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  </head>
+  <body>
+    <nav>
+      <a href="index.html">Home</a>
+      <a href="debts.html">Debts</a>
+      <a href="snowball.html">Snowball</a>
+    </nav>
+
+    <main style="max-width: 600px; margin: 2rem auto;">
+      <h1>Your Debt Payoff Forecast</h1>
+
+      <p>
+        Based on your entered debts, here’s how long it will take to be debt free. Use the input below to
+        add extra payments towards your snowball.
+      </p>
+
+      <label for="extra-payment">Extra Contribution (£/month):</label>
+      <input type="number" id="extra-payment" value="0" min="0" step="1" style="width: 100%; padding: 0.5rem; margin-bottom: 1rem;" />
+
+      <button id="run-forecast">Run Forecast</button>
+
+      <div id="forecast-summary" style="margin-top: 2rem;"></div>
+      <canvas id="forecast-chart" style="margin-top: 2rem;"></canvas>
+    </main>
+
+    <script src="scripts.js"></script>
+  </body>
+</html>
