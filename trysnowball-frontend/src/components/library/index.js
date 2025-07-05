@@ -1,6 +1,6 @@
 import React from 'react';
 
-const LibraryIndex = () => {
+const LibraryIndex = ({ onArticleChange, onPageChange }) => {
   const articles = [
     {
       id: 'spending-habits',
@@ -80,35 +80,4 @@ const LibraryIndex = () => {
                   {article.tag}
                 </span>
               </div>
-              <h2 className="text-xl font-semibold text-gray-900 mb-3 hover:text-blue-600 transition-colors cursor-pointer">
-                <a href={`/library/${article.id}`}>
-                  {article.title}
-                </a>
-              </h2>
-              <p className="text-gray-600 text-sm leading-relaxed">
-                {article.description}
-              </p>
-            </div>
-          ))}
-        </div>
-
-        <div className="bg-white rounded-lg shadow-sm p-8 border border-gray-200 text-center">
-          <h2 className="text-2xl font-semibold text-gray-900 mb-4">
-            Ready to put this into action?
-          </h2>
-          <p className="text-gray-600 mb-6">
-            Try our What If Machine to see how small changes can dramatically speed up your debt payoff.
-          </p>
-          <a
-            href="/what-if"
-            className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
-          >
-            Try the What If Machine
-          </a>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-export default LibraryIndex;
+              <h2 className="text-xl font-semibold text-gray-900
