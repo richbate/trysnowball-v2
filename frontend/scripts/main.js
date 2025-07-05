@@ -1,3 +1,6 @@
+// main.js
+
+// Core app logic for debt form and forecast
 document.addEventListener("DOMContentLoaded", () => {
   const form = document.getElementById("debt-form");
   const debtListSection = document.getElementById("debt-list-section");
@@ -6,11 +9,10 @@ document.addEventListener("DOMContentLoaded", () => {
   const strategySelect = document.getElementById("strategy-select");
   const submitBtn = form ? form.querySelector('button[type="submit"]') : null;
 
-  const API_BASE = "https://tiwdytcqh0.execute-api.eu-west-2.amazonaws.com/dev"; // Your real API Gateway base URL
+  const API_BASE = "https://tiwdytcqh0.execute-api.eu-west-2.amazonaws.com/dev";
 
   let debts = [];
 
-  // Validation helpers
   function isNameValid(name) {
     return /^[a-zA-Z0-9 ]+$/.test(name.trim());
   }
@@ -39,79 +41,6 @@ document.addEventListener("DOMContentLoaded", () => {
       isNumberValid(payment)
     );
   }
-
-  document.addEventListener("DOMContentLoaded", () => {
-  const questions = [
-    "Hi! What's your name?",
-    "What is your total debt amount (£)?",
-    "How much can you afford to pay monthly (£)?",
-    "What is the average interest rate on your debt (%)?"
-  ];
-  let answers = [];
-  let currentQuestion = 0;
-
-  const chatMessages = document.getElementById("chat-messages");
-  const chatInput = document.getElementById("chat-input");
-  const chatSubmit = document.getElementById("chat-submit");
-
-  function addMessage(text, fromUser = false) {
-    const msgDiv = document.createElement("div");
-    msgDiv.textContent = text;
-    msgDiv.style.margin = "0.5rem 0";
-    msgDiv.style.padding = "0.5rem";
-    msgDiv.style.borderRadius = "6px";
-    msgDiv.style.maxWidth = "80%";
-    msgDiv.style.backgroundColor = fromUser ? "#DCF8C6" : "#eee";
-    msgDiv.style.alignSelf = fromUser ? "flex-end" : "flex-start";
-    chatMessages.appendChild(msgDiv);
-    chatMessages.scrollTop = chatMessages.scrollHeight;
-  }
-
-  function askQuestion() {
-    if (currentQuestion < questions.length) {
-      addMessage(questions[currentQuestion]);
-      chatInput.value = "";
-      chatInput.focus();
-    } else {
-      // Calculate and show results
-      const name = answers[0];
-      const debt = parseFloat(answers[1]);
-      const payment = parseFloat(answers[2]);
-      const rate = parseFloat(answers[3]);
-
-      const monthsToClear = Math.ceil(debt / payment);
-
-      addMessage(`Thanks, ${name}. Here’s a quick summary:`);
-      addMessage(`Total debt: £${debt.toFixed(2)}`);
-      addMessage(`Monthly payment: £${payment.toFixed(2)}`);
-      addMessage(`Interest rate: ${rate.toFixed(2)}%`);
-      addMessage(`Estimated payoff time: ${monthsToClear} months`);
-      chatInput.style.display = "none";
-      chatSubmit.style.display = "none";
-    }
-  }
-
-  chatSubmit.addEventListener("click", () => {
-    const input = chatInput.value.trim();
-    if (!input) return;
-    addMessage(input, true);
-    answers.push(input);
-    currentQuestion++;
-    askQuestion();
-  });
-
-  chatInput.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") {
-      chatSubmit.click();
-    }
-  });
-
-  // Initialize chat UI style for messages container
-  chatMessages.style.display = "flex";
-  chatMessages.style.flexDirection = "column";
-
-  askQuestion();
-});
 
   function toggleSubmit() {
     if (!submitBtn) return;
@@ -151,7 +80,6 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   async function deleteDebt(index) {
-    // Optional: Only if you have a deleteDebt API and Lambda setup
     const debt = debts[index];
     if (!debt || !debt.debtId) return;
     try {
@@ -351,51 +279,16 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  // Initialize
   fetchDebts();
-async function runDebtScenario() {
-  alert("Welcome! Let's explore your debt situation.");
 
-  const name = prompt("What's your name?");
-  if (!name) {
-    alert("Name is required. Please reload and try again.");
-    return;
+  // ---- Optional Chat Feature (disabled on load) ----
+  // To enable later, call `runDebtScenario()` or `startChatBot()` manually
+
+  function runDebtScenario() {
+    // ...original prompt-based version (optional)
   }
 
-  const totalDebt = prompt("What is your total debt amount (£)? (e.g., 5000)");
-  const debtNum = parseFloat(totalDebt);
-  if (isNaN(debtNum) || debtNum <= 0) {
-    alert("Please enter a valid positive number for debt.");
-    return;
+  function startChatBot() {
+    // ...original Q&A form-based version (optional)
   }
-
-  const monthlyPayment = prompt("How much can you afford to pay monthly (£)? (e.g., 300)");
-  const paymentNum = parseFloat(monthlyPayment);
-  if (isNaN(paymentNum) || paymentNum <= 0) {
-    alert("Please enter a valid positive number for monthly payment.");
-    return;
-  }
-
-  const interestRate = prompt("What is the average interest rate on your debt (%)? (e.g., 8)");
-  const rateNum = parseFloat(interestRate);
-  if (isNaN(rateNum) || rateNum < 0) {
-    alert("Please enter a valid interest rate.");
-    return;
-  }
-
-  // Simple projection: Rough months to clear debt ignoring compounding for simplicity
-  const monthsToClear = Math.ceil(debtNum / paymentNum);
-
-  alert(
-    `Hi ${name}, based on your inputs:\n` +
-    `- Total Debt: £${debtNum.toFixed(2)}\n` +
-    `- Monthly Payment: £${paymentNum.toFixed(2)}\n` +
-    `- Interest Rate: ${rateNum.toFixed(2)}%\n\n` +
-    `If you maintain these payments, it will take approximately ${monthsToClear} months to pay off your debt.\n\n` +
-    `Note: This is a simplified calculation ignoring interest compounding for demo purposes.`
-  );
-}
-
-// Run the scenario
-runDebtScenario();
 });
