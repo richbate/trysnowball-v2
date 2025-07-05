@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Snowball – What If Machine</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+  <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+</head>
+<body>
+  
+  <header>
+    <nav>
+      <a href="index.html">Home</a>
+      <a href="debts.html">Debts</a>
+      <a href="snowball.html">Snowball</a>
+      <a href="what-if.html">What If</a>
+      <a href="library/index.html">Library</a>
+    </nav>
+  </header>
+<div class="ai-coach-prompt">
+  <p>🧠 Want a second opinion? <a href="https://chat.openai.com/gpts?gpt=trysnowball-coach" target="_blank">Ask the Snowball Coach</a></p>
+</div>
+
+  <main style="max-width: 800px; margin: 2rem auto; padding: 1rem;">
+    <h1>🔮 What If Machine</h1>
+    <p>This chart compares different repayment strategies using example data.</p>
+
+    <section id="debt-table-section">
+      <h2>Your Debts</h2>
+      <table border="1" cellpadding="8" cellspacing="0">
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Balance (£)</th>
+            <th>Interest Rate (%)</th>
+            <th>Monthly Payment (£)</th>
+          </tr>
+        </thead>
+        <tbody>
+          <!-- JS will populate this -->
+        </tbody>
+      </table>
+    </section>
+
+    <section id="extras" style="margin-top: 2rem;">
+      <h2>🎯 Boost Your Repayments</h2>
+      <form>
+        <label><input class="boost" type="checkbox" name="boost" value="150" data-frequency="one-time" /> One month off drinking (£150)</label><br />
+        <label><input class="boost" type="checkbox" name="boost" value="40" data-frequency="monthly" /> Cancel a subscription (£40)</label><br />
+        <label><input class="boost" type="checkbox" name="boost" value="25" data-frequency="monthly" /> Pack lunch for a month (£25)</label><br />
+        <label><input class="boost" type="checkbox" name="boost" value="30" data-frequency="one-time" /> Sell unused items (£30)</label>
+      </form>
+    </section>
+
+    <section id="forecast-result" style="margin-top: 2rem;">
+      <div id="what-if-chart" style="max-width: 100%; height: 400px;"></div>
+    </section>
+  </main>
+
+  <script src="scripts/what-if.js" defer></script>
+</body>
+</html>
