@@ -24,7 +24,8 @@
     "eject": "react-scripts eject",
     "lint": "eslint src/ --ext .js,.jsx",
     "validate-csp": "node scripts/validate-csp.js",
-    "prebuild": "npm run validate-csp"
+    "prebuild": "npm run validate-csp && npm run show-git-info",
+    "show-git-info": "echo '=== GIT INFORMATION ===' && git log --oneline -5 && echo 'Current branch:' && git branch --show-current && echo 'Latest commit:' && git rev-parse HEAD && echo '=== END GIT INFO ==='"
   },
   "eslintConfig": {
     "extends": [

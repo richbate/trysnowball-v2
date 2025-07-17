@@ -22,8 +22,8 @@
 ```
 src/
 ├── components/
-│   ├── SpendAnalyser.js
-│   └── auth.js
+│   ├── EmailPrompt.js
+│   └── ThemeToggle.js
 ├── pages/
 │   ├── Home.jsx
 │   ├── Library.jsx
@@ -38,7 +38,7 @@ src/
 
 ## Data Flow
 - Uses localStorage for client-side data persistence
-- SpendAnalyser → WhatIfMachine integration via localStorage
+- Baby Steps progress tracking via localStorage
 - No server-side dependencies for core functionality
 
 ## Development Notes
@@ -57,4 +57,4 @@ src/
 
 ## Session History
 - Session started: 2025-07-17 - Context lost from previous session, implementing persistent todo tracking
-- 2025-07-17 - Privacy & trust improvements: Removed SpendAnalyser, added Dave Ramsey Baby Steps page, integrated Money Helper budget tool recommendation
+- 2025-07-17 - Privacy & trust improvements: Removed SpendAnalyser, added Dave Ramsey Baby Steps page, integrated Money Helper budget tool recommendation# Force rebuild Thu Jul 17 13:14:51 BST 2025
