@@ -46,3 +46,15 @@ src/
 - Demo data available for testing
 - Mobile-responsive design
 - Debt snowball method implementation
+
+## Current Session Todos
+<!-- This section tracks ongoing work between sessions -->
+- ✅ Remove SpendAnalyser component and related files
+- ✅ Create Dave Ramsey's 7 Baby Steps page
+- ✅ Update navigation to remove SpendAnalyser links
+- ✅ Update WhatIfMachine to handle manual savings input instead of SpendAnalyser data
+- ✅ Update CLAUDE.md with session context
+
+## Session History
+- Session started: 2025-07-17 - Context lost from previous session, implementing persistent todo tracking
+- 2025-07-17 - Privacy & trust improvements: Removed SpendAnalyser, added Dave Ramsey Baby Steps page, integrated Money Helper budget tool recommendation

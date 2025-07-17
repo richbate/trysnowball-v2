@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useDataManager } from '../hooks/useDataManager';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid,
   Tooltip, Legend, ResponsiveContainer
@@ -39,8 +40,6 @@ const generateRandomDebts = () => {
   });
 };
 
-// Generate random debt data on each page load
-const initialDebts = generateRandomDebts();
 
 // Format currency
 const formatCurrency = (value) => {
@@ -111,33 +110,23 @@ const calculateExtraPaymentForTarget = (targetMonths, debts, totalMinPayments) =
 // Main component
 const WhatIfMachine = () => {
   const navigate = useNavigate();
+  const { debts: rawDebts, totalDebt, totalMinPayments } = useDataManager();
   const [extraPayment, setExtraPayment] = useState(100);
   const [showSnowballSuccess, setShowSnowballSuccess] = useState(false);
 
-  const totalMinPayments = initialDebts.reduce((sum, debt) => sum + debt.minPayment, 0);
-  const totalDebt = initialDebts.reduce((sum, debt) => sum + debt.balance, 0);
+  // Transform debt data to match What If Machine format (balance, rate, minPayment)
+  // If no real debts exist, use demo data for testing
+  const debts = rawDebts.length > 0 ? rawDebts.map(debt => ({
+    id: debt.id,
+    name: debt.name,
+    balance: debt.amount,
+    rate: debt.interest,
+    minPayment: debt.regularPayment,
+    isDemo: debt.isDemo || false
+  })) : generateRandomDebts().map(debt => ({ ...debt, isDemo: true }));
 
-  // Check for pending snowball data from spend analyser
-  useEffect(() => {
-    const pendingSnowball = localStorage.getItem('trysnowball-pending-snowball');
-    
-    if (pendingSnowball) {
-      try {
-        const snowballData = JSON.parse(pendingSnowball);
-        setExtraPayment(snowballData.amount);
-        localStorage.setItem('trysnowball-spending-breakdown', JSON.stringify(snowballData.breakdown));
-        localStorage.removeItem('trysnowball-pending-snowball');
-        setShowSnowballSuccess(true);
-        
-        setTimeout(() => {
-          setShowSnowballSuccess(false);
-        }, 5000);
-        
-      } catch (error) {
-        console.error('Error processing pending snowball data:', error);
-      }
-    }
-  }, []);
+
+  // Remove SpendAnalyser integration - now using manual input only
 
   const scenarios = useMemo(() => {
     const scenarioResults = {};
@@ -145,7 +134,7 @@ const WhatIfMachine = () => {
     // Do Nothing (interest only)
     const doNothingData = [];
     for (let month = 0; month <= 60; month++) {
-      const total = initialDebts.reduce((acc, debt) => {
+      const total = debts.reduce((acc, debt) => {
         const monthlyRate = debt.rate / 12 / 100;
         const futureBalance = debt.balance * Math.pow(1 + monthlyRate, month);
         return acc + futureBalance;
@@ -155,7 +144,7 @@ const WhatIfMachine = () => {
     scenarioResults.doNothing = doNothingData;
 
     // Minimum Payments
-    const minDebts = JSON.parse(JSON.stringify(initialDebts));
+    const minDebts = JSON.parse(JSON.stringify(debts));
     const minimumOnlyData = [];
     let totalMinInterest = 0;
 
@@ -177,7 +166,7 @@ const WhatIfMachine = () => {
     scenarioResults.minimumOnly = minimumOnlyData;
 
     // Snowball Method
-    const snowballDebts = JSON.parse(JSON.stringify(initialDebts)).sort((a, b) => a.balance - b.balance);
+    const snowballDebts = JSON.parse(JSON.stringify(debts)).sort((a, b) => a.balance - b.balance);
     const snowballData = [];
     let totalSnowballInterest = 0;
 
@@ -213,7 +202,7 @@ const WhatIfMachine = () => {
     scenarioResults.snowball = snowballData;
 
     return scenarioResults;
-  }, [extraPayment, totalMinPayments]);
+  }, [debts, extraPayment, totalMinPayments]);
 
   const chartData = [];
   for (let i = 0; i < 61; i++) {
@@ -259,6 +248,9 @@ const WhatIfMachine = () => {
         <p className="text-center text-gray-600 mb-2">
           Adjust extra payments to see how fast you could be debt-free.
         </p>
+        <p className="text-center text-lg font-semibold text-red-600 mb-2">
+          Current Total Debt: {formatCurrency(totalDebt)}
+        </p>
         <p className="text-center text-lg font-semibold text-blue-600 mb-4">
           Total Snowball Payment: {formatCurrency(totalMinPayments + extraPayment)}/month
         </p>
@@ -300,20 +292,27 @@ const WhatIfMachine = () => {
           <span className="text-green-600 font-semibold min-w-16">{formatCurrency(extraPayment)}</span>
         </div>
 
-        {/* Link back to Spend Analyser if no extra payment */}
+        {/* Link to Money Helper Budget Tool if no extra payment */}
         {extraPayment === 0 && (
           <div className="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col space-y-3">
               <div>
                 <p className="text-sm font-medium text-blue-900">Need help finding extra money?</p>
-                <p className="text-xs text-blue-700">Analyze your spending to discover hidden savings</p>
+                <p className="text-xs text-blue-700">Use the Money Helper Budget Planner to discover potential savings</p>
               </div>
-              <button
-                onClick={() => navigate('/analyser')}
-                className="bg-blue-600 text-white px-4 py-2 rounded text-sm hover:bg-blue-700 transition-colors"
-              >
-                Analyze Spending →
-              </button>
+              <div className="space-y-2">
+                <a
+                  href="https://www.moneyhelper.org.uk/en/everyday-money/budgeting/budget-planner"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="bg-blue-600 text-white px-4 py-2 rounded text-sm hover:bg-blue-700 transition-colors inline-block"
+                >
+                  Open Budget Planner →
+                </a>
+                <p className="text-xs text-blue-600">
+                  After completing your budget, return here and enter any extra amount you could put toward debt
+                </p>
+              </div>
             </div>
           </div>
         )}
@@ -323,12 +322,12 @@ const WhatIfMachine = () => {
             <button 
               onClick={() => {
                 const targetMonths = Math.floor(snowballPayoffMonths / 2);
-                const requiredExtra = calculateExtraPaymentForTarget(targetMonths, initialDebts, totalMinPayments);
+                const requiredExtra = calculateExtraPaymentForTarget(targetMonths, debts, totalMinPayments);
                 setExtraPayment(requiredExtra);
               }}
-              className="bg-blue-500 text-white px-6 py-2 rounded-lg hover:bg-blue-600 transition-colors"
+              className="bg-primary text-white px-6 py-2 rounded-lg hover:bg-accent transition-colors"
             >
-              🚀 Cut debt time in half! (Need {formatCurrency(calculateExtraPaymentForTarget(Math.floor(snowballPayoffMonths / 2), initialDebts, totalMinPayments))}/month extra)
+              Cut debt time in half! (Need {formatCurrency(calculateExtraPaymentForTarget(Math.floor(snowballPayoffMonths / 2), debts, totalMinPayments))}/month extra)
             </button>
           </div>
         )}
@@ -349,38 +348,18 @@ const WhatIfMachine = () => {
             <Legend
               iconType="rect"
               formatter={(value) =>
-                value === 'doNothing' ? 'Do Nothing (Interest Only)' :
                 value === 'minimumOnly' ? 'Minimum Payments Only' :
                 'Snowball Method'
               }
               wrapperStyle={{ paddingBottom: '10px' }}
             />
-            <Line type="monotone" dataKey="doNothing" stroke="#ef4444" strokeWidth={2} dot={false} />
             <Line type="monotone" dataKey="minimumOnly" stroke="#f59e0b" strokeWidth={2} dot={false} />
             <Line type="monotone" dataKey="snowball" stroke="#10b981" strokeWidth={2} dot={false} />
           </LineChart>
         </ResponsiveContainer>
 
         {/* Scary Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          {/* Do Nothing */}
-          <div className="bg-red-50 border-l-4 border-red-500 rounded-lg p-6">
-            <div className="flex items-center mb-3">
-              <div className="bg-red-100 rounded-full p-2 mr-3">
-                <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.96-.833-2.732 0L3.732 16c-.77.833.192 2.5 1.732 2.5z" />
-                </svg>
-              </div>
-              <h3 className="text-lg font-bold text-red-800">Do Nothing</h3>
-            </div>
-            <p className="text-3xl font-bold text-red-600 mb-2">
-              {formatCurrency(scenarios.doNothing[12]?.balance)}
-            </p>
-            <p className="text-sm text-red-700">After 1 year</p>
-            <p className="text-xs text-red-600 mt-2">
-              +{formatCurrency(scenarios.doNothing[12]?.balance - totalDebt)} in interest
-            </p>
-          </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
 
           {/* Minimum Payments */}
           <div className="bg-yellow-50 border-l-4 border-yellow-500 rounded-lg p-6">
@@ -398,6 +377,9 @@ const WhatIfMachine = () => {
             <p className="text-sm text-yellow-700">to pay off</p>
             <p className="text-xs text-yellow-600 mt-2">
               {formatCurrency(minimumInterestPaid)} total interest
+            </p>
+            <p className="text-xs text-gray-500 mt-1">
+              Without payments, debt would grow to {formatCurrency(scenarios.doNothing[12]?.balance)} in 1 year
             </p>
           </div>
 

@@ -1,13 +1,17 @@
 import React, { useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link, useLocation } from 'react-router-dom';
 import { ThemeProvider, useTheme } from './contexts/ThemeContext';
+import { UserFlowProvider } from './contexts/UserFlowContext';
 import ThemeToggle from './components/ThemeToggle';
+import EmailPrompt from './components/EmailPrompt';
 import DebtTracker from './pages/MyDebtsPage';
 //import Auth, { useAuth } from './components/auth';
 import WhatIfMachine from './pages/WhatIfMachine';
 import Home from './pages/Home';
 import Library from './pages/Library';
-import SpendAnalyser from './components/SpendAnalyser';
+import BabySteps from './pages/BabySteps';
+import AICoach from './pages/AICoach';
+import FuturePlans from './pages/FuturePlans';
 
 // const user = true;
 const loading = false;
@@ -33,11 +37,13 @@ function Navigation() {
 
   // Navigation items with emojis for better UX - ordered by logical user flow
   const navItems = [
-    ['/', '🏠 Home'],
-    ['/debts', '🎯 My Debts'],
-    ['/analyser', '🔍 Spend Analyser'],
-    ['/what-if', '🚀 What If Machine'],
-    ['/library', '📚 Library'],
+    ['/', 'Home'],
+    ['/debts', 'My Debts'],
+    ['/baby-steps', 'Baby Steps'],
+    ['/what-if', 'What If Machine'],
+    ['/ai-coach', 'AI Coach'],
+    ['/library', 'Library'],
+    ['/future-plans', 'Future Plans'],
   ];
 
   return (
@@ -49,9 +55,13 @@ function Navigation() {
             {/* Logo/Brand */}
             <Link 
               to="/"
-              className={`flex items-center space-x-2 text-2xl font-bold ${colors.brand.text} transition-colors`}
+              className="flex items-center space-x-3 transition-colors"
             >
-              <span>TrySnowball</span>
+              <img 
+                src="/logo-transparent.png" 
+                alt="Try Snowball logo" 
+                className="h-10 w-auto"
+              />
               <span className={`text-sm ${colors.text.muted} font-normal`}>Debt Freedom Tool</span>
             </Link>
 
@@ -63,7 +73,7 @@ function Navigation() {
                   to={path}
                   className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
                     location.pathname === path
-                      ? 'bg-blue-600 text-white shadow-sm transform scale-105'
+                      ? 'bg-primary text-white shadow-sm transform scale-105'
                       : `${colors.text.secondary} hover:${colors.text.primary} hover:${colors.surfaceSecondary}`
                   }`}
                 >
@@ -100,7 +110,7 @@ function Navigation() {
                     }}
                     className={`px-4 py-2 text-left rounded-lg text-sm font-medium transition-colors ${
                       location.pathname === path
-                        ? 'bg-blue-600 text-white'
+                        ? 'bg-primary text-white'
                         : `${colors.text.secondary} hover:${colors.text.primary} hover:${colors.surfaceSecondary}`
                     }`}
                   >
@@ -117,22 +127,19 @@ function Navigation() {
       <div className={`transition-all duration-300 ease-in-out ${colors.background} min-h-screen`}>
         <Routes>
           <Route path="/" element={<Home />} />
-          <Route path="/analyser" element={<SpendAnalyser />} />
+          <Route path="/baby-steps" element={<BabySteps />} />
           <Route path="/what-if" element={<WhatIfMachine />} />
           <Route path="/debts" element={<DebtTracker />} />
+          <Route path="/ai-coach" element={<AICoach />} />
           <Route path="/library" element={<Library />} />
+          <Route path="/future-plans" element={<FuturePlans />} />
         </Routes>
       </div>
 
+      {/* Email Prompt */}
+      <EmailPrompt />
+
       {/* Footer */}
-      <footer className={`${colors.surface} ${colors.border} border-t mt-16`}>
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <div className={`text-center ${colors.text.muted} text-sm`}>
-            <p>🔒 All your financial data stays private on your device</p>
-            <p className="mt-2">Built to help you become debt-free faster with the snowball method</p>
-          </div>
-        </div>
-      </footer>
     </div>
   );
 }
@@ -140,9 +147,11 @@ function Navigation() {
 function App() {
   return (
     <ThemeProvider>
-      <Router>
-        <Navigation />
-      </Router>
+      <UserFlowProvider>
+        <Router>
+          <Navigation />
+        </Router>
+      </UserFlowProvider>
     </ThemeProvider>
   );
 }
