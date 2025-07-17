@@ -95,4 +95,42 @@
   .dark .text-yellow-900 {
     @apply !text-yellow-100;
   }
+  
+  /* Fix input text colors for dark mode readability */
+  .dark input {
+    @apply !text-white;
+  }
+  
+  .dark input::placeholder {
+    @apply !text-gray-400;
+  }
+  
+  .dark textarea {
+    @apply !text-white;
+  }
+  
+  .dark textarea::placeholder {
+    @apply !text-gray-400;
+  }
+  
+  /* Override specific gradient backgrounds */
+  .dark .bg-gradient-to-br.from-blue-50.to-indigo-100 {
+    background: linear-gradient(to bottom right, rgb(17 24 39), rgb(31 41 55)) !important;
+  }
+  
+  /* Animation for account prompt */
+  @keyframes slide-up {
+    from {
+      transform: translateY(100%);
+      opacity: 0;
+    }
+    to {
+      transform: translateY(0);
+      opacity: 1;
+    }
+  }
+  
+  .animate-slide-up {
+    animation: slide-up 0.3s ease-out;
+  }
 }

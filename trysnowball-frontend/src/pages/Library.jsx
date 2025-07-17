@@ -61,6 +61,80 @@ const Library = () => {
 
   const articles = [
     { 
+      tag: 'Spending Habits', 
+      title: 'Summer Sales, Spending Habits, and Things You Don\'t Really Need', 
+      desc: 'Why "I saved 40%!" actually means "you spent 60%." Understanding the psychology of sales and impulse buying.',
+      readTime: '6 min',
+      keywords: 'summer sales, spending habits, impulse buying, retail therapy, debt freedom',
+      externalLink: 'https://www.ramseysolutions.com/budgeting/stop-impulse-buys',
+      content: `**"I saved 40%!
+
+No… you spent 60%.**
+
+⸻
+
+🎯 The Summer Sale Trap
+
+Retailers know exactly what they're doing.
+Every July, like clockwork, we're bombarded with "Final Reductions", "End of Season", "Summer Clearance".
+Bright banners, countdown timers, words like SAVE and LIMITED TIME.
+
+They're not just selling you products.
+They're selling you urgency.
+They're selling you the idea that spending money is saving money.
+
+⸻
+
+🛍 Why We Buy Things We Don't Need
+    •    Emotional Shopping: Feeling tired, overwhelmed, stressed, bored? Retail therapy feels good — temporarily.
+    •    Scarcity Triggers: "Only 3 left in stock!" makes you panic-buy, not think.
+    •    Comparison Pressure: Everyone's got new garden furniture / trainers / tech. Why shouldn't you?
+    •    Discount FOMO: You weren't even looking for it… but now it's 50% off? Surely that's sensible spending…
+
+⸻
+
+💸 The Financial Reality Check
+
+If you didn't need it yesterday, you don't need it because it's on sale today.
+If it wasn't on your plan, it wasn't in your budget.
+Discount or not — money left in your account is the biggest saving of all.
+
+⸻
+
+📊 How This Affects Your Snowball Progress
+
+That "small" purchase delays you paying off debt.
+£50 saved on a sale item is still £50 you no longer have to reduce your balance.
+And the interest on your debts? That doesn't care about your bargain.
+
+Ask yourself:
+
+"Does this help me get debt-free faster, or slower?"
+
+⸻
+
+🔄 Better Habits to Build Instead:
+    1.    Create a 24-hour rule. No impulse buys. Save it to a wishlist. Revisit tomorrow.
+    2.    Track your 'almost bought it' moments. You'll see how much you've really saved.
+    3.    Visualise progress, not possessions. That number dropping on your debt chart? That's the reward.
+    4.    Rewrite the narrative:
+Instead of: "I saved £40!"
+Say: "I saved £40… from myself, and my future thanks me."
+
+⸻
+
+🚫 It's Not About Deprivation.
+
+It's about making sure your money goes where you want — not where retailers nudge it.
+
+Your summer doesn't need a sale.
+It needs a plan.
+
+⸻
+
+Stay focused. Keep going. Your future self is cheering you on.`
+    },
+    { 
       tag: 'UK Debt Crisis', 
       title: 'UK Debt Statistics 2025: The Complete Picture', 
       desc: 'Latest data from Parliament, Money and Pensions Service, and StepChange on the UK debt crisis.',
@@ -204,15 +278,32 @@ const Library = () => {
       link: 'https://amzn.to/45XCcFI',
       price: '£13.99',
       badge: 'Modern'
+    },
+    { 
+      title: 'Rich Dad Poor Dad', 
+      author: 'Robert Kiyosaki',
+      desc: 'A paradigm-shifting book about money, wealth, and the mindset difference between the rich and poor.',
+      link: 'https://amzn.to/4nN4TLQ',
+      price: '£9.99',
+      badge: 'Bestseller'
+    },
+    { 
+      title: 'Debt: The First 5000 Years', 
+      author: 'David Graeber',
+      desc: 'A groundbreaking exploration of debt throughout human history and its impact on society.',
+      link: 'https://amzn.to/4532m8W',
+      price: '£12.99',
+      badge: 'Academic'
     }
   ];
 
 
   const tabs = [
-    { id: 'research', label: '🎓 Research & Statistics', count: '4 studies' },
-    { id: 'articles', label: '📚 In-Depth Articles', count: articles.length },
-    { id: 'tools', label: '🛠️ Free UK Tools & Resources', count: toolsAndResources.length },
-    { id: 'books', label: '📖 Recommended Books', count: books.length },
+    { id: 'research', label: 'Research & Statistics', count: '4 studies' },
+    { id: 'latest', label: 'Latest Posts', count: 'newsletter' },
+    { id: 'articles', label: 'In-Depth Articles', count: articles.length },
+    { id: 'tools', label: 'Free UK Tools & Resources', count: toolsAndResources.length },
+    { id: 'books', label: 'Recommended Books', count: books.length },
   ];
 
   const renderResearch = () => (
@@ -226,7 +317,7 @@ const Library = () => {
       ))}
       
       <div className="bg-white rounded-lg shadow-sm border p-8">
-        <h2 className="text-2xl font-bold text-gray-900 mb-4">📊 Try Our Research-Backed Calculator</h2>
+        <h2 className="text-2xl font-bold text-gray-900 mb-4">Try Our Research-Backed Calculator</h2>
         <p className="text-gray-600 mb-6">
           Put this research into action with our free debt snowball calculator. 
           Based on the proven methods from Northwestern University and Harvard Business Review.
@@ -235,8 +326,72 @@ const Library = () => {
           onClick={() => navigate('/what-if')}
           className="inline-flex items-center px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-semibold"
         >
-          🚀 Try the What If Machine
+          Try the What If Machine
         </button>
+      </div>
+    </div>
+  );
+
+  const renderLatestPosts = () => (
+    <div className="space-y-8">
+      {/* Newsletter Signup Header */}
+      <div className="bg-white rounded-lg shadow-sm border p-8">
+        <div className="text-center mb-8">
+          <h2 className="text-2xl font-bold text-gray-900 mb-4">Latest Debt Freedom Insights</h2>
+          <p className="text-lg text-gray-600 mb-6">
+            Get fresh perspectives on debt elimination, spending psychology, and financial freedom delivered straight to your inbox.
+          </p>
+          <div className="flex flex-wrap justify-center gap-4 text-sm text-gray-600 mb-6">
+            <span>✅ Weekly debt freedom tips</span>
+            <span>✅ Real UK case studies</span>
+            <span>✅ Psychology-backed strategies</span>
+            <span>✅ No spam, ever</span>
+          </div>
+        </div>
+        
+        {/* Substack Embed */}
+        <div className="flex justify-center">
+          <div className="w-full max-w-md">
+            <iframe 
+              src="https://trysnowball.substack.com/embed" 
+              width="100%" 
+              height="320" 
+              style={{border: '1px solid #EEE', background: 'white'}} 
+              frameBorder="0" 
+              scrolling="no"
+              className="rounded-lg shadow-sm"
+              title="TrySnowball Newsletter Signup"
+            />
+          </div>
+        </div>
+        
+        <div className="mt-8 text-center">
+          <p className="text-sm text-gray-500">
+            Join thousands of readers who get actionable debt freedom insights every week.
+          </p>
+        </div>
+      </div>
+      
+      {/* Call to Action */}
+      <div className="bg-gradient-to-r from-blue-600 to-green-600 text-white rounded-lg p-8 text-center">
+        <h3 className="text-2xl font-bold mb-3">Ready to Start Your Debt-Free Journey?</h3>
+        <p className="text-lg mb-6 opacity-90">
+          Combine our free tools with weekly insights to accelerate your path to financial freedom.
+        </p>
+        <div className="flex flex-wrap justify-center gap-4">
+          <button 
+            onClick={() => navigate('/what-if')}
+            className="px-6 py-3 bg-white text-blue-600 rounded-lg font-semibold hover:bg-gray-100 transition-colors"
+          >
+            Try the What If Machine
+          </button>
+          <button 
+            onClick={() => navigate('/baby-steps')}
+            className="px-6 py-3 bg-transparent border-2 border-white text-white rounded-lg font-semibold hover:bg-white hover:text-blue-600 transition-colors"
+          >
+            See Baby Steps
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -329,28 +484,47 @@ const Library = () => {
   );
 
   const renderBooks = () => (
-    <div className="grid gap-6 md:grid-cols-2">
-      {books.map((book, index) => (
-        <div key={index} className="p-6 border rounded-lg bg-white shadow-sm hover:shadow-md transition-shadow">
-          <div className="flex items-start justify-between mb-3">
-            <span className="inline-block px-3 py-1 text-xs bg-purple-100 text-purple-600 rounded-full font-medium">
-              {book.badge}
-            </span>
-            <span className="text-sm font-semibold text-gray-900">{book.price}</span>
+    <div className="space-y-6">
+      {/* Affiliate Disclosure */}
+      <div className="bg-blue-50 border-l-4 border-blue-400 p-4 rounded-r-lg">
+        <div className="flex items-start">
+          <div className="flex-shrink-0">
+            <svg className="h-5 w-5 text-blue-400 mt-1" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+            </svg>
           </div>
-          <h3 className="text-lg font-semibold text-gray-900 mb-1">{book.title}</h3>
-          <p className="text-sm text-gray-500 mb-2">by {book.author}</p>
-          <p className="text-gray-600 mb-4">{book.desc}</p>
-          <a 
-            href={book.link} 
-            target="_blank" 
-            rel="noopener noreferrer"
-            className="inline-flex items-center px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors text-sm font-medium"
-          >
-            📚 Buy on Amazon →
-          </a>
+          <div className="ml-3">
+            <p className="text-sm text-blue-800">
+              <strong>Affiliate Disclosure:</strong> The book links below are Amazon affiliate links. I may receive a small commission if you purchase through these links, at no extra cost to you. This helps support the development of TrySnowball's free debt management tools.
+            </p>
+          </div>
         </div>
-      ))}
+      </div>
+
+      {/* Books Grid */}
+      <div className="grid gap-6 md:grid-cols-2">
+        {books.map((book, index) => (
+          <div key={index} className="p-6 border rounded-lg bg-white shadow-sm hover:shadow-md transition-shadow">
+            <div className="flex items-start justify-between mb-3">
+              <span className="inline-block px-3 py-1 text-xs bg-purple-100 text-purple-600 rounded-full font-medium">
+                {book.badge}
+              </span>
+              <span className="text-sm font-semibold text-gray-900">{book.price}</span>
+            </div>
+            <h3 className="text-lg font-semibold text-gray-900 mb-1">{book.title}</h3>
+            <p className="text-sm text-gray-500 mb-2">by {book.author}</p>
+            <p className="text-gray-600 mb-4">{book.desc}</p>
+            <a 
+              href={book.link} 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="inline-flex items-center px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors text-sm font-medium"
+            >
+              Buy on Amazon →
+            </a>
+          </div>
+        ))}
+      </div>
     </div>
   );
 
@@ -358,6 +532,7 @@ const Library = () => {
   const renderContent = () => {
     switch(activeTab) {
       case 'research': return renderResearch();
+      case 'latest': return renderLatestPosts();
       case 'articles': return renderArticles();
       case 'tools': return renderTools();
       case 'books': return renderBooks();
@@ -372,11 +547,10 @@ const Library = () => {
         <div className="max-w-6xl mx-auto px-4 py-12">
           <div className="text-center">
             <h1 className="text-4xl font-bold text-gray-900 mb-4">
-              UK Debt Snowball Method: Research-Backed Debt Elimination
+              Pay Off Debt, One Step at a Time.
             </h1>
             <p className="text-xl text-gray-600 max-w-4xl mx-auto mb-6">
-              With 8.1 million UK adults needing debt advice and household debt averaging £65,529, 
-              discover the scientifically proven debt snowball method that helped millions achieve debt freedom.
+              Try the debt snowball method — simple, proven, and made for real life.
             </p>
             <div className="flex flex-wrap justify-center gap-4 text-sm text-gray-600">
               <span>✅ Backed by Northwestern University research</span>
@@ -421,13 +595,13 @@ const Library = () => {
               onClick={() => navigate('/what-if')}
               className="px-6 py-3 bg-white text-blue-600 rounded-lg font-semibold hover:bg-gray-100 transition-colors"
             >
-              🚀 Try the What If Machine
+              Try the What If Machine
             </button>
             <button 
-              onClick={() => navigate('/analyser')}
+              onClick={() => navigate('/baby-steps')}
               className="px-6 py-3 bg-transparent border-2 border-white text-white rounded-lg font-semibold hover:bg-white hover:text-blue-600 transition-colors"
             >
-              🔍 Analyse Your Spending
+              See Baby Steps
             </button>
           </div>
         </div>

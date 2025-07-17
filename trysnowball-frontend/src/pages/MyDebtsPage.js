@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDataManager } from '../hooks/useDataManager';
+import { useTheme } from '../contexts/ThemeContext';
 
 // Generate realistic random debt data
 const generateRandomDebts = () => {
@@ -41,6 +42,7 @@ const generateRandomDebts = () => {
 
 const DebtTracker = () => {
   const navigate = useNavigate();
+  const { colors } = useTheme();
   const {
     debts,
     totalDebt,
@@ -67,10 +69,13 @@ const DebtTracker = () => {
     name: '',
     amount: '',
     interest: 20,
-    regularPayment: ''
+    regularPayment: '',
+    limit: ''
   });
   const [editingPayment, setEditingPayment] = useState(null);
   const [paymentAmount, setPaymentAmount] = useState('');
+  const [editingLimit, setEditingLimit] = useState(null);
+  const [limitAmount, setLimitAmount] = useState('');
 
   // Load demo data if no debts exist
   useEffect(() => {
@@ -96,10 +101,11 @@ const DebtTracker = () => {
         amount: parseFloat(formData.amount),
         interest: parseFloat(formData.interest),
         regularPayment: parseFloat(formData.regularPayment),
+        limit: formData.limit ? parseFloat(formData.limit) : undefined,
         isDemo: false
       });
       
-      setFormData({ name: '', amount: '', interest: 20, regularPayment: '' });
+      setFormData({ name: '', amount: '', interest: 20, regularPayment: '', limit: '' });
       setShowAddForm(false);
     } catch (err) {
       console.error('Error saving debt:', err);
@@ -129,6 +135,23 @@ const DebtTracker = () => {
     }
   };
 
+  const handleUpdateLimit = async (debtId, newLimit) => {
+    try {
+      const debt = debts.find(d => d.id === debtId);
+      if (!debt) return;
+
+      await saveDebt({
+        ...debt,
+        limit: newLimit ? parseFloat(newLimit) : undefined
+      });
+      
+      setEditingLimit(null);
+      setLimitAmount('');
+    } catch (err) {
+      console.error('Error updating limit:', err);
+    }
+  };
+
   const loadDemoData = async () => {
     try {
       const demoDebts = generateRandomDebts();
@@ -141,80 +164,84 @@ const DebtTracker = () => {
   const hasOnlyDemoData = debts.length > 0 && debts.every(debt => debt.isDemo);
 
   // ChatGPT Export Functions
-  const categorizeDebtType = (debtName) => {
-    const name = debtName.toLowerCase();
-    if (name.includes('credit card') || name.includes('cc') || name.includes('visa') || name.includes('mastercard') || name.includes('barclaycard') || name.includes('halifax') || name.includes('mbna') || name.includes('virgin') || name.includes('tesco')) {
-      return 'Credit Card';
-    } else if (name.includes('car') || name.includes('auto') || name.includes('vehicle')) {
-      return 'Auto Loan';
-    } else if (name.includes('student') || name.includes('education')) {
-      return 'Student Loan';
-    } else if (name.includes('mortgage') || name.includes('home') || name.includes('house')) {
-      return 'Mortgage';
-    } else if (name.includes('personal') || name.includes('loan')) {
-      return 'Personal Loan';
-    } else if (name.includes('overdraft') || name.includes('od')) {
-      return 'Overdraft';
-    } else if (name.includes('klarna') || name.includes('clearpay') || name.includes('laybuy') || name.includes('paypal')) {
-      return 'Buy Now Pay Later';
-    } else {
-      return 'Other';
-    }
-  };
 
-  const calculateDebtFreeDate = () => {
-    if (!hasProjections || !projections.totalMonths) return null;
-    const today = new Date();
-    const futureDate = new Date(today.getFullYear(), today.getMonth() + projections.totalMonths, today.getDate());
-    return futureDate.toISOString().split('T')[0];
-  };
-
-  const downloadForChatGPT = () => {
+  const downloadWorksheet = () => {
     if (debts.length === 0) {
       alert('Please add your debts first before downloading.');
       return;
     }
 
-    const chatGPTData = {
-      generated_date: new Date().toISOString().split('T')[0],
-      total_debt: totalDebt,
-      total_minimum_payments: totalMinPayments,
-      number_of_debts: debts.length,
-      debts: debts.map(debt => ({
-        name: debt.name,
-        balance: debt.amount,
-        interest_rate: debt.interest,
-        minimum_payment: debt.regularPayment,
-        debt_type: categorizeDebtType(debt.name)
-      })),
-      snowball_order: [...debts].sort((a, b) => a.amount - b.amount).map((debt, index) => ({
-        order: index + 1,
-        name: debt.name,
-        balance: debt.amount
-      })),
-      financial_summary: {
-        estimated_payoff_months: projections?.totalMonths || 0,
-        estimated_payoff_years: Math.floor((projections?.totalMonths || 0) / 12),
-        current_extra_payment: extraPayment,
-        debt_free_date: calculateDebtFreeDate()
-      }
-    };
+    // Create CSV headers
+    const headers = [
+      'Account Name',
+      'Current Balance',
+      'Interest Rate (%)',
+      'Minimum Payment',
+      'Credit Limit',
+      'Available Credit',
+      'Used Percentage',
+      'Payment Made',
+      'Interest Charged',
+      'Purchases Made',
+      'Notes'
+    ];
 
-    const dataStr = JSON.stringify(chatGPTData, null, 2);
-    const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
-    
-    const exportFileDefaultName = `trysnowball-debts-${new Date().toISOString().split('T')[0]}.json`;
-    
-    const linkElement = document.createElement('a');
-    linkElement.setAttribute('href', dataUri);
-    linkElement.setAttribute('download', exportFileDefaultName);
-    linkElement.click();
+    // Convert debts to CSV format
+    const csvData = debts.map(debt => {
+      const availableCredit = debt.limit ? debt.limit - debt.amount : 0;
+      const usedPercentage = debt.limit ? Math.round((debt.amount / debt.limit) * 100) : 0;
+      
+      return [
+        debt.name,
+        debt.amount,
+        debt.interest,
+        debt.regularPayment,
+        debt.limit || '',
+        availableCredit > 0 ? availableCredit : '',
+        debt.limit ? usedPercentage : '',
+        '', // Payment Made - empty for user to fill
+        '', // Interest Charged - empty for user to fill
+        '', // Purchases Made - empty for user to fill
+        ''  // Notes - empty for user to fill
+      ];
+    });
+
+    // Add summary row
+    csvData.push([
+      'TOTAL',
+      totalDebt,
+      '',
+      totalMinPayments,
+      '',
+      '',
+      '',
+      '',
+      '',
+      '',
+      `Generated: ${new Date().toLocaleDateString()}`
+    ]);
+
+    // Convert to CSV string
+    const csvContent = [headers, ...csvData]
+      .map(row => row.map(cell => `"${cell}"`).join(','))
+      .join('\n');
+
+    // Create and download file
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `trysnowball-worksheet-${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   const tabs = [
-    { id: 'debts', label: '💳 My Debts', count: debts.length },
-    { id: 'payments', label: '📅 Payment History', count: 'New' },
-    { id: 'progress', label: '📊 Progress', count: getPaymentHistory().length > 0 ? 'Active' : 'Setup' }
+    { id: 'debts', label: 'My Debts', count: debts.length },
+    { id: 'payments', label: 'Payment History', count: 'New' },
+    { id: 'progress', label: 'Progress', count: getPaymentHistory().length > 0 ? 'Active' : 'Setup' }
   ];
 
   const renderDebtsTab = () => (
@@ -276,11 +303,11 @@ const DebtTracker = () => {
 
       {/* Add Debt Form */}
       {showAddForm && (
-        <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Add New Debt</h3>
+        <div className={`${colors.surface} rounded-lg shadow-sm p-6 border ${colors.border}`}>
+          <h3 className={`text-lg font-semibold ${colors.text.primary} mb-4`}>Add New Debt</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className={`block text-sm font-medium ${colors.text.secondary} mb-2`}>
                 Debt Name
               </label>
               <input
@@ -288,12 +315,12 @@ const DebtTracker = () => {
                 value={formData.name}
                 onChange={(e) => setFormData({...formData, name: e.target.value})}
                 placeholder="e.g., Credit Card, Car Loan"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className={`w-full px-3 py-2 border ${colors.border} rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${colors.surface} ${colors.text.primary}`}
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className={`block text-sm font-medium ${colors.text.secondary} mb-2`}>
                 Amount Owed (£)
               </label>
               <input
@@ -303,12 +330,12 @@ const DebtTracker = () => {
                 placeholder="2500"
                 min="0"
                 step="0.01"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className={`w-full px-3 py-2 border ${colors.border} rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${colors.surface} ${colors.text.primary}`}
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className={`block text-sm font-medium ${colors.text.secondary} mb-2`}>
                 Interest Rate (%)
               </label>
               <input
@@ -319,13 +346,13 @@ const DebtTracker = () => {
                 min="0"
                 max="50"
                 step="0.1"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className={`w-full px-3 py-2 border ${colors.border} rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${colors.surface} ${colors.text.primary}`}
               />
-              <p className="text-xs text-gray-500 mt-1">Default is 20% if unknown</p>
+              <p className={`text-xs ${colors.text.muted} mt-1`}>Default is 20% if unknown</p>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className={`block text-sm font-medium ${colors.text.secondary} mb-2`}>
                 Minimum Payment (£)
               </label>
               <input
@@ -335,8 +362,24 @@ const DebtTracker = () => {
                 placeholder="75"
                 min="0"
                 step="0.01"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className={`w-full px-3 py-2 border ${colors.border} rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${colors.surface} ${colors.text.primary}`}
               />
+            </div>
+
+            <div>
+              <label className={`block text-sm font-medium ${colors.text.secondary} mb-2`}>
+                Credit Limit (£)
+              </label>
+              <input
+                type="number"
+                value={formData.limit}
+                onChange={(e) => setFormData({...formData, limit: e.target.value})}
+                placeholder="5000"
+                min="0"
+                step="0.01"
+                className={`w-full px-3 py-2 border ${colors.border} rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${colors.surface} ${colors.text.primary}`}
+              />
+              <p className={`text-xs ${colors.text.muted} mt-1`}>Optional - for credit cards and overdrafts</p>
             </div>
 
             <div className="md:col-span-2 flex gap-3">
@@ -412,7 +455,7 @@ const DebtTracker = () => {
                   const available = debt.limit ? debt.limit - debt.amount : 0;
                   
                   return (
-                    <tr key={debt.id} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                    <tr key={debt.id} className={`group ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center">
                           <div className="text-sm font-medium text-gray-900">
@@ -444,7 +487,49 @@ const DebtTracker = () => {
                         £{debt.regularPayment.toLocaleString()}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm text-gray-500">
-                        {debt.limit ? `£${debt.limit.toLocaleString()}` : 'N/A'}
+                        {editingLimit === debt.id ? (
+                          <div className="flex items-center justify-end space-x-2">
+                            <span className="text-sm text-gray-500">£</span>
+                            <input
+                              type="number"
+                              value={limitAmount}
+                              onChange={(e) => setLimitAmount(e.target.value)}
+                              placeholder={debt.limit ? debt.limit.toString() : '0'}
+                              className={`w-20 px-2 py-1 border ${colors.border} rounded text-sm text-right ${colors.surface} ${colors.text.primary}`}
+                              min="0"
+                              step="0.01"
+                              autoFocus
+                            />
+                            <button
+                              onClick={() => handleUpdateLimit(debt.id, limitAmount)}
+                              className="text-green-600 hover:text-green-700 text-xs"
+                            >
+                              ✓
+                            </button>
+                            <button
+                              onClick={() => {
+                                setEditingLimit(null);
+                                setLimitAmount('');
+                              }}
+                              className="text-red-600 hover:text-red-700 text-xs"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center justify-end space-x-2">
+                            <span>{debt.limit ? `£${debt.limit.toLocaleString()}` : 'N/A'}</span>
+                            <button
+                              onClick={() => {
+                                setEditingLimit(debt.id);
+                                setLimitAmount(debt.limit?.toString() || '');
+                              }}
+                              className="text-blue-600 hover:text-blue-700 text-xs opacity-0 group-hover:opacity-100 transition-opacity"
+                            >
+                              Edit
+                            </button>
+                          </div>
+                        )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right">
                         <div className="text-sm text-green-600">
@@ -468,36 +553,29 @@ const DebtTracker = () => {
         </div>
       )}
 
-      {/* ChatGPT Export Section */}
+      {/* Worksheet Download Section */}
       {debts.length > 0 && !hasOnlyDemoData && (
-        <div className="bg-purple-50 rounded-lg p-6 border border-purple-200">
-          <h3 className="text-lg font-semibold text-purple-900 mb-4">
-            🤖 Export for ChatGPT AI Coach
+        <div className="bg-green-50 rounded-lg p-6 border border-green-200">
+          <h3 className="text-lg font-semibold text-green-900 mb-4">
+            📊 Download Your Debt Worksheet
           </h3>
-          <p className="text-sm text-purple-800 mb-4">
-            Downloaded our AI Debt Coach? Export your debt data to use with your personalized ChatGPT script.
+          <p className="text-sm text-green-800 mb-4">
+            Get a comprehensive CSV workbook with all your debt information. Perfect for offline tracking, sharing with financial advisors, or your own record-keeping.
           </p>
           <div className="flex flex-col sm:flex-row gap-4">
             <button
-              onClick={downloadForChatGPT}
-              className="bg-purple-600 text-white px-6 py-3 rounded-lg hover:bg-purple-700 transition-colors font-medium"
+              onClick={downloadWorksheet}
+              className="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition-colors font-medium"
             >
-              📥 Download Debt Data for ChatGPT
+              📥 Download Debt Worksheet (CSV)
             </button>
-            <a
-              href="https://stan.store/trysnowball/p/personal-ai-debt-coach"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="bg-white border border-purple-300 text-purple-700 px-6 py-3 rounded-lg hover:bg-purple-50 transition-colors font-medium text-center"
-            >
-              🛒 Get AI Debt Coach - £2.99
-            </a>
           </div>
-          <div className="mt-4 text-xs text-purple-600 bg-purple-100 rounded p-3">
-            <p><strong>What you'll get:</strong> A structured JSON file with your debt information, payoff timeline, and snowball order - perfectly formatted for the ChatGPT AI Coach script.</p>
+          <div className="mt-4 text-xs text-green-600 bg-green-100 rounded p-3">
+            <p><strong>What you'll get:</strong> A comprehensive CSV file with your debt balances, interest rates, credit utilization, and empty columns for tracking payments, interest charged, and personal notes. Perfect for spreadsheet apps like Excel or Google Sheets.</p>
           </div>
         </div>
       )}
+
 
       {/* Summary & Snowball */}
       {debts.length > 0 && (
@@ -517,13 +595,36 @@ const DebtTracker = () => {
                 <span className="text-gray-600">Number of Debts:</span>
                 <span className="font-semibold">{debts.length}</span>
               </div>
+              {/* Credit Utilization */}
+              {(() => {
+                const debtsWithLimits = debts.filter(debt => debt.limit && debt.limit > 0);
+                if (debtsWithLimits.length > 0) {
+                  const totalDebtWithLimits = debtsWithLimits.reduce((sum, debt) => sum + debt.amount, 0);
+                  const totalLimits = debtsWithLimits.reduce((sum, debt) => sum + debt.limit, 0);
+                  const utilizationPercent = totalLimits > 0 ? (totalDebtWithLimits / totalLimits) * 100 : 0;
+                  
+                  return (
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Credit Utilization:</span>
+                      <span className={`font-semibold ${
+                        utilizationPercent < 30 ? 'text-green-600' : 
+                        utilizationPercent < 75 ? 'text-yellow-600' : 
+                        'text-red-600'
+                      }`}>
+                        {utilizationPercent.toFixed(1)}%
+                      </span>
+                    </div>
+                  );
+                }
+                return null;
+              })()}
             </div>
           </div>
 
           <div className="bg-green-50 rounded-lg shadow-sm p-6 border border-green-200">
             <h3 className="text-lg font-semibold text-green-900 mb-4">Snowball Power</h3>
             <div className="mb-4">
-              <label className="block text-sm font-medium text-green-700 mb-2">
+              <label className={`block text-sm font-medium text-green-700 mb-2`}>
                 Extra Monthly Payment (£)
               </label>
               <input
@@ -533,7 +634,7 @@ const DebtTracker = () => {
                 placeholder="100"
                 min="0"
                 step="10"
-                className="w-full px-3 py-2 border border-green-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                className={`w-full px-3 py-2 border border-green-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 ${colors.surface} ${colors.text.primary}`}
               />
             </div>
             {hasProjections && projections.totalMonths > 0 && (
@@ -671,7 +772,7 @@ const DebtTracker = () => {
                                 value={paymentAmount}
                                 onChange={(e) => setPaymentAmount(e.target.value)}
                                 placeholder={projectedPayment.toFixed(2)}
-                                className="w-24 px-2 py-1 border border-gray-300 rounded text-sm text-right"
+                                className={`w-24 px-2 py-1 border ${colors.border} rounded text-sm text-right ${colors.surface} ${colors.text.primary}`}
                                 min="0"
                                 step="0.01"
                                 autoFocus
@@ -969,7 +1070,7 @@ const DebtTracker = () => {
       <div className="max-w-6xl mx-auto py-12 px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold text-gray-900 mb-4">
-            🎯 Debt Tracker
+            Debt Tracker
           </h1>
           <p className="text-xl text-gray-600">
             {hasOnlyDemoData ? 'Using realistic demo data - clear it out and add your real debts!' : 'Track your debts and payments with the scientifically proven snowball method'}

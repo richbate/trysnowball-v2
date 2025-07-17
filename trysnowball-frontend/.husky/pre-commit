@@ -1,0 +1,38 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+# Analytics Protection Pre-commit Hook
+echo "🔐 Running analytics protection checks..."
+
+# Check if CSP-related files have been modified
+if git diff --cached --name-only | grep -E "(public/_headers|public/index.html)"; then
+  echo "📋 CSP files modified - validating analytics compatibility..."
+  
+  # Run CSP validation
+  node scripts/validate-csp.js
+  
+  if [ $? -ne 0 ]; then
+    echo ""
+    echo "❌ COMMIT BLOCKED: CSP changes would break Google Analytics"
+    echo "🚨 Analytics are CRITICAL for business - please fix CSP before committing"
+    echo ""
+    echo "Common fixes:"
+    echo "  • Ensure https://www.googletagmanager.com is in script-src"
+    echo "  • Ensure https://*.google-analytics.com is in connect-src"
+    echo "  • Run 'node scripts/validate-csp.js' for detailed validation"
+    echo ""
+    exit 1
+  fi
+  
+  echo "✅ CSP validation passed - analytics will continue working"
+fi
+
+# Run standard linting
+echo "🔍 Running linter..."
+npm run lint
+
+# Run tests related to analytics
+echo "🧪 Running analytics tests..."
+npm test -- --testPathPattern=analytics --watchAll=false
+
+echo "✅ All pre-commit checks passed!"

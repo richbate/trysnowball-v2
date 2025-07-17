@@ -18,8 +18,8 @@ const BabySteps = () => {
   const babySteps = [
     {
       number: 1,
-      title: "Save $1,000 for Your Starter Emergency Fund",
-      description: "This is your first step to financial freedom. Save $1,000 as quickly as possible to cover small emergencies without going into debt.",
+      title: "Save £1,000 for Your Starter Emergency Fund",
+      description: "This is your first step to financial freedom. Save £1,000 as quickly as possible to cover small emergencies without going into debt.",
       details: [
         "Sell items you don't need",
         "Work extra hours or a side job",
