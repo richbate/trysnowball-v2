@@ -83,15 +83,6 @@ const FuturePlans = () => {
       impact: 'Medium'
     },
     {
-      id: 'ai-spend-analyser',
-      category: 'AI',
-      title: 'AI Spend Analyser',
-      description: 'AI-powered spending analysis that maintains privacy while finding savings opportunities',
-      status: 'idea',
-      effort: 'Large',
-      impact: 'High'
-    },
-    {
       id: 'export-tools',
       category: 'Features',
       title: 'Enhanced Export Tools',
