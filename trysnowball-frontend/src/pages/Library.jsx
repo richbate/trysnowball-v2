@@ -26,59 +26,6 @@ const Library = () => {
     fetchArticles();
   }, []);
 
-  // SEO-focused content sections
-  const researchContent = [
-    {
-      title: "Why the Debt Snowball Method Works",
-      subtitle: "Scientific Research & UK Statistics",
-      content: (
-        <div className="space-y-6">
-          <div className="bg-red-50 border-l-4 border-red-400 p-6">
-            <h3 className="text-xl font-bold text-red-900 mb-3">🚨 The UK Debt Crisis in 2025</h3>
-            <div className="space-y-3 text-red-800">
-              <p className="text-lg font-semibold">• The average UK household owes £65,529 in personal debt</p>
-              <p className="text-lg font-semibold">• 8.1 million UK adults (15% of the population) need debt advice</p>
-              <p className="text-lg font-semibold">• Personal debt averages £34,597 per British adult</p>
-            </div>
-            <p className="text-sm text-red-700 mt-4">
-              Sources: <a href="https://www.moneyandpensionsservice.org.uk/" target="_blank" rel="noopener noreferrer" className="underline hover:text-red-600">Money and Pensions Service</a> • 
-              <a href="https://commonslibrary.parliament.uk/research-briefings/cbp-8285/" target="_blank" rel="noopener noreferrer" className="underline hover:text-red-600 ml-2">House of Commons Library</a>
-            </p>
-          </div>
-
-          <div className="bg-blue-50 border-l-4 border-blue-400 p-6">
-            <h3 className="text-xl font-bold text-blue-900 mb-3">🎓 Academic Research Supporting the Snowball Method</h3>
-            <div className="space-y-4 text-blue-800">
-              <div>
-                <p className="font-semibold">Northwestern University Kellogg School of Management (2012)</p>
-                <p>"Consumers who tackle small balances first are likelier to eliminate their overall debt"</p>
-                <a href="https://www.occu.org/blog/paying-down-debt-why-the-snowball-method-works" target="_blank" rel="noopener noreferrer" className="text-blue-600 underline hover:text-blue-700">Read the full research →</a>
-              </div>
-              <div>
-                <p className="font-semibold">Harvard Business Review Study</p>
-                <p>"The snowball method actually proved to be the most effective strategy for debt elimination"</p>
-                <a href="https://hbr.org/2016/12/research-the-best-strategy-for-paying-off-credit-card-debt" target="_blank" rel="noopener noreferrer" className="text-blue-600 underline hover:text-blue-700">View Harvard findings →</a>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-green-50 border-l-4 border-green-400 p-6">
-            <h3 className="text-xl font-bold text-green-900 mb-3">🧠 Why Psychology Beats Mathematics</h3>
-            <div className="space-y-3 text-green-800">
-              <p>The debt snowball method works because it leverages <strong>behavioral psychology</strong> rather than just mathematical optimization.</p>
-              <ul className="list-disc list-inside space-y-2 ml-4">
-                <li><strong>Quick wins build momentum:</strong> Paying off smaller debts first creates psychological victories</li>
-                <li><strong>Simplified focus:</strong> Fewer accounts to manage reduces decision fatigue</li>
-                <li><strong>Motivation maintenance:</strong> Visible progress prevents abandonment of the debt payoff plan</li>
-                <li><strong>Emotional satisfaction:</strong> The feeling of "closing accounts" provides dopamine rewards</li>
-              </ul>
-              <p className="mt-4 font-semibold">Result: Higher completion rates than the mathematically "optimal" avalanche method</p>
-            </div>
-          </div>
-        </div>
-      )
-    }
-  ];
 
   const toolsAndResources = [
     { 
@@ -212,31 +159,6 @@ const Library = () => {
     { id: 'books', label: 'Recommended Books', count: books.length },
   ];
 
-  const renderResearch = () => (
-    <div className="space-y-8">
-      {researchContent.map((item, index) => (
-        <div key={index} className="bg-white rounded-lg shadow-sm border p-8">
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">{item.title}</h2>
-          <p className="text-lg text-gray-600 mb-6">{item.subtitle}</p>
-          {item.content}
-        </div>
-      ))}
-      
-      <div className="bg-white rounded-lg shadow-sm border p-8">
-        <h2 className="text-2xl font-bold text-gray-900 mb-4">Try Our Research-Backed Calculator</h2>
-        <p className="text-gray-600 mb-6">
-          Put this research into action with our free debt snowball calculator. 
-          Based on the proven methods from Northwestern University and Harvard Business Review.
-        </p>
-        <button 
-          onClick={() => navigate('/what-if')}
-          className="inline-flex items-center px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-semibold"
-        >
-          Try the What If Machine
-        </button>
-      </div>
-    </div>
-  );
 
   const renderLatestPosts = () => (
     <div className="space-y-8">
@@ -356,33 +278,6 @@ const Library = () => {
     </div>
   );
 
-  const renderArticles = () => (
-    <div className="grid gap-6">
-      {articles.map((article, index) => (
-        <div key={index} className="p-6 border rounded-lg bg-white shadow-sm hover:shadow-md transition-shadow">
-          <div className="flex items-start justify-between mb-3">
-            <span className="inline-block px-3 py-1 text-xs uppercase bg-blue-100 text-blue-600 rounded-full font-medium">
-              {article.tag}
-            </span>
-            <span className="text-sm text-gray-500">{article.readTime}</span>
-          </div>
-          <h3 className="text-xl font-semibold text-gray-900 mb-2">{article.title}</h3>
-          <p className="text-gray-600 mb-4">{article.desc}</p>
-          <div className="flex items-center justify-between">
-            <span className="text-xs text-gray-500">Keywords: {article.keywords}</span>
-            <a 
-              href={article.externalLink}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
-            >
-              Read research →
-            </a>
-          </div>
-        </div>
-      ))}
-    </div>
-  );
 
   const renderTools = () => (
     <div className="space-y-8">
