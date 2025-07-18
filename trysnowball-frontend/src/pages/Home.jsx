@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTheme } from '../contexts/ThemeContext';
 import { useUserFlow } from '../contexts/UserFlowContext';
@@ -7,42 +7,12 @@ const Home = () => {
   const navigate = useNavigate();
   const { colors } = useTheme();
   const { startDemo } = useUserFlow();
-  const [email, setEmail] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isSubmitted, setIsSubmitted] = useState(false);
 
   const handleTryDemo = () => {
     startDemo();
     navigate('/debts');
   };
 
-  const handleEmailSubmit = async (e) => {
-    e.preventDefault();
-    if (!email) return;
-
-    setIsSubmitting(true);
-    
-    try {
-      // Submit to Netlify forms
-      const response = await fetch('/', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: new URLSearchParams({
-          'form-name': 'newsletter',
-          'email': email
-        }).toString()
-      });
-
-      if (response.ok) {
-        setIsSubmitted(true);
-        setEmail('');
-      }
-    } catch (error) {
-      console.error('Error submitting email:', error);
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
   return (
     <div className={`min-h-screen ${colors.background} ${colors.text.primary} px-6 py-12`}>
       <header className="text-center mb-16 max-w-4xl mx-auto">
@@ -236,43 +206,6 @@ const Home = () => {
         </div>
       </section>
 
-      {/* Newsletter Signup */}
-      <section className={`${colors.surface} rounded-lg shadow-2xl p-8 my-16 max-w-md mx-auto ${colors.border} border`}>
-        <h2 className={`text-2xl font-bold mb-6 text-center ${colors.text.primary}`}>Stay Updated! 📧</h2>
-        {isSubmitted ? (
-          <div className="text-center">
-            <div className="w-12 h-12 bg-green-600 rounded-full flex items-center justify-center mx-auto mb-3">
-              <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-              </svg>
-            </div>
-            <p className={`${colors.text.primary} font-semibold`}>Thanks! We'll keep you updated.</p>
-          </div>
-        ) : (
-          <form onSubmit={handleEmailSubmit} name="newsletter" method="POST" data-netlify="true">
-            <input type="hidden" name="form-name" value="newsletter" />
-            <p className={`text-sm ${colors.text.secondary} mb-4`}>
-              Get notified about new features, debt freedom tips, and financial tools.
-            </p>
-            <input
-              type="email"
-              name="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="your@email.com"
-              required
-              className={`w-full p-3 ${colors.border} border rounded-lg mb-4 ${colors.surfaceSecondary} ${colors.text.primary} placeholder-gray-400 focus:border-blue-500 focus:outline-none`}
-            />
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="w-full bg-primary text-white py-3 px-4 rounded-lg hover:bg-accent transition-colors font-semibold disabled:opacity-50"
-            >
-              {isSubmitting ? 'Sending...' : 'Get Updates'}
-            </button>
-          </form>
-        )}
-      </section>
 
       {/* Purpose Statement */}
       <section className={`${colors.surface} rounded-lg shadow-sm p-8 my-16 max-w-4xl mx-auto ${colors.border} border`}>
