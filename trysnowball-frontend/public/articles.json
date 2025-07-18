@@ -1,0 +1,32 @@
+{
+  "articles": [
+    {
+      "title": "I Built a Debt Tool. Now I'm Using It to Fix My Own Mess",
+      "excerpt": "Using TrySnowball to claw my way out of £40k of debt",
+      "url": "https://trysnowball.substack.com/p/i-built-a-debt-tool-now-im-using",
+      "publishedDate": "2024-12-18",
+      "readTime": "5 min read",
+      "category": "Personal Story",
+      "categoryColor": "blue"
+    },
+    {
+      "title": "Impulse, Sales, and Spending Habits",
+      "excerpt": "(or: How I Nearly Bought a Rug I Don't Need)",
+      "url": "https://trysnowball.substack.com/p/impulse-sales-and-spending-habits",
+      "publishedDate": "2024-12-15",
+      "readTime": "6 min read",
+      "category": "Spending Tips",
+      "categoryColor": "green"
+    },
+    {
+      "title": "Why I made TrySnowball.co.uk",
+      "excerpt": "The story behind building a debt payoff tool and why I think it can help thousands of people become debt-free",
+      "url": "https://trysnowball.substack.com/p/why-i-made-trysnowballcouk",
+      "publishedDate": "2024-12-12",
+      "readTime": "4 min read",
+      "category": "Origin Story",
+      "categoryColor": "purple"
+    }
+  ],
+  "lastUpdated": "2024-12-18T12:00:00Z"
+}

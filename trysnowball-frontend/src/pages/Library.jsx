@@ -1,9 +1,30 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 const Library = () => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('latest');
+  const [articles, setArticles] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  // Fetch articles from JSON file
+  useEffect(() => {
+    const fetchArticles = async () => {
+      try {
+        const response = await fetch('/articles.json');
+        const data = await response.json();
+        setArticles(data.articles || []);
+      } catch (error) {
+        console.error('Error fetching articles:', error);
+        // Fallback to empty array if fetch fails
+        setArticles([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchArticles();
+  }, []);
 
   // SEO-focused content sections
   const researchContent = [
@@ -58,8 +79,6 @@ const Library = () => {
       )
     }
   ];
-
-  const articles = [];
 
   const toolsAndResources = [
     { 
@@ -236,15 +255,74 @@ const Library = () => {
           </div>
         </div>
         
-        {/* Substack Post Embed */}
-        <div className="flex justify-center">
-          <div className="w-full max-w-2xl">
-            <div className="substack-post-embed">
-              <p lang="en">I Built a Debt Tool. Now I'm Using It to Fix My Own Mess by Try Snowball</p>
-              <p>Using TrySnowball to claw my way out of £40k of debt</p>
-              <a data-post-link href="https://trysnowball.substack.com/p/i-built-a-debt-tool-now-im-using">Read on Substack</a>
+        {/* Substack Articles List */}
+        <div className="space-y-4">
+          {loading ? (
+            <div className="text-center py-8">
+              <div className="text-gray-500">Loading articles...</div>
             </div>
-          </div>
+          ) : articles.length === 0 ? (
+            <div className="text-center py-8">
+              <div className="text-gray-500">No articles found.</div>
+            </div>
+          ) : (
+            articles.map((article, index) => {
+              // Helper function to get category colors
+              const getCategoryColors = (color) => {
+                const colors = {
+                  blue: 'bg-blue-100 text-blue-800',
+                  green: 'bg-green-100 text-green-800',
+                  purple: 'bg-purple-100 text-purple-800',
+                  red: 'bg-red-100 text-red-800',
+                  yellow: 'bg-yellow-100 text-yellow-800',
+                  indigo: 'bg-indigo-100 text-indigo-800'
+                };
+                return colors[color] || 'bg-gray-100 text-gray-800';
+              };
+
+              // Format date
+              const formatDate = (dateString) => {
+                const date = new Date(dateString);
+                return date.toLocaleDateString('en-GB', { 
+                  month: 'short', 
+                  year: 'numeric' 
+                });
+              };
+
+              return (
+                <div key={index} className="bg-white rounded-lg shadow-sm border p-6 hover:shadow-md transition-shadow">
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="flex-1">
+                      <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                        {article.title}
+                      </h3>
+                      <p className="text-gray-600 mb-3">
+                        {article.excerpt}
+                      </p>
+                      <div className="flex items-center text-sm text-gray-500 mb-4">
+                        <span>{formatDate(article.publishedDate)}</span>
+                        <span className="mx-2">•</span>
+                        <span>{article.readTime}</span>
+                      </div>
+                    </div>
+                    <div className="ml-4 flex-shrink-0">
+                      <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${getCategoryColors(article.categoryColor)}`}>
+                        {article.category}
+                      </span>
+                    </div>
+                  </div>
+                  <a 
+                    href={article.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+                  >
+                    Read on Substack →
+                  </a>
+                </div>
+              );
+            })
+          )}
         </div>
         
         <div className="mt-8 text-center">
