@@ -409,7 +409,7 @@ const WhatIfMachine = () => {
                   : 'text-gray-600 hover:text-gray-900'
               }`}
             >
-              Line Chart
+              Line Chart  
             </button>
             <button
               onClick={() => setChartType('stacked')}
