@@ -243,7 +243,7 @@ const Library = () => {
       {/* Newsletter Signup Header */}
       <div className="bg-white rounded-lg shadow-sm border p-8">
         <div className="text-center mb-8">
-          <h2 className="text-2xl font-bold text-gray-900 mb-4">Latest Debt Freedom Insights</h2>
+          <h2 className="text-2xl font-bold text-gray-900 mb-4">Latest from Substack</h2>
           <p className="text-lg text-gray-600 mb-6">
             Get fresh perspectives on debt elimination, spending psychology, and financial freedom delivered straight to your inbox.
           </p>
