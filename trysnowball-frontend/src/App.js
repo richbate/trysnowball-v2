@@ -38,8 +38,8 @@ function Navigation() {
   // Navigation items with emojis for better UX - ordered by logical user flow
   const navItems = [
     ['/', 'Home'],
-    ['/debts', 'My Debts'],
     ['/baby-steps', 'Baby Steps'],
+    ['/debts', 'My Debts'],
     ['/what-if', 'What If Machine'],
     ['/ai-coach', 'AI Coach'],
     ['/library', 'Library'],

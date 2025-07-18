@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 
 const Library = () => {
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState('research');
+  const [activeTab, setActiveTab] = useState('latest');
 
   // SEO-focused content sections
   const researchContent = [
@@ -59,118 +59,7 @@ const Library = () => {
     }
   ];
 
-  const articles = [
-    { 
-      tag: 'Spending Habits', 
-      title: 'Summer Sales, Spending Habits, and Things You Don\'t Really Need', 
-      desc: 'Why "I saved 40%!" actually means "you spent 60%." Understanding the psychology of sales and impulse buying.',
-      readTime: '6 min',
-      keywords: 'summer sales, spending habits, impulse buying, retail therapy, debt freedom',
-      externalLink: 'https://www.ramseysolutions.com/budgeting/stop-impulse-buys',
-      content: `**"I saved 40%!
-
-No… you spent 60%.**
-
-⸻
-
-🎯 The Summer Sale Trap
-
-Retailers know exactly what they're doing.
-Every July, like clockwork, we're bombarded with "Final Reductions", "End of Season", "Summer Clearance".
-Bright banners, countdown timers, words like SAVE and LIMITED TIME.
-
-They're not just selling you products.
-They're selling you urgency.
-They're selling you the idea that spending money is saving money.
-
-⸻
-
-🛍 Why We Buy Things We Don't Need
-    •    Emotional Shopping: Feeling tired, overwhelmed, stressed, bored? Retail therapy feels good — temporarily.
-    •    Scarcity Triggers: "Only 3 left in stock!" makes you panic-buy, not think.
-    •    Comparison Pressure: Everyone's got new garden furniture / trainers / tech. Why shouldn't you?
-    •    Discount FOMO: You weren't even looking for it… but now it's 50% off? Surely that's sensible spending…
-
-⸻
-
-💸 The Financial Reality Check
-
-If you didn't need it yesterday, you don't need it because it's on sale today.
-If it wasn't on your plan, it wasn't in your budget.
-Discount or not — money left in your account is the biggest saving of all.
-
-⸻
-
-📊 How This Affects Your Snowball Progress
-
-That "small" purchase delays you paying off debt.
-£50 saved on a sale item is still £50 you no longer have to reduce your balance.
-And the interest on your debts? That doesn't care about your bargain.
-
-Ask yourself:
-
-"Does this help me get debt-free faster, or slower?"
-
-⸻
-
-🔄 Better Habits to Build Instead:
-    1.    Create a 24-hour rule. No impulse buys. Save it to a wishlist. Revisit tomorrow.
-    2.    Track your 'almost bought it' moments. You'll see how much you've really saved.
-    3.    Visualise progress, not possessions. That number dropping on your debt chart? That's the reward.
-    4.    Rewrite the narrative:
-Instead of: "I saved £40!"
-Say: "I saved £40… from myself, and my future thanks me."
-
-⸻
-
-🚫 It's Not About Deprivation.
-
-It's about making sure your money goes where you want — not where retailers nudge it.
-
-Your summer doesn't need a sale.
-It needs a plan.
-
-⸻
-
-Stay focused. Keep going. Your future self is cheering you on.`
-    },
-    { 
-      tag: 'UK Debt Crisis', 
-      title: 'UK Debt Statistics 2025: The Complete Picture', 
-      desc: 'Latest data from Parliament, Money and Pensions Service, and StepChange on the UK debt crisis.',
-      readTime: '8 min',
-      keywords: 'UK debt statistics, debt crisis UK, personal debt UK',
-      externalLink: 'https://commonslibrary.parliament.uk/research-briefings/cbp-8285/',
-      content: "With 8.1 million UK adults needing debt advice and household debt averaging £65,529, the UK faces an unprecedented debt crisis..."
-    },
-    { 
-      tag: 'Debt Method', 
-      title: 'Debt Snowball vs Avalanche: Which Works Better?', 
-      desc: 'Research from Northwestern University and Harvard Business Review proves why the snowball method is more effective.',
-      readTime: '10 min',
-      keywords: 'debt snowball vs avalanche, debt payoff method, debt elimination strategy',
-      externalLink: 'https://hbr.org/2016/12/research-the-best-strategy-for-paying-off-credit-card-debt',
-      content: "Harvard Business Review researchers found that the snowball method proved to be the most effective strategy..."
-    },
-    { 
-      tag: 'Psychology', 
-      title: 'The Psychology of Debt Repayment', 
-      desc: 'Why behavioral psychology trumps mathematical optimization in debt elimination.',
-      readTime: '7 min',
-      keywords: 'debt psychology, debt behavior, debt repayment psychology',
-      externalLink: 'https://www.occu.org/blog/paying-down-debt-why-the-snowball-method-works',
-      content: "Northwestern University's Kellogg School research shows consumers who tackle small balances first are likelier to eliminate overall debt..."
-    },
-    { 
-      tag: 'UK Resources', 
-      title: 'Government Debt Help: Your Rights & Resources', 
-      desc: 'Official UK government resources for debt advice, including FCA guidelines and Citizens Advice support.',
-      readTime: '6 min',
-      keywords: 'UK debt help, government debt advice, debt rights UK',
-      externalLink: 'https://www.moneyhelper.org.uk/en/money-troubles/dealing-with-debt',
-      content: "The UK government provides free debt advice through Money Helper and Citizens Advice..."
-    }
-  ];
+  const articles = [];
 
   const toolsAndResources = [
     { 
@@ -299,9 +188,7 @@ Stay focused. Keep going. Your future self is cheering you on.`
 
 
   const tabs = [
-    { id: 'research', label: 'Research & Statistics', count: '4 studies' },
-    { id: 'latest', label: 'Latest Posts', count: 'newsletter' },
-    { id: 'articles', label: 'In-Depth Articles', count: articles.length },
+    { id: 'latest', label: 'Substack', count: 'newsletter' },
     { id: 'tools', label: 'Free UK Tools & Resources', count: toolsAndResources.length },
     { id: 'books', label: 'Recommended Books', count: books.length },
   ];
@@ -349,19 +236,14 @@ Stay focused. Keep going. Your future self is cheering you on.`
           </div>
         </div>
         
-        {/* Substack Embed */}
+        {/* Substack Post Embed */}
         <div className="flex justify-center">
-          <div className="w-full max-w-md">
-            <iframe 
-              src="https://trysnowball.substack.com/embed" 
-              width="100%" 
-              height="320" 
-              style={{border: '1px solid #EEE', background: 'white'}} 
-              frameBorder="0" 
-              scrolling="no"
-              className="rounded-lg shadow-sm"
-              title="TrySnowball Newsletter Signup"
-            />
+          <div className="w-full max-w-2xl">
+            <div className="substack-post-embed">
+              <p lang="en">I Built a Debt Tool. Now I'm Using It to Fix My Own Mess by Try Snowball</p>
+              <p>Using TrySnowball to claw my way out of £40k of debt</p>
+              <a data-post-link href="https://trysnowball.substack.com/p/i-built-a-debt-tool-now-im-using">Read on Substack</a>
+            </div>
           </div>
         </div>
         
@@ -531,12 +413,10 @@ Stay focused. Keep going. Your future self is cheering you on.`
 
   const renderContent = () => {
     switch(activeTab) {
-      case 'research': return renderResearch();
       case 'latest': return renderLatestPosts();
-      case 'articles': return renderArticles();
       case 'tools': return renderTools();
       case 'books': return renderBooks();
-      default: return renderResearch();
+      default: return renderLatestPosts();
     }
   };
 

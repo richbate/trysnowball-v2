@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { useDataManager } from '../hooks/useDataManager';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid,
-  Tooltip, Legend, ResponsiveContainer
+  Tooltip, Legend, ResponsiveContainer,
+  AreaChart, Area
 } from 'recharts';
 
 // Generate realistic random debt data
@@ -44,7 +45,7 @@ const generateRandomDebts = () => {
 // Format currency
 const formatCurrency = (value) => {
   if (typeof value !== 'number' || isNaN(value)) return '£0';
-  return '£' + value.toLocaleString(undefined, { minimumFractionDigits: 0 });
+  return '£' + Math.round(value).toLocaleString();
 };
 
 // Helper function to simulate snowball method for target calculation
@@ -113,6 +114,7 @@ const WhatIfMachine = () => {
   const { debts: rawDebts, totalDebt, totalMinPayments } = useDataManager();
   const [extraPayment, setExtraPayment] = useState(100);
   const [showSnowballSuccess, setShowSnowballSuccess] = useState(false);
+  const [chartType, setChartType] = useState('line'); // 'line' or 'stacked'
 
   // Transform debt data to match What If Machine format (balance, rate, minPayment)
   // If no real debts exist, use demo data for testing
@@ -213,6 +215,70 @@ const WhatIfMachine = () => {
       snowball: scenarios.snowball[i]?.balance || 0,
     });
   }
+
+  // Create stacked chart data showing individual debt balances over time
+  const stackedChartData = useMemo(() => {
+    if (chartType !== 'stacked') return [];
+    
+    const stackedData = [];
+    const sortedDebts = [...debts].sort((a, b) => a.balance - b.balance);
+    const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#84cc16', '#f97316'];
+    
+    // Create a simulation specifically for stacked view
+    const stackedSimulation = () => {
+      const debtBalances = sortedDebts.map(debt => ({
+        name: debt.name,
+        balance: debt.balance,
+        rate: debt.rate,
+        minPayment: debt.minPayment,
+        color: colors[sortedDebts.indexOf(debt) % colors.length]
+      }));
+      
+      const monthlyData = [];
+      
+      for (let month = 0; month < 61; month++) {
+        const monthData = { month };
+        
+        // Add each debt's balance for this month
+        debtBalances.forEach(debt => {
+          monthData[debt.name] = Math.max(0, debt.balance);
+        });
+        
+        monthlyData.push(monthData);
+        
+        // Apply snowball method for next month
+        if (month < 60) {
+          let totalPayment = totalMinPayments + extraPayment;
+          
+          // Pay minimums first
+          debtBalances.forEach(debt => {
+            if (debt.balance > 0) {
+              const interest = debt.balance * (debt.rate / 12 / 100);
+              const principal = Math.max(0, debt.minPayment - interest);
+              debt.balance = Math.max(0, debt.balance - principal);
+              totalPayment -= debt.minPayment;
+            }
+          });
+          
+          // Apply extra payment to smallest debt
+          if (totalPayment > 0) {
+            for (let debt of debtBalances) {
+              if (debt.balance > 0) {
+                const payment = Math.min(totalPayment, debt.balance);
+                debt.balance -= payment;
+                break;
+              }
+            }
+          }
+        }
+      }
+      
+      return { monthlyData, debtInfo: debtBalances };
+    };
+    
+    const { monthlyData, debtInfo } = stackedSimulation();
+    return { data: monthlyData, debtInfo };
+  }, [debts, extraPayment, totalMinPayments, chartType]);
 
   const snowballPayoffMonths = scenarios.snowball.findIndex((p, index) => index > 0 && p.balance <= 1);
   const minimumPayoffMonths = scenarios.minimumOnly.findIndex((p, index) => index > 0 && p.balance <= 1);
@@ -332,30 +398,93 @@ const WhatIfMachine = () => {
           </div>
         )}
 
+        {/* Chart Type Toggle */}
+        <div className="flex justify-center mb-4">
+          <div className="bg-gray-100 p-1 rounded-lg">
+            <button
+              onClick={() => setChartType('line')}
+              className={`px-4 py-2 rounded-md font-medium transition-colors ${
+                chartType === 'line'
+                  ? 'bg-white text-blue-600 shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              Line Chart
+            </button>
+            <button
+              onClick={() => setChartType('stacked')}
+              className={`px-4 py-2 rounded-md font-medium transition-colors ${
+                chartType === 'stacked'
+                  ? 'bg-white text-blue-600 shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              Stacked View
+            </button>
+          </div>
+        </div>
+
         <ResponsiveContainer width="100%" height={400}>
-          <LineChart data={chartData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-            <CartesianGrid stroke="#e5e7eb" />
-            <XAxis
-              dataKey="month"
-              type="number"
-              domain={[0, 60]}
-              ticks={[0, 12, 24, 36, 48, 60]}
-              tickFormatter={(month) => month === 0 ? 'Now' : `${month / 12}y`}
-              tick={{ fontSize: 12 }}
-            />
-            <YAxis tickFormatter={formatCurrency} />
-            <Tooltip formatter={(v) => formatCurrency(v)} />
-            <Legend
-              iconType="rect"
-              formatter={(value) =>
-                value === 'minimumOnly' ? 'Minimum Payments Only' :
-                'Snowball Method'
-              }
-              wrapperStyle={{ paddingBottom: '10px' }}
-            />
-            <Line type="monotone" dataKey="minimumOnly" stroke="#f59e0b" strokeWidth={2} dot={false} />
-            <Line type="monotone" dataKey="snowball" stroke="#10b981" strokeWidth={2} dot={false} />
-          </LineChart>
+          {chartType === 'line' ? (
+            <LineChart data={chartData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+              <CartesianGrid stroke="#e5e7eb" />
+              <XAxis
+                dataKey="month"
+                type="number"
+                domain={[0, 60]}
+                ticks={[0, 12, 24, 36, 48, 60]}
+                tickFormatter={(month) => month === 0 ? 'Now' : `${month / 12}y`}
+                tick={{ fontSize: 12 }}
+              />
+              <YAxis 
+                tickFormatter={formatCurrency}
+                domain={[0, (dataMax) => Math.ceil(dataMax / 10000) * 10000]}
+              />
+              <Tooltip formatter={(v) => formatCurrency(v)} />
+              <Legend
+                iconType="rect"
+                formatter={(value) =>
+                  value === 'minimumOnly' ? 'Minimum Payments Only' :
+                  'Snowball Method'
+                }
+                wrapperStyle={{ paddingBottom: '10px' }}
+              />
+              <Line type="monotone" dataKey="minimumOnly" stroke="#f59e0b" strokeWidth={2} dot={false} />
+              <Line type="monotone" dataKey="snowball" stroke="#10b981" strokeWidth={2} dot={false} />
+            </LineChart>
+          ) : (
+            <AreaChart data={stackedChartData.data || []} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+              <CartesianGrid stroke="#e5e7eb" />
+              <XAxis
+                dataKey="month"
+                type="number"
+                domain={[0, 60]}
+                ticks={[0, 12, 24, 36, 48, 60]}
+                tickFormatter={(month) => month === 0 ? 'Now' : `${month / 12}y`}
+                tick={{ fontSize: 12 }}
+              />
+              <YAxis 
+                tickFormatter={formatCurrency}
+                domain={[0, (dataMax) => Math.ceil(dataMax / 10000) * 10000]}
+              />
+              <Tooltip 
+                formatter={(value, name) => [formatCurrency(Math.round(value)), name]}
+                labelFormatter={(month) => `Month ${month}`}
+              />
+              <Legend wrapperStyle={{ paddingBottom: '10px' }} />
+              {stackedChartData.debtInfo && stackedChartData.debtInfo.map((debt, index) => (
+                <Area
+                  key={debt.name}
+                  type="monotone"
+                  dataKey={debt.name}
+                  stackId="1"
+                  stroke={debt.color}
+                  fill={debt.color}
+                  fillOpacity={0.6}
+                />
+              ))}
+            </AreaChart>
+          )}
         </ResponsiveContainer>
 
         {/* Scary Stats */}
