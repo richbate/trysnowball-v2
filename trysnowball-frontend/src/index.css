@@ -133,4 +133,104 @@
   .animate-slide-up {
     animation: slide-up 0.3s ease-out;
   }
+
+  /* Enhanced Article Formatting */
+  .article-content {
+    @apply text-gray-800 dark:text-gray-200 leading-relaxed;
+  }
+
+  .article-content p {
+    @apply mb-6 text-lg leading-8;
+  }
+
+  .article-content h1 {
+    @apply text-3xl font-bold text-gray-900 dark:text-gray-100 mt-8 mb-4 leading-tight;
+  }
+
+  .article-content h2 {
+    @apply text-2xl font-bold text-gray-900 dark:text-gray-100 mt-8 mb-4 leading-tight;
+  }
+
+  .article-content h3 {
+    @apply text-xl font-semibold text-gray-900 dark:text-gray-100 mt-6 mb-3 leading-tight;
+  }
+
+  .article-content h4 {
+    @apply text-lg font-semibold text-gray-900 dark:text-gray-100 mt-6 mb-3;
+  }
+
+  .article-content strong {
+    @apply font-semibold text-gray-900 dark:text-gray-100;
+  }
+
+  .article-content em {
+    @apply italic text-gray-700 dark:text-gray-300;
+  }
+
+  .article-content a {
+    @apply text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 underline transition-colors;
+  }
+
+  .article-content ul {
+    @apply mb-6 pl-6 space-y-2;
+  }
+
+  .article-content ol {
+    @apply mb-6 pl-6 space-y-2;
+  }
+
+  .article-content li {
+    @apply text-lg leading-7 relative;
+  }
+
+  .article-content ul li {
+    @apply list-disc;
+  }
+
+  .article-content ol li {
+    @apply list-decimal;
+  }
+
+  .article-content li p {
+    @apply mb-2 text-lg leading-7;
+  }
+
+  .article-content blockquote {
+    @apply border-l-4 border-blue-500 dark:border-blue-400 pl-6 py-4 mb-6 bg-blue-50 dark:bg-blue-900 dark:bg-opacity-20 italic text-gray-700 dark:text-gray-300 rounded-r-lg;
+  }
+
+  .article-content blockquote p {
+    @apply mb-2 text-lg font-medium;
+  }
+
+  .article-content code {
+    @apply bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200 px-2 py-1 rounded text-sm font-mono;
+  }
+
+  .article-content pre {
+    @apply bg-gray-100 dark:bg-gray-800 p-4 rounded-lg mb-6 overflow-x-auto;
+  }
+
+  .article-content pre code {
+    @apply bg-transparent p-0;
+  }
+
+  .article-content img {
+    @apply rounded-lg shadow-sm mx-auto my-6 max-w-full h-auto;
+  }
+
+  .article-content hr {
+    @apply border-gray-300 dark:border-gray-600 my-8;
+  }
+
+  /* Special styling for financial content */
+  .article-content .money-amount {
+    @apply font-semibold text-green-600 dark:text-green-400;
+  }
+
+  /* Better spacing for nested lists */
+  .article-content li ul,
+  .article-content li ol {
+    @apply mt-2 mb-2;
+  }
 }

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 
 const Library = () => {
   const navigate = useNavigate();
@@ -233,14 +234,12 @@ const Library = () => {
                       </span>
                     </div>
                   </div>
-                  <a 
-                    href={article.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
-                  >
-                    Read on Substack →
-                  </a>
+                  <Link 
+  to={`/article/${article.slug}`}
+  className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+>
+  Read full article →
+</Link>                  
                 </div>
               );
             })
@@ -405,11 +404,6 @@ const Library = () => {
             <p className="text-xl text-gray-600 max-w-4xl mx-auto mb-6">
               Try the debt snowball method — simple, proven, and made for real life.
             </p>
-            <div className="flex flex-wrap justify-center gap-4 text-sm text-gray-600">
-              <span>✅ Backed by Northwestern University research</span>
-              <span>✅ Proven by Harvard Business Review</span>
-              <span>✅ Free UK debt tools & resources</span>
-            </div>
           </div>
         </div>
       </div>

@@ -75,7 +75,7 @@ const MoneyMakeover = () => {
         
         {/* Header */}
         <header className="text-center mb-12">
-          <h1 className="text-4xl font-bold text-primary mb-4">1-Month Money Makeover</h1>
+          <h1 className="text-4xl font-bold text-primary mb-4">Quick Win Plan</h1>
           <p className="text-xl leading-relaxed mb-4">
             Clear your smallest debts in 30 days and prove you can do this
           </p>

@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDataManager } from '../hooks/useDataManager';
+import NoDebtsState from '../components/NoDebtsState';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid,
   Tooltip, Legend, ResponsiveContainer,
@@ -285,6 +286,26 @@ const WhatIfMachine = () => {
   const snowballInterestPaid = scenarios.snowball[snowballPayoffMonths > 0 ? snowballPayoffMonths : scenarios.snowball.length - 1]?.interestPaid || 0;
   const minimumInterestPaid = scenarios.minimumOnly[minimumPayoffMonths > 0 ? minimumPayoffMonths : scenarios.minimumOnly.length - 1]?.interestPaid || 0;
 
+  // Check if user has any debt data at all (after all hooks)
+  const hasNoDebtData = rawDebts.length === 0;
+
+  // If no debt data exists, show the no-data state
+  if (hasNoDebtData) {
+    return (
+      <div className="min-h-screen p-6 bg-gradient-to-br from-blue-50 to-indigo-100">
+        <div className="max-w-4xl mx-auto bg-white rounded-xl shadow p-6">
+          <NoDebtsState 
+            title="No Debt Data Yet"
+            subtitle="Add your debt information first to see personalized payoff scenarios and projections."
+            icon="📊"
+            buttonText="Add My Debts"
+            showSecondaryActions={true}
+          />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen p-6 bg-gradient-to-br from-blue-50 to-indigo-100">
       {/* Snowball Success Notification */}
@@ -309,12 +330,15 @@ const WhatIfMachine = () => {
       )}
 
       <div className="max-w-4xl mx-auto bg-white rounded-xl shadow p-6">
-        <h1 className="text-2xl font-bold mb-2 text-center text-gray-800">What If Machine</h1>
+        <h1 className="text-2xl font-bold mb-2 text-center text-gray-800">My Debt Plan</h1>
         <p className="text-center text-gray-600 mb-2">
-          Adjust extra payments to see how fast you could be debt-free.
+          Explore different repayment strategies and see how quickly you could be debt-free.
         </p>
         <p className="text-center text-lg font-semibold text-red-600 mb-2">
           Current Total Debt: {formatCurrency(totalDebt)}
+        </p>
+        <p className="text-center text-lg font-semibold text-orange-600 mb-2">
+          Current Minimum Payments: {formatCurrency(totalMinPayments)}/month
         </p>
         <p className="text-center text-lg font-semibold text-blue-600 mb-4">
           Total Snowball Payment: {formatCurrency(totalMinPayments + extraPayment)}/month
@@ -357,30 +381,28 @@ const WhatIfMachine = () => {
           <span className="text-green-600 font-semibold min-w-16">{formatCurrency(extraPayment)}</span>
         </div>
 
-        {/* Link to Money Helper Budget Tool if no extra payment */}
-        {extraPayment === 0 && (
-          <div className="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
-            <div className="flex flex-col space-y-3">
-              <div>
-                <p className="text-sm font-medium text-blue-900">Need help finding extra money?</p>
-                <p className="text-xs text-blue-700">Use the Money Helper Budget Planner to discover potential savings</p>
-              </div>
-              <div className="space-y-2">
-                <a
-                  href="https://www.moneyhelper.org.uk/en/everyday-money/budgeting/budget-planner"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="bg-blue-600 text-white px-4 py-2 rounded text-sm hover:bg-blue-700 transition-colors inline-block"
-                >
-                  Open Budget Planner →
-                </a>
-                <p className="text-xs text-blue-600">
-                  After completing your budget, return here and enter any extra amount you could put toward debt
-                </p>
-              </div>
+        {/* Link to Money Helper Budget Tool - always visible */}
+        <div className="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+          <div className="flex flex-col space-y-3">
+            <div>
+              <p className="text-sm font-medium text-blue-900">Need help finding extra money?</p>
+              <p className="text-xs text-blue-700">Use the Money Helper Budget Planner to discover potential savings</p>
+            </div>
+            <div className="space-y-2">
+              <a
+                href="https://www.moneyhelper.org.uk/en/everyday-money/budgeting/budget-planner"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="bg-blue-600 text-white px-4 py-2 rounded text-sm hover:bg-blue-700 transition-colors inline-block"
+              >
+                Open Budget Planner →
+              </a>
+              <p className="text-xs text-blue-600">
+                After completing your budget, return here and enter any extra amount you could put toward debt
+              </p>
             </div>
           </div>
-        )}
+        </div>
 
         {snowballPayoffMonths > 0 && (
           <div className="text-center mb-6">

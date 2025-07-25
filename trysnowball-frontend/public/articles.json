@@ -1,32 +1,60 @@
 {
   "articles": [
     {
-      "title": "I Built a Debt Tool. Now I'm Using It to Fix My Own Mess",
-      "excerpt": "Using TrySnowball to claw my way out of £40k of debt",
+      "title": "🧼I’m Giving Myself a 1-Month Money Makeover",
+      "excerpt": "No spreadsheets",
+      "url": "https://trysnowball.substack.com/p/im-giving-myself-a-1-month-money",
+      "publishedDate": "2025-07-23",
+      "readTime": "2 min read",
+      "category": "Money Tips",
+      "categoryColor": "yellow",
+      "slug": "im-giving-myself-a-1month-money-makeover",
+      "content": "<p>No spreadsheets. No shame. Just a promise to stop borrowing to survive.</p><p>I’ve been coasting for months.</p><ul><li><p>My Flex card? Basically an overdraft.</p></li><li><p>My overdraft? A hole I’m always in </p></li></ul><p>Every time I check my balance, I feel that same thud: “There’s nothing left.”</p><p>So I’m doing something about it.</p><p><strong>I’m calling it a</strong></p><blockquote><p><strong>1-Month Money Makeover</strong></p></blockquote><p>I’ve picked two debts that are suffocating me:</p><ul><li><p>My <span class=\"money-amount\">£250</span> overdraft</p></li><li><p>My <span class=\"money-amount\">£250</span> Flex balance</p></li></ul><p>And I’m clearing them — in full — this payday.</p><p>slightly at odds with Dave Ramsey’s 7 baby steps..</p><blockquote><p>🪜 Step 0.5 — Clear your fake safety net before building a real one.</p></blockquote><p><strong>How I’m going to do it:</strong></p><p>Not with magic. Just with intention.</p><p>I’m cutting back on:</p><ul><li><p>The casual Amazon hits</p></li><li><p>Takeaways that “don’t count”</p></li><li><p>Random Monzo pots that do nothing but trap my cash</p></li></ul><p>I’m still living. I’m just not borrowing to do it.</p><p><strong>Why this matters:</strong></p><p>Because I’m done pretending I’m managing.</p><p>Because I want to breathe.</p><p>Because I want to feel like I’m moving forward, not just barely surviving the month.</p><p><strong>I’m added this into </strong><a href=\"https://trysnowball.co.uk/\">Try Snowball</a></p><p>It’s a simple tool I’m building to help people like me get out of debt without shame.</p><p>The new feature’s called Money Makeover Mode. One click. One goal. One month to breathe again.</p><p>First promise to myself?</p><p>“No more borrowing to cope. I’m building safety now.</p><p><strong>👯Join the experiment</strong></p><p>If you’re doing something similar — or want to try — reply to this or DM me.</p><p>This isn’t a system. It’s a reset. And I think it might actually work.</p>"
+    },
+    {
+      "title": "Emergency Funds and the Validity of Proverbs",
+      "excerpt": "It rained here all day yesterday",
+      "url": "https://trysnowball.substack.com/p/emergency-funds-and-the-validity",
+      "publishedDate": "2025-07-21",
+      "readTime": "1 min read",
+      "category": "Financial Insights",
+      "categoryColor": "indigo",
+      "slug": "emergency-funds-and-the-validity-of-proverbs",
+      "content": "<p>It rained here all day yesterday. All. Day. </p><p>I’ve had a leak in my bedroom that I’ve not had the money to sort out and yesterday it got a whole lot worse. </p><p>Now I’m wondering how on earth I can get this fixed without any money.. do I climb the roof and lay a bit of plastic on it? Or just buy a bigger bucket?</p><p>if I had my emergency fund I’d be able to get this fixed the second it appeared. Now it’s turning into a redecoration job 😭</p><div><figure><a href=\"https://substackcdn.com/image/fetch/$s_!Z8on!,f_auto,q_auto:good,fl_progressive:steep/https%3A%2F%2Fsubstack-post-media.s3.amazonaws.com%2Fpublic%2Fimages%2F0fae3694-721e-4bac-87b9-87f26365aad1_5712x4284.jpeg\"><div><picture></picture></div></a><figcaption>Eek! A leak!</figcaption></figure></div><p>A stitch in time saves nine etc</p>"
+    },
+    {
+      "title": "I Built a Debt Tool. Now I’m Using It to Fix My Own Mess",
+      "excerpt": "Using TrySnowball to claw my way out of &#163;40k of debt",
       "url": "https://trysnowball.substack.com/p/i-built-a-debt-tool-now-im-using",
-      "publishedDate": "2024-12-18",
-      "readTime": "5 min read",
+      "publishedDate": "2025-07-18",
+      "readTime": "3 min read",
       "category": "Personal Story",
-      "categoryColor": "blue"
+      "categoryColor": "blue",
+      "slug": "i-built-a-debt-tool-now-im-using-it-to-fix-my-own-mess",
+      "content": "<h1><strong>Why I’m documenting my debt-free journey — and building Try Snowball to help.</strong></h1><p>I am a little over <strong><span class=\"money-amount\">£40,000</span> </strong>in debt.</p><p>Credit cards (so many credit cards). Car finance. The usual suspects.</p><p>0% offers came and went, some cards were paid off, nice things were bought. </p><p>It’s not catastrophic, but it’s enough to weigh me down. It’s enough to make my future feel… smaller and to limit my options. </p><h3><strong>Why write this? Why now?</strong></h3><p>Because <strong>debt thrives on silence.</strong> On shame. On “I’ll sort it next month.”</p><p>I’ve spent years thinking:</p><blockquote><p><em>“Once I get through this busy patch, I’ll fix it.”</em></p><p><em>“Once I get that pay rise, I’ll fix it.”</em></p><p><em>“Once the house sells, I’ll fix it.”</em></p></blockquote><p>Meanwhile, the debt stayed. Or it crept up. Or I made a dent, then backslid.</p><p>I’ve had enough.</p><h3><strong>The tool I’m building to help myself (and maybe you)</strong></h3><p>I’ve been building a tool called <strong><a href=\"https://trysnowball.co.uk/\">TrySnowball</a></strong>. It’s a debt repayment <s>app </s> system based on the proven snowball method by Dave Ramsey (he’s a bit of a money hero)  - small wins first, momentum builds, freedom follows.</p><p>I’ve used all the things. <a href=\"https://www.vertex42.com/Calculators/debt-reduction-calculator.html\">Vertex’s snowball</a> planner was the best, but even that felt too clunky. too onerous, too static, too optimistic even. </p><p>But tools alone don’t fix behaviour.</p><p>So I’m going to eat my own dog food, be my own user.</p><p>And I’m going to document the whole thing here, honestly.</p><p><strong>The spreadsheets | The scary graphs | The spending slip-ups | The wins </strong></p><p>No matter how small.</p><p>Here’s how things look today. Bleak right? Even after 5 years of payments, I’ll still be in debt. </p><div><figure><a href=\"https://substackcdn.com/image/fetch/$s_!zVJs!,f_auto,q_auto:good,fl_progressive:steep/https%3A%2F%2Fsubstack-post-media.s3.amazonaws.com%2Fpublic%2Fimages%2F2668ebea-3565-4bbe-bea8-ba959375a908_1736x822.png\"><div><picture></picture></div></a></figure></div><p><a href=\"https://www.ramseysolutions.com/dave-ramsey-7-baby-steps\">Dave Ramsey’s 7 Baby Steps</a> seem like the best model. Although it does feel a bit like draw the rest of the f*cking owl it’s deliberately small, with months or years between stages. </p><div><figure><a href=\"https://substackcdn.com/image/fetch/$s_!ZP5o!,f_auto,q_auto:good,fl_progressive:steep/https%3A%2F%2Fsubstack-post-media.s3.amazonaws.com%2Fpublic%2Fimages%2F6d196956-8c6c-4409-a1a0-bb23a91b41de_530x453.png\"><div><picture></picture></div></a></figure></div><h2>Step One - Save <span class=\"money-amount\">£1000</span>. </h2><p>I regularly live pay check to pay check. often doing ridiculous Robbing Peter to Pay Paul mental arithmetic to get to pay day. </p><div><figure><a href=\"https://substackcdn.com/image/fetch/$s_!WDSL!,f_auto,q_auto:good,fl_progressive:steep/https%3A%2F%2Fsubstack-post-media.s3.amazonaws.com%2Fpublic%2Fimages%2F10bbd970-fc18-4906-9b76-9dc33e956686_400x220.gif\"><div><picture></picture></div></a></figure></div><p>so starting now, I’m going to make some changes. </p><ul><li><p>Stop buying things I don’t need</p></li><li><p>Sell things I don’t need. so many books! </p></li><li><p>Wait. Do I need it or just want it? </p></li><li><p>Wait a bit more. </p></li><li><p>Create a budget and stick to it - <a href=\"https://www.moneyhelper.org.uk/en/everyday-money/budgeting/budget-planner\">Money Helper’s budget tool </a></p></li><li><p>Not make any financial moves or decisions. </p></li><li><p>Use chatGPT to see if there are ways to optimise things</p></li><li><p>But mostly just wait. Set a target, add money to a pot and wait. </p></li></ul><p>If you’re on this kind of journey too, climbing out of debt, trying to break old habits, trying to imagine a different future - I’d love to hear how you’re doing it.</p><p>The wins. The slip-ups. The moments where it feels like progress, and the moments where it feels like giving up.</p><p>Leave a comment. Share your story. Or just follow along and see if I make it.</p>"
     },
     {
       "title": "Impulse, Sales, and Spending Habits",
-      "excerpt": "(or: How I Nearly Bought a Rug I Don't Need)",
+      "excerpt": "(or: How I Nearly Bought a Rug I Don&#8217;t Need)",
       "url": "https://trysnowball.substack.com/p/impulse-sales-and-spending-habits",
-      "publishedDate": "2024-12-15",
-      "readTime": "6 min read",
+      "publishedDate": "2025-07-15",
+      "readTime": "2 min read",
       "category": "Spending Tips",
-      "categoryColor": "green"
+      "categoryColor": "green",
+      "slug": "impulse-sales-and-spending-habits",
+      "content": "<p>I spent at least an hour on the John Lewis app today looking for things to buy before the end of the sale. All that money I can save!</p><p>New bedding, smart light bulbs, a new rug. I could’ve easily put <span class=\"money-amount\">£1000</span> on a credit card to buy a lot of stuff I simply don’t need.</p><p>It’s a familiar pattern.</p><p>We convince ourselves it’s “saving money” because it’s on sale.</p><p>But it’s still spending money we don’t need to spend.</p><h3><strong>Simple Advice That’s Still Worth Repeating:</strong></h3><p>None of this is new, but sometimes it helps to be reminded.</p><h4><strong>Use the 24-Hour Rule:</strong></h4><p>If something catches your eye, don’t hit “buy” right away. Wait 24 hours. This gives your brain time to cool off and decide if the item is really worth it.</p><h4><strong>Make a List — and Stick to It:</strong></h4><p>Whether you’re heading to the shops or browsing online, always go in with a list. It helps you stay focused and avoid falling for distractions or flashy deals.</p><h4><strong>Avoid Tempting Spaces:</strong></h4><p>If emails, apps or ads are your weak spots, do a digital detox.</p><p>If you need it, sure — get it. But don’t treat a 40% off sale as an excuse to get deeper into debt.</p><h2><strong>Why I Built Try Snowball (And How It Helps Here):</strong></h2><p>If you’re tempted to spend, or wondering how that “bargain” might actually cost you long-term, Try Snowball can help you see the bigger picture.</p><p>It shows you how every extra purchase - big or small - can shift your debt-free date, increase the interest you’ll pay, and slow down your progress. Sometimes it’s not about the <span class=\"money-amount\">£40</span> saved on a sale. It’s about how much longer you’re carrying that debt because of it.</p><p>Try it out. See how those spending decisions really play out.</p><p>It might make that sale a lot less tempting.</p>"
     },
     {
       "title": "Why I made TrySnowball.co.uk",
-      "excerpt": "The story behind building a debt payoff tool and why I think it can help thousands of people become debt-free",
+      "excerpt": "Why I made TrySnowball",
       "url": "https://trysnowball.substack.com/p/why-i-made-trysnowballcouk",
-      "publishedDate": "2024-12-12",
-      "readTime": "4 min read",
+      "publishedDate": "2025-07-15",
+      "readTime": "2 min read",
       "category": "Origin Story",
-      "categoryColor": "purple"
+      "categoryColor": "purple",
+      "slug": "why-i-made-trysnowballcouk",
+      "content": "<p><a href=\"https://trysnowball.substack.com/subscribe?\"><span>Subscribe now</span></a></p><h2><strong>Why I made TrySnowball.co.uk</strong></h2><p>I’ve been struggling with debt for years now, probably since I got given my first credit card when I was 19. My friend asked if I’d buy him some trainers on my card and he’d give me the money so I could waste it on hair clips and sweets.</p><p>So there it started. Living beyond my means, using money that wasn’t real but would somehow haunt me and hold me back for the rest of my life.</p><p>Over the years, I’ve got better at managing it. I’ve read the books, tried the apps, done the spreadsheets, had the sleepless nights, made the big repayments, watched the balances creep back up again. I’ve told myself it’s under control. I’ve told myself it’s not as bad as it used to be. I’ve told myself I’m too smart to fall for it again.</p><p>And yet… here we are.</p><p>Try Snowball isn’t about pretending I’ve figured it all out. It’s about building the tool I needed years ago. Something simple, visual, honest. Something that shows you the progress you <em>can</em> make, even if you’ve made mistakes before. Something that doesn’t make you feel ashamed, just gives you a plan and a bit of encouragement to stick to it.</p><p>Most apps out there are built for people who already have their finances sorted. They want you to upload all your bank accounts, create perfect budgets, track every penny. That’s great — but it’s not where I’m at. And I know I’m not the only one.</p><p>Sometimes you just need something small, something clear. A snowball rolling in the right direction.</p><p>That’s what I’m trying to build. And if you’re reading this, maybe it’s something you need too.</p><p>You can add your debts, see a timeline of how these reduce over time, upload transactions to see where you could make savings and there’s a magic button that makes them all disappear in half the time</p><p>This is early stage development, I think it can be a real thing. I’d love to know what you think, suggest features, tell me it’s awful. All feedback is welcome</p><div><figure><a href=\"https://substackcdn.com/image/fetch/$s_!GBcN!,f_auto,q_auto:good,fl_progressive:steep/https%3A%2F%2Fsubstack-post-media.s3.amazonaws.com%2Fpublic%2Fimages%2Fafe3b492-ed3f-4e8b-bed1-79fa4afb41ef_1758x1686.png\"><div><picture></picture></div></a></figure></div>"
     }
   ],
-  "lastUpdated": "2024-12-18T12:00:00Z"
+  "lastUpdated": "2025-07-25T11:56:30.686Z"
 }

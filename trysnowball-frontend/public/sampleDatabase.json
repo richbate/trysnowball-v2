@@ -1,0 +1,347 @@
+{
+  "users": [
+    {
+      "userId": "user_123456",
+      "name": "Rich",
+      "email": "rich@trysnowball.co.uk",
+      "joinedAt": "2024-01-01T00:00:00.000Z",
+      "createdAt": "2024-01-01T00:00:00.000Z",
+      "lastActiveAt": "2025-01-24T10:30:00.000Z"
+    }
+  ],
+  "debts": [
+    {
+      "userId": "user_123456",
+      "debtId": "debt_barclaycard",
+      "name": "Barclaycard",
+      "type": "credit_card",
+      "limit": 3000,
+      "interestRate": 20.0,
+      "minPayment": 75,
+      "notes": "Main credit card",
+      "createdAt": "2024-01-01T00:00:00.000Z",
+      "isActive": true
+    },
+    {
+      "userId": "user_123456",
+      "debtId": "debt_natwest",
+      "name": "Natwest",
+      "type": "credit_card",
+      "limit": 9000,
+      "interestRate": 20.0,
+      "minPayment": 70,
+      "notes": "Making progress - balance reducing",
+      "createdAt": "2024-01-01T00:00:00.000Z",
+      "isActive": true
+    },
+    {
+      "userId": "user_123456",
+      "debtId": "debt_flex",
+      "name": "Flex",
+      "type": "credit_card",
+      "limit": 9000,
+      "interestRate": 20.0,
+      "minPayment": 70,
+      "notes": "Great progress - nearly paid off!",
+      "createdAt": "2024-01-01T00:00:00.000Z",
+      "isActive": true
+    },
+    {
+      "userId": "user_123456",
+      "debtId": "debt_halifax1",
+      "name": "Halifax 1",
+      "type": "credit_card",
+      "limit": 14000,
+      "interestRate": 20.0,
+      "minPayment": 300,
+      "notes": "Largest debt - making excellent progress",
+      "createdAt": "2024-01-01T00:00:00.000Z",
+      "isActive": true
+    },
+    {
+      "userId": "user_123456",
+      "debtId": "debt_halifax2",
+      "name": "Halifax 2",
+      "type": "credit_card",
+      "limit": 9000,
+      "interestRate": 20.0,
+      "minPayment": 215,
+      "notes": "Balance increased - needs attention",
+      "createdAt": "2024-01-01T00:00:00.000Z",
+      "isActive": true
+    },
+    {
+      "userId": "user_123456",
+      "debtId": "debt_mbna",
+      "name": "MBNA",
+      "type": "credit_card",
+      "limit": 9000,
+      "interestRate": 20.0,
+      "minPayment": 255,
+      "notes": "Balance slightly increased",
+      "createdAt": "2024-01-01T00:00:00.000Z",
+      "isActive": true
+    },
+    {
+      "userId": "user_123456",
+      "debtId": "debt_virgin",
+      "name": "Virgin",
+      "type": "credit_card",
+      "limit": 9000,
+      "interestRate": 20.0,
+      "minPayment": 255,
+      "notes": "Balance increased - review spending",
+      "createdAt": "2024-01-01T00:00:00.000Z",
+      "isActive": true
+    },
+    {
+      "userId": "user_123456",
+      "debtId": "debt_paypal",
+      "name": "Paypal",
+      "type": "credit_card",
+      "limit": 9000,
+      "interestRate": 20.0,
+      "minPayment": 255,
+      "notes": "Good progress - balance reducing",
+      "createdAt": "2024-01-01T00:00:00.000Z",
+      "isActive": true
+    }
+  ],
+  "debtSnapshots": [
+    {
+      "userId": "user_123456",
+      "debtId": "debt_barclaycard",
+      "month": "2025-01",
+      "balance": 2461,
+      "extraPayment": 0,
+      "autoMinPayment": true,
+      "actualPayment": 75,
+      "interestCharged": 41.0,
+      "recordedAt": "2025-01-01T00:00:00.000Z"
+    },
+    {
+      "userId": "user_123456",
+      "debtId": "debt_barclaycard",
+      "month": "2024-07",
+      "balance": 2863,
+      "extraPayment": 0,
+      "autoMinPayment": true,
+      "actualPayment": 75,
+      "interestCharged": 47.7,
+      "recordedAt": "2024-07-01T00:00:00.000Z"
+    },
+    {
+      "userId": "user_123456",
+      "debtId": "debt_natwest",
+      "month": "2025-01",
+      "balance": 6820,
+      "extraPayment": 0,
+      "autoMinPayment": true,
+      "actualPayment": 70,
+      "interestCharged": 113.7,
+      "recordedAt": "2025-01-01T00:00:00.000Z"
+    },
+    {
+      "userId": "user_123456",
+      "debtId": "debt_natwest",
+      "month": "2024-07",
+      "balance": 6486,
+      "extraPayment": 50,
+      "autoMinPayment": true,
+      "actualPayment": 120,
+      "interestCharged": 108.1,
+      "recordedAt": "2024-07-01T00:00:00.000Z"
+    },
+    {
+      "userId": "user_123456",
+      "debtId": "debt_flex",
+      "month": "2025-01",
+      "balance": 2250,
+      "extraPayment": 200,
+      "autoMinPayment": true,
+      "actualPayment": 270,
+      "interestCharged": 37.5,
+      "recordedAt": "2025-01-01T00:00:00.000Z"
+    },
+    {
+      "userId": "user_123456",
+      "debtId": "debt_flex",
+      "month": "2024-07",
+      "balance": 248,
+      "extraPayment": 300,
+      "autoMinPayment": true,
+      "actualPayment": 370,
+      "interestCharged": 4.1,
+      "recordedAt": "2024-07-01T00:00:00.000Z"
+    },
+    {
+      "userId": "user_123456",
+      "debtId": "debt_halifax1",
+      "month": "2025-01",
+      "balance": 11694,
+      "extraPayment": 500,
+      "autoMinPayment": true,
+      "actualPayment": 800,
+      "interestCharged": 194.9,
+      "recordedAt": "2025-01-01T00:00:00.000Z"
+    },
+    {
+      "userId": "user_123456",
+      "debtId": "debt_halifax1",
+      "month": "2024-07",
+      "balance": 3002,
+      "extraPayment": 800,
+      "autoMinPayment": true,
+      "actualPayment": 1100,
+      "interestCharged": 50.0,
+      "recordedAt": "2024-07-01T00:00:00.000Z"
+    },
+    {
+      "userId": "user_123456",
+      "debtId": "debt_halifax2",
+      "month": "2025-01",
+      "balance": 8587,
+      "extraPayment": 0,
+      "autoMinPayment": true,
+      "actualPayment": 215,
+      "interestCharged": 143.1,
+      "recordedAt": "2025-01-01T00:00:00.000Z"
+    },
+    {
+      "userId": "user_123456",
+      "debtId": "debt_halifax2",
+      "month": "2024-07",
+      "balance": 9040,
+      "extraPayment": 0,
+      "autoMinPayment": true,
+      "actualPayment": 215,
+      "interestCharged": 150.7,
+      "recordedAt": "2024-07-01T00:00:00.000Z"
+    },
+    {
+      "userId": "user_123456",
+      "debtId": "debt_mbna",
+      "month": "2025-01",
+      "balance": 5931,
+      "extraPayment": 0,
+      "autoMinPayment": true,
+      "actualPayment": 255,
+      "interestCharged": 98.9,
+      "recordedAt": "2025-01-01T00:00:00.000Z"
+    },
+    {
+      "userId": "user_123456",
+      "debtId": "debt_mbna",
+      "month": "2024-07",
+      "balance": 6248,
+      "extraPayment": 0,
+      "autoMinPayment": true,
+      "actualPayment": 255,
+      "interestCharged": 104.1,
+      "recordedAt": "2024-07-01T00:00:00.000Z"
+    },
+    {
+      "userId": "user_123456",
+      "debtId": "debt_virgin",
+      "month": "2025-01",
+      "balance": 4762,
+      "extraPayment": 0,
+      "autoMinPayment": true,
+      "actualPayment": 255,
+      "interestCharged": 79.4,
+      "recordedAt": "2025-01-01T00:00:00.000Z"
+    },
+    {
+      "userId": "user_123456",
+      "debtId": "debt_virgin",
+      "month": "2024-07",
+      "balance": 5583,
+      "extraPayment": 0,
+      "autoMinPayment": true,
+      "actualPayment": 255,
+      "interestCharged": 93.1,
+      "recordedAt": "2024-07-01T00:00:00.000Z"
+    },
+    {
+      "userId": "user_123456",
+      "debtId": "debt_paypal",
+      "month": "2025-01",
+      "balance": 1400,
+      "extraPayment": 100,
+      "autoMinPayment": true,
+      "actualPayment": 355,
+      "interestCharged": 23.3,
+      "recordedAt": "2025-01-01T00:00:00.000Z"
+    },
+    {
+      "userId": "user_123456",
+      "debtId": "debt_paypal",
+      "month": "2024-07",
+      "balance": 780,
+      "extraPayment": 200,
+      "autoMinPayment": true,
+      "actualPayment": 455,
+      "interestCharged": 13.0,
+      "recordedAt": "2024-07-01T00:00:00.000Z"
+    }
+  ],
+  "userProgress": [
+    {
+      "userId": "user_123456",
+      "month": "2025-01",
+      "totalBalance": 42905,
+      "totalPaid": 2295,
+      "totalInterestCharged": 731.5,
+      "streakNoNewDebt": 1,
+      "streakNoWastedSpend": 1,
+      "mainFocus": "snowball_method",
+      "netWorthChange": 1563.5,
+      "recordedAt": "2025-01-01T00:00:00.000Z",
+      "milestones": []
+    },
+    {
+      "userId": "user_123456",
+      "month": "2024-07",
+      "totalBalance": 33250,
+      "totalPaid": 2790,
+      "totalInterestCharged": 576.8,
+      "streakNoNewDebt": 1,
+      "streakNoWastedSpend": 1,
+      "mainFocus": "snowball_method",
+      "netWorthChange": 2213.2,
+      "recordedAt": "2024-07-01T00:00:00.000Z",
+      "milestones": ["milestone_flex_progress"]
+    }
+  ],
+  "milestones": [
+    {
+      "userId": "user_123456",
+      "milestoneId": "milestone_flex_progress",
+      "type": "balance_reduction",
+      "title": "Flex Card Nearly Gone! 🎯",
+      "description": "Amazing progress on Flex card - reduced from £2,250 to £248 in 6 months!",
+      "value": 2002,
+      "achievedAt": "2024-07-01T00:00:00.000Z",
+      "debtId": "debt_flex"
+    },
+    {
+      "userId": "user_123456",
+      "milestoneId": "milestone_halifax1_progress",
+      "type": "balance_reduction",
+      "title": "Halifax 1 Massive Progress! 💪",
+      "description": "Incredible work - reduced Halifax 1 from £11,694 to £3,002 in 6 months!",
+      "value": 8692,
+      "achievedAt": "2024-07-01T00:00:00.000Z",
+      "debtId": "debt_halifax1"
+    },
+    {
+      "userId": "user_123456",
+      "milestoneId": "milestone_total_reduction",
+      "type": "progress_milestone",
+      "title": "£9,655 Total Debt Reduction! 🔥",
+      "description": "You've reduced your total debt by £9,655 over 6 months - that's incredible progress!",
+      "value": 9655,
+      "achievedAt": "2024-07-01T00:00:00.000Z"
+    }
+  ]
+}

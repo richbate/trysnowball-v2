@@ -124,10 +124,10 @@ const BabySteps = () => {
       <div className="max-w-4xl mx-auto py-12 px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-12">
           <h1 className="text-4xl font-bold text-gray-900 mb-4">
-            Dave Ramsey's 7 Baby Steps
+            Debt Foundations: 7 Essential Steps
           </h1>
           <p className="text-xl text-gray-600 mb-6">
-            Your proven plan to financial freedom
+            Build a solid foundation for lasting debt freedom
           </p>
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
             <h3 className="text-lg font-semibold text-blue-900 mb-2">

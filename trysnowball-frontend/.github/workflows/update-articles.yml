@@ -1,0 +1,39 @@
+name: Update Substack Articles
+
+on:
+  schedule:
+    - cron: '0 */6 * * *' # every 6 hours
+  workflow_dispatch:
+
+jobs:
+  update-articles:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install dependencies
+        run: npm install xml2js jsdom
+
+      - name: Run article update script
+        run: node trysnowball-frontend/scripts/update-articles.js
+
+      - name: Check for changes
+        id: git-diff
+        run: |
+          git diff --quiet || echo "changed=true" >> $GITHUB_OUTPUT
+
+      - name: Commit and push if changed
+        if: steps.git-diff.outputs.changed == 'true'
+        run: |
+          git config user.name "GitHub Actions"
+          git config user.email "action@github.com"
+          git add trysnowball-frontend/public/articles.json
+          git commit -m "🤖 Auto-update articles.json from Substack"
+          git push

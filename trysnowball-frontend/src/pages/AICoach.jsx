@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDataManager } from '../hooks/useDataManager';
 import { useTheme } from '../contexts/ThemeContext';
@@ -6,6 +6,7 @@ import { useTheme } from '../contexts/ThemeContext';
 const AICoach = () => {
   const navigate = useNavigate();
   const { colors } = useTheme();
+  const [selectedCoach, setSelectedCoach] = useState('margaret');
   const {
     debts,
     totalDebt,
@@ -15,6 +16,46 @@ const AICoach = () => {
   } = useDataManager();
 
   const hasOnlyDemoData = debts.length === 0 || debts.every(debt => debt.isDemo);
+
+  // Coach personality data
+  const coaches = {
+    margaret: {
+      name: 'Margaret',
+      tone: 'Kind, practical, and warm — the type of person who\'s already boiled the kettle before you even said you were having a rough day.',
+      catchphrase: '"Let\'s get this sorted, love."',
+      vibe: 'Probably has biscuits.',
+      strengths: 'Gentle accountability, emotional support, no judgment. Great for people feeling overwhelmed.',
+      emoji: '☕',
+      color: 'green',
+      bgColor: 'bg-green-50',
+      borderColor: 'border-green-200',
+      textColor: 'text-green-800'
+    },
+    gareth: {
+      name: 'Gareth',
+      tone: 'Blunt but loyal. Like your big brother who calls you out but has your back.',
+      catchphrase: '"Enough faffing — here\'s the plan."',
+      vibe: 'No nonsense, like a PT at the gym.',
+      strengths: 'Direct action, quick wins, challenge without shame.',
+      emoji: '💪',
+      color: 'blue',
+      bgColor: 'bg-blue-50',
+      borderColor: 'border-blue-200',
+      textColor: 'text-blue-800'
+    },
+    jodie: {
+      name: 'Jodie',
+      tone: 'Energetic, encouraging, TikTok-core.',
+      catchphrase: '"Omg babe. You\'re doing SO well already."',
+      vibe: 'Uses glittery emojis unironically.',
+      strengths: 'Motivation, streaks, momentum building. Gamifies the boring bits.',
+      emoji: '✨',
+      color: 'purple',
+      bgColor: 'bg-purple-50',
+      borderColor: 'border-purple-200',
+      textColor: 'text-purple-800'
+    }
+  };
 
   const categorizeDebtType = (name) => {
     const lowerName = name.toLowerCase();
@@ -41,6 +82,13 @@ const AICoach = () => {
 
     const chatGPTData = {
       generated_date: new Date().toISOString().split('T')[0],
+      selected_coach: {
+        name: coaches[selectedCoach].name,
+        personality: selectedCoach,
+        tone: coaches[selectedCoach].tone,
+        catchphrase: coaches[selectedCoach].catchphrase,
+        strengths: coaches[selectedCoach].strengths
+      },
       total_debt: totalDebt,
       total_minimum_payments: totalMinPayments,
       number_of_debts: debts.length,
@@ -82,8 +130,86 @@ const AICoach = () => {
         <header className="text-center mb-16">
           <h1 className="text-5xl font-bold text-primary mb-4">AI Debt Coach</h1>
           <p className="text-xl mb-2 text-gray-600">Your Personal ChatGPT Debt Elimination Script</p>
-          <p className="text-2xl font-bold text-primary mb-6">Get tough love coaching that actually works.</p>
+          <p className="text-2xl font-bold text-primary mb-6">Choose your coaching personality that actually works.</p>
         </header>
+
+        {/* Coach Personality Selection */}
+        <section className="mb-16">
+          <h2 className="text-3xl font-bold mb-8 text-center text-primary">Choose Your Coach Personality</h2>
+          <p className="text-center text-gray-600 mb-8">Different personalities work for different people. Pick the coaching style that will motivate you most.</p>
+          
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            {Object.entries(coaches).map(([key, coach]) => (
+              <div
+                key={key}
+                onClick={() => setSelectedCoach(key)}
+                className={`cursor-pointer rounded-lg p-6 border-2 transition-all duration-200 ${
+                  selectedCoach === key 
+                    ? `${coach.bgColor} ${coach.borderColor} shadow-lg transform scale-105` 
+                    : `${colors.surface} border-gray-200 hover:shadow-md hover:scale-102`
+                }`}
+              >
+                <div className="text-center mb-4">
+                  <div className="text-4xl mb-2">{coach.emoji}</div>
+                  <h3 className={`text-2xl font-bold mb-2 ${selectedCoach === key ? coach.textColor : colors.text.primary}`}>
+                    {coach.name}
+                  </h3>
+                  <p className={`text-lg font-medium italic mb-3 ${selectedCoach === key ? coach.textColor : 'text-gray-600'}`}>
+                    {coach.catchphrase}
+                  </p>
+                </div>
+                
+                <div className="space-y-3">
+                  <div>
+                    <p className="text-sm font-semibold text-gray-700 mb-1">Tone:</p>
+                    <p className={`text-sm ${selectedCoach === key ? coach.textColor : 'text-gray-600'}`}>
+                      {coach.tone}
+                    </p>
+                  </div>
+                  
+                  <div>
+                    <p className="text-sm font-semibold text-gray-700 mb-1">Vibe:</p>
+                    <p className={`text-sm ${selectedCoach === key ? coach.textColor : 'text-gray-600'}`}>
+                      {coach.vibe}
+                    </p>
+                  </div>
+                  
+                  <div>
+                    <p className="text-sm font-semibold text-gray-700 mb-1">Best for:</p>
+                    <p className={`text-sm ${selectedCoach === key ? coach.textColor : 'text-gray-600'}`}>
+                      {coach.strengths}
+                    </p>
+                  </div>
+                </div>
+                
+                {selectedCoach === key && (
+                  <div className={`mt-4 p-3 ${coach.bgColor} rounded-lg border ${coach.borderColor}`}>
+                    <p className={`text-sm font-semibold ${coach.textColor} text-center`}>
+                      ✓ Selected - Your AI coach will use {coach.name}'s personality
+                    </p>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+          
+          {/* Selected Coach Preview */}
+          <div className={`${coaches[selectedCoach].bgColor} rounded-lg p-6 border ${coaches[selectedCoach].borderColor}`}>
+            <div className="text-center">
+              <div className="text-3xl mb-2">{coaches[selectedCoach].emoji}</div>
+              <h3 className={`text-xl font-bold mb-3 ${coaches[selectedCoach].textColor}`}>
+                Preview: {coaches[selectedCoach].name}'s Coaching Style
+              </h3>
+              <div className={`${coaches[selectedCoach].textColor} space-y-2`}>
+                <p className="font-medium">
+                  {coaches[selectedCoach].name === 'Margaret' && "Right then, love. I can see you've got £42,905 across 8 different cards. That's quite a mountain, but we've climbed bigger ones before. Let's get this sorted, shall we? First thing - you're already doing brilliantly with that Halifax 1 progress!"}
+                  {coaches[selectedCoach].name === 'Gareth' && "£42,905 in debt? Right, enough faffing about. You've made excellent progress on Halifax 1 already, so you clearly know what you're doing. Here's the plan: focus everything extra on that Paypal card first. £1,400 - you could smash that in 3 months."}
+                  {coaches[selectedCoach].name === 'Jodie' && "Omg babe, you're doing SO well already! 🎉 Like seriously, look at that Halifax 1 progress - £8,692 reduction?! That's absolutely ICONIC. We're going to turn this debt journey into your biggest glow-up yet! ✨"}
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
 
         {/* What You Get */}
         <section className="mb-16">
@@ -122,7 +248,7 @@ const AICoach = () => {
                   </p>
                   <div className="bg-green-50 rounded p-3">
                     <p className="text-sm text-green-800">
-                      <strong>Example scenario:</strong> "I have a 0% transfer offer for 18 months. Should I transfer my £3,200 Barclaycard debt or focus on my overdraft first?"
+                      <strong>Example scenario:</strong> "I have a 0% transfer offer for 18 months. Should I transfer my £3,200 Barclaycard debt or focus on my another card first?"
                     </p>
                   </div>
                 </div>
@@ -215,9 +341,14 @@ const AICoach = () => {
           <section className="mb-16">
             <div className="bg-blue-50 rounded-lg p-8 border border-blue-200">
               <h2 className="text-2xl font-bold mb-4 text-blue-900">Step 2: Download Your Debt Data</h2>
-              <p className="text-blue-800 mb-6">
-                Ready to get started? Download your debt data in the exact format the AI Coach script expects.
+              <p className="text-blue-800 mb-4">
+                Ready to get started? Download your debt data with {coaches[selectedCoach].name}'s personality settings in the exact format the AI Coach script expects.
               </p>
+              <div className={`mb-4 p-3 ${coaches[selectedCoach].bgColor} rounded border ${coaches[selectedCoach].borderColor}`}>
+                <p className={`text-sm font-medium ${coaches[selectedCoach].textColor}`}>
+                  {coaches[selectedCoach].emoji} Your data will include {coaches[selectedCoach].name}'s coaching personality
+                </p>
+              </div>
               <div className="flex flex-col sm:flex-row gap-4 mb-6">
                 <button
                   onClick={downloadForChatGPT}
@@ -301,8 +432,8 @@ const AICoach = () => {
               <p className="text-gray-600">Absolutely. Your data never leaves your device when you download it. You control what information you share with ChatGPT, and the script includes guidance on data privacy best practices.</p>
             </div>
             <div className={`${colors.surface} rounded-lg p-6 border border-gray-200`}>
-              <h3 className="text-xl font-semibold mb-3">What if I don't like the tough love approach?</h3>
-              <p className="text-gray-600">The script includes options to adjust the coaching style. You can make it more supportive or more direct based on what motivates you. The goal is results, not comfort.</p>
+              <h3 className="text-xl font-semibold mb-3">Can I change the coaching personality?</h3>
+              <p className="text-gray-600">Absolutely! Choose from Margaret (warm & supportive), Gareth (direct & no-nonsense), or Jodie (energetic & motivational). Each personality is designed to work with different motivation styles. You can always re-download your data with a different personality if you want to switch coaches.</p>
             </div>
           </div>
         </section>

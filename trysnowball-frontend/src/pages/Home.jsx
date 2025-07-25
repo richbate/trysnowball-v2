@@ -2,6 +2,7 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTheme } from '../contexts/ThemeContext';
 import { useUserFlow } from '../contexts/UserFlowContext';
+import HomeEmailSignup from '../components/HomeEmailSignup';
 
 const Home = () => {
   const navigate = useNavigate();
@@ -16,7 +17,9 @@ const Home = () => {
   return (
     <div className={`min-h-screen ${colors.background} ${colors.text.primary} px-6 py-12`}>
       <header className="text-center mb-16 max-w-4xl mx-auto">
-        <h1 className="text-5xl font-bold text-primary mb-4">TrySnowball</h1>
+<h1 className="text-5xl font-bold text-primary mb-4">
+  Try Snowball.<br />Debt Freedom Starts Here
+</h1>
         <p className="text-lg leading-relaxed mb-4 font-semibold">
           Pay off debt faster, with less guesswork.
         </p>
@@ -30,8 +33,19 @@ const Home = () => {
           >
             Try Demo
           </button>
+          <button
+            onClick={() => navigate('/money-makeover')}
+            className="w-full sm:w-auto border-2 border-green-500 text-green-600 px-8 py-3 rounded-lg font-semibold hover:bg-green-500 hover:text-white transition-colors shadow-lg"
+          >
+            🚀 1-Month Makeover
+          </button>
         </div>
       </header>
+
+      {/* Email Signup Section */}
+      <section className="mb-16 max-w-4xl mx-auto">
+        <HomeEmailSignup />
+      </section>
 
       <section className="mb-16 max-w-4xl mx-auto">
         <div className={`${colors.surface} rounded-lg p-8 border-l-4 border-primary`}>
@@ -146,6 +160,78 @@ const Home = () => {
               → Start Your Budget (Money Helper)
             </a>
           </div>
+        </div>
+      </section>
+
+      {/* New Money Makeover Feature Section */}
+      <section className="mb-16 max-w-4xl mx-auto">
+        <div className={`${colors.surface} rounded-lg p-8 border-l-4 border-green-500`}>
+          <div className="flex items-start space-x-4 mb-6">
+            <div className="text-4xl">🚀</div>
+            <div>
+              <h2 className="text-3xl font-bold mb-2 text-green-600">1-Month Money Makeover</h2>
+              <p className="text-lg text-gray-600">Clear your smallest debts in 30 days and prove you can do this</p>
+            </div>
+          </div>
+          
+          <div className="grid md:grid-cols-2 gap-6 mb-6">
+            <div>
+              <h3 className="font-semibold text-lg mb-3">Perfect for:</h3>
+              <ul className="space-y-2 text-gray-600">
+                <li className="flex items-center space-x-2">
+                  <span className="text-green-500">✓</span>
+                  <span>Store cards under £500</span>
+                </li>
+                <li className="flex items-center space-x-2">
+                  <span className="text-green-500">✓</span>
+                  <span>Small personal loans</span>
+                </li>
+                <li className="flex items-center space-x-2">
+                  <span className="text-green-500">✓</span>
+                  <span>Overdraft balances</span>
+                </li>
+                <li className="flex items-center space-x-2">
+                  <span className="text-green-500">✓</span>
+                  <span>Credit card balances</span>
+                </li>
+              </ul>
+            </div>
+            
+            <div>
+              <h3 className="font-semibold text-lg mb-3">Why it works:</h3>
+              <ul className="space-y-2 text-gray-600">
+                <li className="flex items-center space-x-2">
+                  <span className="text-orange-500">🎯</span>
+                  <span>Builds real confidence</span>
+                </li>
+                <li className="flex items-center space-x-2">
+                  <span className="text-blue-500">🧠</span>
+                  <span>Clears mental clutter</span>
+                </li>
+                <li className="flex items-center space-x-2">
+                  <span className="text-purple-500">💪</span>
+                  <span>Creates momentum</span>
+                </li>
+                <li className="flex items-center space-x-2">
+                  <span className="text-green-500">💰</span>
+                  <span>Improves cash flow</span>
+                </li>
+              </ul>
+            </div>
+          </div>
+          
+          <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-6 rounded">
+            <p className="font-semibold text-yellow-800 text-lg italic">
+              "I'll clear the smallest debt in my life this month — and prove I can do this."
+            </p>
+          </div>
+          
+          <button 
+            onClick={() => navigate('/money-makeover')}
+            className="bg-green-500 text-white px-8 py-4 rounded-lg font-semibold hover:bg-green-600 transition-colors shadow-lg text-lg"
+          >
+            → Start Your 30-Day Sprint
+          </button>
         </div>
       </section>
 
