@@ -44,6 +44,16 @@ class DataManager {
         const parsed = JSON.parse(stored);
         return { ...DEFAULT_USER_DATA, ...parsed };
       }
+      
+      // MIGRATION: Check for old system data and migrate it
+      const oldDebts = localStorage.getItem('debtBalances');
+      if (oldDebts) {
+        const debts = JSON.parse(oldDebts);
+        const migratedData = { ...DEFAULT_USER_DATA, debts };
+        // Save to new system
+        localStorage.setItem(this.storageKey, JSON.stringify(migratedData));
+        return migratedData;
+      }
     } catch (error) {
       console.error('Error loading data:', error);
     }
@@ -55,6 +65,12 @@ class DataManager {
     try {
       this.data.profile.lastActive = new Date().toISOString();
       localStorage.setItem(this.storageKey, JSON.stringify(this.data));
+      
+      // SYNC: Also save debts to old system for compatibility
+      if (this.data.debts && this.data.debts.length > 0) {
+        localStorage.setItem('debtBalances', JSON.stringify(this.data.debts));
+      }
+      
       this.notifyListeners();
     } catch (error) {
       console.error('Error saving data:', error);
