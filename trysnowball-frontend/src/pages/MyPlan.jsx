@@ -585,8 +585,8 @@ const DebtsTab = ({ colors, debtsData, demoDataCleared }) => {
 };
 
 // Strategy Tab Component
-const StrategyTab = ({ colors, demoDataCleared }) => {
-  if (demoDataCleared) {
+const StrategyTab = ({ colors, debtsData, demoDataCleared, hasNoDebtData }) => {
+  if (hasNoDebtData) {
     return (
       <NoDebtsState 
         title="Strategy Awaiting Your Data"
@@ -655,51 +655,51 @@ const StrategyTab = ({ colors, demoDataCleared }) => {
       <div className={`p-6 border rounded-lg ${colors.border} bg-primary/5`}>
         <h3 className={`font-semibold ${colors.text.primary} mb-4`}>Your Snowball Order (Smallest to Largest)</h3>
         <div className="space-y-3">
-          {[
-            { name: 'Paypal', balance: 1400, order: 1, status: 'next', progress: 'excellent' },
-            { name: 'Flex', balance: 2250, order: 2, status: 'almost', progress: 'excellent' },
-            { name: 'Barclaycard', balance: 2461, order: 3, status: 'future', progress: 'concern' },
-            { name: 'Virgin', balance: 4762, order: 4, status: 'future', progress: 'concern' },
-            { name: 'MBNA', balance: 5931, order: 5, status: 'future', progress: 'concern' },
-            { name: 'Natwest', balance: 6820, order: 6, status: 'future', progress: 'good' },
-            { name: 'Halifax 2', balance: 8587, order: 7, status: 'future', progress: 'concern' },
-            { name: 'Halifax 1', balance: 11694, order: 8, status: 'future', progress: 'excellent' },
-          ].map((debt, index) => (
+          {debtsData
+            .filter(debt => debt.balance > 0) // Only show debts with balances
+            .sort((a, b) => a.balance - b.balance) // Sort by balance (smallest first)
+            .map((debt, index) => {
+              const order = index + 1;
+              const status = index === 0 ? 'next' : index === 1 ? 'almost' : 'future';
+              const progress = debt.progress || 'neutral';
+              
+              return (
             <div key={index} className={`flex items-center justify-between p-3 rounded-lg ${
-              debt.status === 'next' ? 'bg-green-50 border border-green-200' :
-              debt.status === 'almost' ? 'bg-yellow-50 border border-yellow-200' : 'bg-gray-50'
+              status === 'next' ? 'bg-green-50 border border-green-200' :
+              status === 'almost' ? 'bg-yellow-50 border border-yellow-200' : 'bg-gray-50'
             }`}>
               <div className="flex items-center space-x-3">
                 <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
-                  debt.status === 'next' ? 'bg-green-500 text-white' :
-                  debt.status === 'almost' ? 'bg-yellow-500 text-white' : 'bg-gray-300 text-gray-600'
+                  status === 'next' ? 'bg-green-500 text-white' :
+                  status === 'almost' ? 'bg-yellow-500 text-white' : 'bg-gray-300 text-gray-600'
                 }`}>
-                  {debt.order}
+                  {order}
                 </div>
                 <div>
                   <div className="font-medium">{debt.name}</div>
                   <div className="text-sm text-gray-600">£{debt.balance.toLocaleString()}</div>
                   <div className={`text-xs ${
-                    debt.progress === 'excellent' ? 'text-green-600' :
-                    debt.progress === 'good' ? 'text-blue-600' : 'text-red-600'
+                    progress === 'excellent' ? 'text-green-600' :
+                    progress === 'good' ? 'text-blue-600' : 'text-red-600'
                   }`}>
-                    {debt.progress === 'excellent' ? '📉 Great progress' :
-                     debt.progress === 'good' ? '↘️ Making progress' : '📈 Balance increased'}
+                    {progress === 'excellent' ? '📉 Great progress' :
+                     progress === 'good' ? '↘️ Making progress' : '📈 Balance increased'}
                   </div>
                 </div>
               </div>
-              {debt.status === 'next' && (
+              {status === 'next' && (
                 <div className="px-3 py-1 bg-green-500 text-white text-xs rounded-full font-medium">
                   FOCUS HERE
                 </div>
               )}
-              {debt.status === 'almost' && (
+              {status === 'almost' && (
                 <div className="px-3 py-1 bg-yellow-500 text-white text-xs rounded-full font-medium">
                   ALMOST DONE
                 </div>
               )}
             </div>
-          ))}
+              );
+            })}
         </div>
         
         {/* Strategy Note */}
@@ -715,8 +715,8 @@ const StrategyTab = ({ colors, demoDataCleared }) => {
 };
 
 // Timeline Tab Component
-const TimelineTab = ({ colors, debtsData, demoDataCleared }) => {
-  if (demoDataCleared) {
+const TimelineTab = ({ colors, debtsData, demoDataCleared, hasNoDebtData }) => {
+  if (hasNoDebtData) {
     return (
       <NoDebtsState 
         title="Timeline Awaiting Your Data"
