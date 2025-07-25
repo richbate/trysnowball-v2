@@ -4,7 +4,6 @@
 
 [build.environment]
   CI = "false"
-  SECRETS_SCAN_OMIT_KEYS = "REACT_APP_SUPABASE_KEY,REACT_APP_SUPABASE_URL"
 
 [[redirects]]
   from = "https://trysnowball.co.uk/*"
