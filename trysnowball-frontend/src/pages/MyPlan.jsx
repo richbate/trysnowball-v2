@@ -70,11 +70,14 @@ const MyPlan = () => {
     alert('Demo data cleared! You can now add your real debt information.');
   };
 
+  // Use dataManager debts if we don't have local debtsData
+  const currentDebts = debtsData || (dataManagerDebts.length > 0 ? dataManagerDebts : null);
+  
   // Check if we're using demo/baseline data
-  const usingDemoData = !debtsData && !demoDataCleared;
+  const usingDemoData = !currentDebts && !demoDataCleared;
   
   // Check if there's truly no debt data anywhere
-  const hasNoDebtData = !debtsData && demoDataCleared && dataManagerDebts.length === 0;
+  const hasNoDebtData = !currentDebts && demoDataCleared;
 
   const tabs = [
     { id: 'debts', label: 'My Debts & Progress', icon: '💳' },
@@ -125,7 +128,7 @@ const MyPlan = () => {
                   <span>🗑️</span>
                   <span>Clear Demo Data</span>
                 </button>
-              ) : debtsData ? (
+              ) : currentDebts ? (
                 <button
                   data-testid="update-balances-btn"
                   onClick={() => setShowUpdateBalances(true)}
@@ -171,9 +174,9 @@ const MyPlan = () => {
 
           {/* Tab Content */}
           <div className="p-6">
-            {activeTab === 'debts' && <DebtsTab colors={colors} debtsData={debtsData} demoDataCleared={demoDataCleared} hasNoDebtData={hasNoDebtData} />}
-            {activeTab === 'strategy' && <StrategyTab colors={colors} debtsData={debtsData} demoDataCleared={demoDataCleared} hasNoDebtData={hasNoDebtData} />}
-            {activeTab === 'timeline' && <TimelineTab colors={colors} debtsData={debtsData} demoDataCleared={demoDataCleared} hasNoDebtData={hasNoDebtData} />}
+            {activeTab === 'debts' && <DebtsTab colors={colors} debtsData={currentDebts} demoDataCleared={demoDataCleared} hasNoDebtData={hasNoDebtData} />}
+            {activeTab === 'strategy' && <StrategyTab colors={colors} debtsData={currentDebts} demoDataCleared={demoDataCleared} hasNoDebtData={hasNoDebtData} />}
+            {activeTab === 'timeline' && <TimelineTab colors={colors} debtsData={currentDebts} demoDataCleared={demoDataCleared} hasNoDebtData={hasNoDebtData} />}
           </div>
         </div>
       </div>
@@ -187,9 +190,9 @@ const MyPlan = () => {
       )}
 
       {/* Progress Notification */}
-      {showProgressNotification && debtsData && (
+      {showProgressNotification && currentDebts && (
         <ProgressNotification
-          totalProgress={debtsData.reduce((sum, debt) => sum + (debt.january - debt.balance), 0)}
+          totalProgress={currentDebts.reduce((sum, debt) => sum + (debt.january - debt.balance), 0)}
           onDismiss={() => setShowProgressNotification(false)}
         />
       )}
