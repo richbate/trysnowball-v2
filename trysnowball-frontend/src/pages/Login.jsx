@@ -62,7 +62,7 @@ function Login() {
       const { data, error } = await supabase.auth.signInWithOtp({ 
         email,
         options: {
-          emailRedirectTo: `${window.location.origin}/login`,
+          emailRedirectTo: `https://trysnowball.netlify.app/login`,
           data: {
             type: 'magiclink'
           }

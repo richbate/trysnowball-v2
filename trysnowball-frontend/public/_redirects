@@ -1,1 +1,4 @@
+# Auth callback redirect to custom domain
+/login?*  https://www.trysnowball.co.uk/login:splat  302
+
 /*    /index.html   200
