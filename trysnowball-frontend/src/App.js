@@ -183,7 +183,7 @@ function Navigation() {
                   to="/login"
                   className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
                 >
-                  Login
+                  Login / Sign Up
                 </Link>
               )}
               
@@ -282,7 +282,7 @@ function Navigation() {
                     onClick={() => setIsMenuOpen(false)}
                     className="mx-4 mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors text-center"
                   >
-                    Login
+                    Login / Sign Up
                   </Link>
                 )}
               </div>

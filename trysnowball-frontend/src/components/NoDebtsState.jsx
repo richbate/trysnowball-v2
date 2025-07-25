@@ -32,6 +32,13 @@ const NoDebtsState = ({
         {showSecondaryActions && (
           <>
             <Link 
+              to="/profile"
+              className={`px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium inline-flex items-center justify-center space-x-2`}
+            >
+              <span>📋</span>
+              <span>Bulk Import Debts</span>
+            </Link>
+            <Link 
               to="/baby-steps"
               className={`px-6 py-3 border ${colors.border} rounded-lg hover:${colors.surfaceSecondary} transition-colors font-medium inline-flex items-center justify-center space-x-2`}
             >
