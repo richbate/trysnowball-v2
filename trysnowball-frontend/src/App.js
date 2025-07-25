@@ -18,7 +18,7 @@ import MyPlan from './pages/MyPlan';
 import Profile from './pages/Profile';
 import Article from './pages/Article';
 
-import { UserProvider } from './contexts/UserContext';
+import { UserProvider, useUser } from './contexts/UserContext';
 
 
 // const user = true;
@@ -78,8 +78,7 @@ function Navigation() {
   const [accountOpen, setAccountOpen] = useState(false);
   const location = useLocation();
   const { colors } = useTheme();
-
-  // const { user, loading } = useAuth();
+  const { user, loading } = useUser();
 
   if (loading) {
     return (
@@ -171,13 +170,22 @@ function Navigation() {
                 setIsOpen={setResourcesOpen}
                 colors={colors}
               />
-              <Dropdown
-                title="⚙️ Account"
-                items={accountItems}
-                isOpen={accountOpen}
-                setIsOpen={setAccountOpen}
-                colors={colors}
-              />
+              {user ? (
+                <Dropdown
+                  title="⚙️ Account"
+                  items={accountItems}
+                  isOpen={accountOpen}
+                  setIsOpen={setAccountOpen}
+                  colors={colors}
+                />
+              ) : (
+                <Link
+                  to="/login"
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
+                >
+                  Login
+                </Link>
+              )}
               
               <ThemeToggle />
             </div>
@@ -252,19 +260,31 @@ function Navigation() {
                 ))}
                 
                 {/* Account Section */}
-                <div className={`px-4 py-1 text-xs font-semibold ${colors.text.muted} uppercase tracking-wider mt-2`}>
-                  ⚙️ Account & Settings
-                </div>
-                {accountItems.map(([path, label]) => (
+                {user ? (
+                  <>
+                    <div className={`px-4 py-1 text-xs font-semibold ${colors.text.muted} uppercase tracking-wider mt-2`}>
+                      ⚙️ Account & Settings
+                    </div>
+                    {accountItems.map(([path, label]) => (
+                      <Link
+                        key={path}
+                        to={path}
+                        onClick={() => setIsMenuOpen(false)}
+                        className={`px-4 py-2 pl-8 text-left rounded-lg text-sm font-medium transition-colors ${colors.text.secondary} hover:${colors.text.primary} hover:${colors.surfaceSecondary}`}
+                      >
+                        {label}
+                      </Link>
+                    ))}
+                  </>
+                ) : (
                   <Link
-                    key={path}
-                    to={path}
+                    to="/login"
                     onClick={() => setIsMenuOpen(false)}
-                    className={`px-4 py-2 pl-8 text-left rounded-lg text-sm font-medium transition-colors ${colors.text.secondary} hover:${colors.text.primary} hover:${colors.surfaceSecondary}`}
+                    className="mx-4 mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors text-center"
                   >
-                    {label}
+                    Login
                   </Link>
-                ))}
+                )}
               </div>
             </div>
           )}
