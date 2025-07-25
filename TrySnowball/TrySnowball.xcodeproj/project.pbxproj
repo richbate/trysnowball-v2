@@ -45,6 +45,11 @@
 			path = TrySnowballUITests;
 			sourceTree = "<group>";
 		};
+		6F7439822E2FF54400EA8015 /* Extensions */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = Extensions;
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -75,6 +80,7 @@
 		6F7438EA2E2FCDE000EA8015 = {
 			isa = PBXGroup;
 			children = (
+				6F7439822E2FF54400EA8015 /* Extensions */,
 				6F7438F52E2FCDE000EA8015 /* TrySnowball */,
 				6F7439042E2FCDE100EA8015 /* TrySnowballTests */,
 				6F74390E2E2FCDE100EA8015 /* TrySnowballUITests */,
@@ -109,6 +115,7 @@
 			);
 			fileSystemSynchronizedGroups = (
 				6F7438F52E2FCDE000EA8015 /* TrySnowball */,
+				6F7439822E2FF54400EA8015 /* Extensions */,
 			);
 			name = TrySnowball;
 			packageProductDependencies = (

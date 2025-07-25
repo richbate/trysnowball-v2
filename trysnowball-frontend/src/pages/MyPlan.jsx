@@ -738,105 +738,38 @@ const TimelineTab = ({ colors, debtsData, demoDataCleared, hasNoDebtData }) => {
     <div className="space-y-8">
       <div className="flex items-center justify-between">
         <h2 className={`text-xl font-semibold ${colors.text.primary}`}>Debt Freedom Timeline</h2>
-        <Link 
-          to="/what-if"
-          className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors text-sm font-medium"
-        >
-          Advanced Scenarios
-        </Link>
-      </div>
-
-      {/* Interactive Snowball Chart */}
-      <SnowballChart 
-        debts={chartDebts}
-        extraPayment={500}
-        colors={colors}
-      />
-
-      {/* Timeline Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className={`p-4 rounded-lg border ${colors.border}`}>
-          <div className="text-2xl font-bold text-green-600">24 months</div>
-          <div className={`text-sm ${colors.text.muted}`}>Estimated Time to Freedom</div>
-        </div>
-        <div className={`p-4 rounded-lg border ${colors.border}`}>
-          <div className="text-2xl font-bold text-blue-600">£1,000</div>
-          <div className={`text-sm ${colors.text.muted}`}>Suggested Extra Payment</div>
-        </div>
-        <div className={`p-4 rounded-lg border ${colors.border}`}>
-          <div className="text-2xl font-bold text-purple-600">£8,500</div>
-          <div className={`text-sm ${colors.text.muted}`}>Interest Saved vs Min Payments</div>
+        <div className="px-4 py-2 bg-orange-100 text-orange-800 rounded-lg text-sm font-medium">
+          🚧 Coming Soon
         </div>
       </div>
 
-      {/* Milestone Timeline */}
-      <div className={`p-6 border rounded-lg ${colors.border}`}>
-        <h3 className={`font-semibold ${colors.text.primary} mb-4`}>Your Realistic Debt Freedom Timeline</h3>
-        <div className="space-y-4">
-          {[
-            { date: 'Mar 2025', milestone: 'Paypal Paid Off! 🎉', amount: '£1,400', status: 'upcoming' },
-            { date: 'Jun 2025', milestone: 'Flex Card Eliminated! 💪', amount: '£2,250', status: 'future' },
-            { date: 'Sep 2025', milestone: 'Barclaycard Gone! 🔥', amount: '£2,461', status: 'future' },
-            { date: 'Feb 2026', milestone: 'Virgin Card Defeated! ⚡', amount: '£4,762', status: 'future' },
-            { date: 'Jul 2026', milestone: 'MBNA Finished! 🚀', amount: '£5,931', status: 'future' },
-            { date: 'Dec 2026', milestone: 'Natwest Complete! 🎯', amount: '£6,820', status: 'future' },
-            { date: 'Jun 2027', milestone: 'Halifax 2 Done! 💥', amount: '£8,587', status: 'future' },
-            { date: 'Dec 2027', milestone: 'DEBT FREE! 🏆🎊', amount: '£42,905', status: 'goal' },
-          ].map((item, index) => (
-            <div key={index} className="flex items-center space-x-4">
-              <div className={`w-4 h-4 rounded-full ${
-                item.status === 'upcoming' ? 'bg-yellow-400' :
-                item.status === 'goal' ? 'bg-green-500' : 'bg-gray-300'
-              }`}></div>
-              <div className="flex-1">
-                <div className="flex justify-between items-center">
-                  <div>
-                    <div className="font-medium">{item.milestone}</div>
-                    <div className={`text-sm ${colors.text.muted}`}>{item.date}</div>
-                  </div>
-                  <div className="text-right">
-                    <div className="font-semibold">{item.amount}</div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-        
-        {/* Progress Note */}
-        <div className={`mt-4 p-3 bg-green-50 border border-green-200 rounded-lg`}>
-          <p className="text-sm text-green-800">
-            <strong>🎯 You're already making excellent progress!</strong> Your Halifax 1 reduction (-£8,692) 
-            and Flex progress (-£2,002) show you have the momentum to be debt-free in under 3 years.
-          </p>
-        </div>
-      </div>
-
-      {/* Action Items */}
-      <div className={`p-6 border rounded-lg ${colors.border} bg-blue-50`}>
-        <h3 className={`font-semibold ${colors.text.primary} mb-4`}>February 2025 Action Plan</h3>
-        <div className="space-y-3">
-          <div className="flex items-center space-x-3">
-            <input type="checkbox" className="w-4 h-4 text-primary" />
-            <span>Make minimum payments on all debts (£1,495)</span>
+      {/* Coming Soon Message */}
+      <div className={`p-8 border-2 border-dashed ${colors.border} rounded-lg text-center`}>
+        <div className="text-6xl mb-4">📊</div>
+        <h3 className={`text-xl font-semibold ${colors.text.primary} mb-4`}>
+          Smart Timeline Calculations Coming Soon
+        </h3>
+        <p className={`${colors.text.secondary} mb-6 max-w-2xl mx-auto`}>
+          We're building advanced debt freedom projections that will show you exactly when each debt will be paid off, 
+          how much interest you'll save, and personalized milestone dates based on your real data.
+        </p>
+        <div className={`grid grid-cols-1 md:grid-cols-3 gap-4 max-w-3xl mx-auto ${colors.text.muted} text-sm`}>
+          <div className="flex items-center justify-center space-x-2">
+            <span>📅</span>
+            <span>Personalized payoff dates</span>
           </div>
-          <div className="flex items-center space-x-3">
-            <input type="checkbox" className="w-4 h-4 text-primary" />
-            <span>Focus extra £500 on Paypal (smallest debt first!)</span>
+          <div className="flex items-center justify-center space-x-2">
+            <span>💰</span>
+            <span>Interest savings calculations</span>
           </div>
-          <div className="flex items-center space-x-3">
-            <input type="checkbox" className="w-4 h-4 text-primary" />
-            <span>Stop using cards with increasing balances (Virgin, Halifax 2, MBNA)</span>
-          </div>
-          <div className="flex items-center space-x-3">
-            <input type="checkbox" className="w-4 h-4 text-primary" />
-            <span>Celebrate your Halifax 1 success - you're crushing it! 🎉</span>
+          <div className="flex items-center justify-center space-x-2">
+            <span>🎯</span>
+            <span>Milestone celebrations</span>
           </div>
         </div>
       </div>
     </div>
   );
 };
-
 
 export default MyPlan;
