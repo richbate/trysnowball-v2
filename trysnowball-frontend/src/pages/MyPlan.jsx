@@ -324,14 +324,14 @@ const DebtsTab = ({ colors, debtsData, demoDataCleared }) => {
   // Use updated data if available, otherwise use baseline (unless cleared)
   const debts = debtsData ? debtsData.map(debt => ({
     name: debt.name,
-    balance: debt.balance,
-    rate: 20, // All cards are 20% APR
-    min: debt.minPayment,
+    balance: debt.balance || debt.amount || 0, // Handle both dataManager (amount) and local (balance) formats
+    rate: debt.interest || 20, // Use actual interest rate or default to 20%
+    min: debt.minPayment || debt.regularPayment || 0, // Handle both formats
     type: 'Credit Card',
-    trend: debt.january - debt.balance, // Calculate new trend from January baseline
+    trend: (debt.january || 0) - (debt.balance || debt.amount || 0), // Calculate new trend from January baseline
     progress: debt.progress?.status || 'neutral',
-    january: debt.january,
-    historical: [...getHistoricalData(debt.name), { date: '2025-02-01', balance: debt.balance }] // Add current balance as latest point
+    january: debt.january || debt.amount || 0, // Fallback if no January data
+    historical: [...getHistoricalData(debt.name), { date: '2025-02-01', balance: debt.balance || debt.amount || 0 }] // Add current balance as latest point
   })) : (demoDataCleared ? [] : baselineDebts);
 
   const totalBalance = debts.reduce((sum, debt) => sum + debt.balance, 0);
