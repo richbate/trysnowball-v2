@@ -1,0 +1,76 @@
+{
+  "meta": {
+    "profile": "trap",
+    "description": "High-interest debt trap - payday loans and maxed credit cards",
+    "totalDebt": 4650,
+    "monthlyMinimums": 163,
+    "debtFreeNarrative": "Escape the debt trap in 3 years with focused payments"
+  },
+  "user": {
+    "name": "Demo Struggles",
+    "email": "trap@trysnowball.co.uk",
+    "preferredStrategy": "snowball"
+  },
+  "debts": [
+    {
+      "id": "demo-payday",
+      "name": "Payday Loan", 
+      "balance": 400,
+      "rate": 49.9,
+      "minimumPayment": 20,
+      "type": "payday_loan",
+      "source": "demo",
+      "createdAt": "2024-01-15T10:00:00Z"
+    },
+    {
+      "id": "demo-cc-trap",
+      "name": "Aqua Credit Card",
+      "balance": 1250,
+      "rate": 34.9,
+      "minimumPayment": 38,
+      "type": "credit_card",
+      "source": "demo",
+      "createdAt": "2024-01-15T10:00:00Z"
+    },
+    {
+      "id": "demo-overdraft-trap", 
+      "name": "Lloyds Overdraft",
+      "balance": 1500,
+      "rate": 39.9,
+      "minimumPayment": 60,
+      "type": "overdraft",
+      "source": "demo",
+      "createdAt": "2024-01-15T10:00:00Z"
+    },
+    {
+      "id": "demo-cc2-trap",
+      "name": "Vanquis Card",
+      "balance": 1500,
+      "rate": 29.9,
+      "minimumPayment": 45,
+      "type": "credit_card",
+      "source": "demo",
+      "createdAt": "2024-01-15T10:00:00Z"
+    }
+  ],
+  "settings": {
+    "extraPayment": 50,
+    "strategy": "avalanche",
+    "paymentDay": 25
+  },
+  "projections": {
+    "withoutBoost": {
+      "months": 48,
+      "totalInterest": 2120
+    },
+    "withBoost": {
+      "months": 31,
+      "totalInterest": 1205,
+      "interestSaved": 915,
+      "monthsSaved": 17
+    },
+    "firstDebtClearMonth": 6,
+    "narrative": "Break free from high-interest debt in 2.5 years with just £50 extra",
+    "urgentAction": true
+  }
+}

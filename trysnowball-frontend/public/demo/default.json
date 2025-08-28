@@ -1,0 +1,75 @@
+{
+  "meta": {
+    "profile": "default",
+    "description": "Young professional with credit cards and overdraft - typical UK starter debt",
+    "totalDebt": 9600,
+    "monthlyMinimums": 306,
+    "debtFreeNarrative": "Clear all debts by March 2026 with snowball strategy"
+  },
+  "user": {
+    "name": "Demo User",
+    "email": "demo@trysnowball.co.uk",
+    "preferredStrategy": "snowball"
+  },
+  "debts": [
+    {
+      "id": "demo-overdraft",
+      "name": "HSBC Overdraft",
+      "balance": 500,
+      "rate": 39.9,
+      "minimumPayment": 25,
+      "type": "overdraft",
+      "source": "demo",
+      "createdAt": "2024-01-15T10:00:00Z"
+    },
+    {
+      "id": "demo-cc1",
+      "name": "Barclaycard",
+      "balance": 1850,
+      "rate": 22.9,
+      "minimumPayment": 56,
+      "type": "credit_card",
+      "source": "demo",
+      "createdAt": "2024-01-15T10:00:00Z"
+    },
+    {
+      "id": "demo-cc2",
+      "name": "Halifax Credit Card",
+      "balance": 2750,
+      "rate": 18.9,
+      "minimumPayment": 83,
+      "type": "credit_card", 
+      "source": "demo",
+      "createdAt": "2024-01-15T10:00:00Z"
+    },
+    {
+      "id": "demo-loan1", 
+      "name": "Zopa Personal Loan",
+      "balance": 4500,
+      "rate": 7.9,
+      "minimumPayment": 142,
+      "type": "personal_loan",
+      "source": "demo",
+      "createdAt": "2024-01-15T10:00:00Z"
+    }
+  ],
+  "settings": {
+    "extraPayment": 100,
+    "strategy": "snowball",
+    "paymentDay": 25
+  },
+  "projections": {
+    "withoutBoost": {
+      "months": 48,
+      "totalInterest": 2847
+    },
+    "withBoost": {
+      "months": 28,
+      "totalInterest": 1423,
+      "interestSaved": 1424,
+      "monthsSaved": 20
+    },
+    "firstDebtClearMonth": 3,
+    "narrative": "You'll be debt-free in 2 years and 4 months with £100 extra per month"
+  }
+}

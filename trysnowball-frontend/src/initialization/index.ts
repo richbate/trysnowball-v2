@@ -1,0 +1,39 @@
+/**
+ * CP-1: App Initialization
+ * 
+ * Sets up the data layer consolidation on app startup
+ */
+
+import { runMigrationOnStartup } from '../migrations/migrateLegacyData';
+import { installDeprecationShims } from '../migrations/deprecationShims';
+
+/**
+ * Initialize the application with the new data layer
+ */
+export async function initializeDataLayer(): Promise<void> {
+  console.log('[DataLayer] Initializing CP-1 Data Layer Consolidation...');
+  
+  try {
+    // 1. Install deprecation shims to prevent legacy writes
+    installDeprecationShims();
+    console.log('✅ [DataLayer] Deprecation shims installed');
+    
+    // 2. Run migration from legacy systems
+    await runMigrationOnStartup();
+    console.log('✅ [DataLayer] Migration completed');
+    
+    // 3. Set global flag to indicate new system is ready
+    if (typeof window !== 'undefined') {
+      (window as any).__DEBT_STORE_V2_READY__ = true;
+    }
+    
+    console.log('🚀 [DataLayer] CP-1 Data Layer Consolidation complete!');
+  } catch (error) {
+    console.error('❌ [DataLayer] Initialization failed:', error);
+    
+    // Don't prevent app startup, but log the error
+    if (typeof window !== 'undefined') {
+      (window as any).__DEBT_STORE_V2_ERROR__ = error;
+    }
+  }
+}

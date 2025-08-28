@@ -1,0 +1,140 @@
+{
+  "debts": [
+    {
+      "id": "demo_1",
+      "name": "Barclaycard",
+      "balance": 3250,
+      "minimumPayment": 97,
+      "rate": 23.9,
+      "type": "credit_card",
+      "category": "credit_card",
+      "icon": "💳",
+      "created": "2024-01-15T10:00:00Z",
+      "lastUpdated": "2025-01-20T10:00:00Z"
+    },
+    {
+      "id": "demo_2", 
+      "name": "Halifax Credit Card",
+      "balance": 1850,
+      "minimumPayment": 55,
+      "rate": 19.9,
+      "type": "credit_card",
+      "category": "credit_card",
+      "icon": "💳",
+      "created": "2024-01-15T10:00:00Z",
+      "lastUpdated": "2025-01-20T10:00:00Z"
+    },
+    {
+      "id": "demo_3",
+      "name": "Car Loan",
+      "balance": 8500,
+      "minimumPayment": 285,
+      "rate": 6.9,
+      "type": "loan",
+      "category": "auto_loan",
+      "icon": "🚗",
+      "created": "2024-01-15T10:00:00Z",
+      "lastUpdated": "2025-01-20T10:00:00Z"
+    },
+    {
+      "id": "demo_4",
+      "name": "Lloyds Personal Loan",
+      "balance": 5200,
+      "minimumPayment": 178,
+      "rate": 8.9,
+      "type": "loan",
+      "category": "personal_loan",
+      "icon": "🏦",
+      "created": "2024-01-15T10:00:00Z",
+      "lastUpdated": "2025-01-20T10:00:00Z"
+    },
+    {
+      "id": "demo_5",
+      "name": "Amex",
+      "balance": 850,
+      "minimumPayment": 25,
+      "rate": 21.7,
+      "type": "credit_card",
+      "category": "credit_card",
+      "icon": "💳",
+      "created": "2024-01-15T10:00:00Z",
+      "lastUpdated": "2025-01-20T10:00:00Z"
+    }
+  ],
+  "settings": {
+    "extraPayment": 150,
+    "strategy": "snowball",
+    "currency": "GBP",
+    "lastBalanceUpdate": "2025-01-20T10:00:00Z"
+  },
+  "snowflakes": [
+    {
+      "id": "sf_1",
+      "amount": 200,
+      "date": "2025-01-10T10:00:00Z",
+      "source": "eBay sales",
+      "description": "Sold old electronics"
+    },
+    {
+      "id": "sf_2",
+      "amount": 75,
+      "date": "2025-01-05T10:00:00Z", 
+      "source": "Work bonus",
+      "description": "Monthly performance bonus"
+    },
+    {
+      "id": "sf_3",
+      "amount": 150,
+      "date": "2024-12-28T10:00:00Z",
+      "source": "Christmas gift",
+      "description": "Gift from parents"
+    }
+  ],
+  "goals": [
+    {
+      "id": "goal_1",
+      "title": "Pay off Amex",
+      "target": 850,
+      "type": "debt_payoff",
+      "debtId": "demo_5",
+      "priority": 1,
+      "startingBalance": 850
+    },
+    {
+      "id": "goal_2",
+      "title": "25% debt reduction",
+      "target": 4950,
+      "type": "debt_reduction",
+      "priority": 2,
+      "startingTotal": 19800
+    },
+    {
+      "id": "goal_3",
+      "title": "£200 monthly boost",
+      "target": 200,
+      "type": "payment_boost",
+      "priority": 3
+    }
+  ],
+  "milestones": [
+    {
+      "id": "ms_1",
+      "title": "First £100 extra payment",
+      "date": "2024-12-01T10:00:00Z",
+      "completed": true,
+      "type": "payment"
+    },
+    {
+      "id": "ms_2",
+      "title": "Paid off store card",
+      "date": "2024-11-15T10:00:00Z",
+      "completed": true,
+      "type": "payoff"
+    }
+  ],
+  "metadata": {
+    "version": "1.0",
+    "generated": "2025-01-28T10:00:00Z",
+    "description": "Demo data for UK users with realistic debt profiles"
+  }
+}

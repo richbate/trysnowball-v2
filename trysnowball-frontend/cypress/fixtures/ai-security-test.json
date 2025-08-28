@@ -1,0 +1,6 @@
+{
+  "content": "This is a safe AI response for testing **bold text** and *italic text*. [Safe link](https://example.com)",
+  "usage": {
+    "tokens": 50
+  }
+}

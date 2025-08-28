@@ -1,0 +1,50 @@
+import React from 'react';
+import LibraryLayout from './LibraryLayout';
+import Article from './components/Article';
+
+export default function DebtSnowballVsAvalanche() {
+  return (
+    <LibraryLayout>
+      <Article 
+        title="Debt Snowball vs Avalanche: Which Fits You?" 
+        description="Two proven strategies. Snowball wins on motivation, Avalanche wins on interest saved. Choose the one you'll stick with."
+      >
+        <p>
+          Both methods work. The question is whether you need <strong>fast wins</strong> (Snowball) or <strong>lowest cost</strong> (Avalanche).
+          Try both timelines in TrySnowball and pick the one that keeps you moving.
+        </p>
+
+        <h3>Quick definitions</h3>
+        <ul className="list-disc pl-5">
+          <li><strong>Snowball:</strong> Smallest balance first — build momentum.</li>
+          <li><strong>Avalanche:</strong> Highest interest first — minimise cost.</li>
+        </ul>
+
+        <h3>When to pick Snowball</h3>
+        <ul className="list-disc pl-5">
+          <li>You need early wins to stay motivated.</li>
+          <li>Your balances vary a lot and a few are tiny.</li>
+        </ul>
+
+        <h3>When to pick Avalanche</h3>
+        <ul className="list-disc pl-5">
+          <li>You're disciplined and want the cheapest path.</li>
+          <li>You've got high-APR credit cards eating your budget.</li>
+        </ul>
+
+        <h3>Hybrid approach (popular)</h3>
+        <p>
+          Clear 1–2 small balances with Snowball to build momentum, then switch to Avalanche for savings. 
+          Ask <a href="/ai/coach" className="text-blue-600 hover:underline">Yuki</a> to model this with your debts.
+        </p>
+
+        <p className="mt-6">
+          Deep dives:{" "}
+          <a href="/library/debt-snowball-plan" className="text-blue-600 hover:underline">Snowball</a>{" "}
+          ·{" "}
+          <a href="/library/debt-avalanche-plan" className="text-blue-600 hover:underline">Avalanche</a>
+        </p>
+      </Article>
+    </LibraryLayout>
+  );
+}

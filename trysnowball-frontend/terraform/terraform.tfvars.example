@@ -1,0 +1,21 @@
+# Copy this file to terraform.tfvars and fill in your values
+
+# Domain configuration
+domain_name = "trysnowball.co.uk"
+pages_subdomain = "trysnowball-frontend.pages.dev"
+
+# SendGrid configuration  
+sendgrid_user_id = "u54675486"
+sendgrid_wl_id = "wl237"
+sendgrid_bounce_subdomain = "em2595"
+sendgrid_link_id = "54675486"
+sendgrid_url_id = "url3555"
+
+# Worker secrets (keep these secure!)
+jwt_secret = "your-jwt-secret-here"
+sendgrid_api_key = "your-sendgrid-api-key-here"
+base_url = "https://trysnowball.co.uk"
+
+# PostHog Configuration
+posthog_api_key = "your_posthog_personal_api_key_here"
+notification_email = "hello@trysnowball.co.uk"

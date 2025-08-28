@@ -1,0 +1,185 @@
+/**
+ * Unified Debt Calculator Adapter
+ * All debt calculations should route through this single adapter that uses DebtEngine
+ * This replaces legacy simulateSnowball, simulateSnowballEnhanced, and other scattered calculators
+ */
+
+import { DebtEngine } from './DebtEngine';
+
+/**
+ * CENTRALIZED CALCULATION ADAPTER - The Only Official Way to Calculate Debt Scenarios
+ * All components should use this instead of direct DebtEngine or legacy calculators
+ * 
+ * @param {Array} debts - Array of debt objects
+ * @param {number} extraPayment - Additional payment per month
+ * @returns {Object} Comprehensive simulation results
+ */
+export const calculateDebtScenario = (debts, extraPayment = 0) => {
+  if (!debts || debts.length === 0) {
+    return {
+      monthlyBreakdowns: [],
+      debtProgressions: [],
+      timeline: [],
+      summary: {
+        totalMonths: 0,
+        totalInterestPaid: 0,
+        totalExtraPayments: 0,
+        debtFreeDate: null,
+        totalPayments: 0,
+        interestSaved: 0
+      },
+      chartData: {
+        monthlyPaymentChart: [],
+        snowballGrowthChart: [],
+        debtProgressionChart: []
+      }
+    };
+  }
+
+  // Normalize debts for DebtEngine
+  const normalizedDebts = debts.map(debt => ({
+    id: debt.id || debt.name,
+    name: debt.name,
+    balance: debt.balance || debt.amount || 0,
+    interest: debt.interest || debt.interestRate || debt.rate || 0,
+    minPayment: debt.minPayment || debt.regularPayment || Math.max(25, Math.round((debt.balance || debt.amount || 0) * 0.02)),
+    order: debt.order || 999
+  }));
+
+  // Calculate total minimum payments
+  const totalMinPayments = normalizedDebts.reduce((sum, debt) => sum + debt.minPayment, 0);
+  const totalPayment = totalMinPayments + extraPayment;
+
+  // Use DebtEngine for calculations
+  const engine = new DebtEngine(normalizedDebts);
+  const timeline = engine.generateTimeline(totalPayment);
+
+  // Generate enhanced breakdown data for charts and analysis
+  const monthlyBreakdowns = timeline.map((month, index) => ({
+    month: index + 1,
+    date: new Date(Date.now() + index * 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+    totalBalance: month.totalBalance,
+    totalPayment: month.totalPayment,
+    totalInterest: month.totalInterest,
+    totalPrincipal: month.totalPrincipal,
+    minPayments: totalMinPayments,
+    extraPayment: extraPayment,
+    snowballPayment: month.totalPayment - totalMinPayments - extraPayment,
+    debts: month.debts || []
+  }));
+
+  // Generate debt progression data for charts
+  const debtProgressions = normalizedDebts.map(debt => {
+    const progression = [];
+    let remainingBalance = debt.balance;
+    
+    for (let i = 0; i < timeline.length && remainingBalance > 0; i++) {
+      const monthData = timeline[i];
+      const debtData = monthData.debts?.find(d => d.id === debt.id || d.name === debt.name);
+      
+      if (debtData) {
+        remainingBalance = debtData.balance;
+        progression.push({
+          month: i + 1,
+          balance: remainingBalance,
+          payment: debtData.payment || 0,
+          interest: debtData.interest || 0,
+          principal: debtData.principal || 0
+        });
+      }
+      
+      if (remainingBalance <= 0) break;
+    }
+    
+    return {
+      debtId: debt.id,
+      debtName: debt.name,
+      originalBalance: debt.balance,
+      progression
+    };
+  });
+
+  // Calculate summary statistics
+  const totalInterestPaid = timeline.reduce((sum, month) => sum + (month.totalInterest || 0), 0);
+  const totalPayments = timeline.reduce((sum, month) => sum + (month.totalPayment || 0), 0);
+  const totalMonths = timeline.length;
+  const debtFreeDate = totalMonths > 0 
+    ? new Date(Date.now() + totalMonths * 30 * 24 * 60 * 60 * 1000)
+    : null;
+
+  const summary = {
+    totalMonths,
+    totalInterestPaid: Math.round(totalInterestPaid),
+    totalExtraPayments: extraPayment * totalMonths,
+    debtFreeDate: debtFreeDate ? debtFreeDate.toISOString().split('T')[0] : null,
+    totalPayments: Math.round(totalPayments),
+    interestSaved: 0 // Would need baseline calculation
+  };
+
+  return {
+    monthlyBreakdowns,
+    debtProgressions,
+    timeline,
+    summary,
+    // Chart-ready data formats
+    chartData: generateChartData(monthlyBreakdowns, debtProgressions)
+  };
+};
+
+/**
+ * Generate chart-ready data from calculation results
+ * @param {Array} monthlyBreakdowns - Monthly payment breakdowns
+ * @param {Array} debtProgressions - Individual debt progressions
+ * @returns {Object} Chart data objects
+ */
+export const generateChartData = (monthlyBreakdowns, debtProgressions) => {
+  // Monthly payment breakdown chart
+  const monthlyPaymentChart = monthlyBreakdowns.map(month => ({
+    month: month.month,
+    minPayments: month.minPayments,
+    extraPayment: month.extraPayment,
+    snowballPayment: month.snowballPayment,
+    totalPayment: month.totalPayment,
+    interest: month.totalInterest,
+    principal: month.totalPrincipal
+  }));
+
+  // Snowball growth chart (shows accumulated extra payments)
+  let accumulatedExtra = 0;
+  const snowballGrowthChart = monthlyBreakdowns.map(month => {
+    accumulatedExtra += month.extraPayment + month.snowballPayment;
+    return {
+      month: month.month,
+      snowballAmount: accumulatedExtra,
+      totalBalance: month.totalBalance,
+      monthlyReduction: month.totalPrincipal
+    };
+  });
+
+  // Debt progression chart (multi-line showing each debt)
+  const debtProgressionChart = debtProgressions.map(debt => ({
+    debtName: debt.debtName,
+    data: debt.progression.map(p => ({
+      month: p.month,
+      balance: p.balance,
+      payment: p.payment
+    }))
+  }));
+
+  return {
+    monthlyPaymentChart,
+    snowballGrowthChart,
+    debtProgressionChart
+  };
+};
+
+/**
+ * @deprecated Use calculateDebtScenario() instead
+ */
+export const simulateSnowballWithBreakdown = (debts, extraPayment) => {
+  console.warn('[debtEngineAdapter] simulateSnowballWithBreakdown() is deprecated. Use calculateDebtScenario() instead.');
+  return calculateDebtScenario(debts, extraPayment);
+};
+
+// Export for legacy compatibility
+export { generateChartData as generateChartDataLegacy };

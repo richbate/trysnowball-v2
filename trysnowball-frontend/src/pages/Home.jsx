@@ -1,350 +1,211 @@
-import React from 'react';
+/**
+ * Home Dashboard Page
+ * Calm "Today" dashboard showing status + one next action
+ * Read-only view with derived selectors - no heavy calculations
+ */
+
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTheme } from '../contexts/ThemeContext';
-import { useUserFlow } from '../contexts/UserFlowContext';
-import HomeEmailSignup from '../components/HomeEmailSignup';
+import { useDebts } from '../hooks/useDebts';
+import { useForecastSelectors } from '../hooks/selectors/useForecastSelectors';
+import { useSnowflakeSelectors } from '../hooks/selectors/useSnowflakeSelectors';
+import { useGoalSelectors } from '../hooks/selectors/useGoalSelectors';
+import { useCtaSelectors, getCtaPath, getCtaAnalytics } from '../hooks/selectors/useCtaSelectors';
+
+// Dashboard components
+import HeroForecast from '../components/home/HeroForecast';
+import PaymentStrip from '../components/home/PaymentStrip';
+import BoostRow from '../components/home/BoostRow';
+import FocusDebtCard from '../components/home/FocusDebtCard';
+import TeaserSnowflakes from '../components/home/TeaserSnowflakes';
+import TeaserGoals from '../components/home/TeaserGoals';
+import ContextCTA from '../components/home/ContextCTA';
 
 const Home = () => {
   const navigate = useNavigate();
   const { colors } = useTheme();
-  const { startDemo } = useUserFlow();
-
-  const handleTryDemo = () => {
-    startDemo();
-    navigate('/debts');
+  const { debts, totalDebt, totalMinPayments } = useDebts();
+  const [extraPayment, setExtraPayment] = useState(0); // Local boost state
+  
+  // Derived selectors
+  const forecastData = useForecastSelectors();
+  const snowflakeData = useSnowflakeSelectors(); 
+  const goalData = useGoalSelectors();
+  const ctaData = useCtaSelectors();
+  
+  // Local boost state (persists on debounce)
+  const [localBoost, setLocalBoost] = useState(extraPayment * 100); // Convert to pennies
+  const [boostTimer, setBoostTimer] = useState(null);
+  
+  // CTA logic now handled by selector hook
+  
+  // Handle boost changes with debounce
+  const handleBoostChange = (pennies) => {
+    setLocalBoost(pennies);
+    
+    // Clear existing timer
+    if (boostTimer) clearTimeout(boostTimer);
+    
+    // Set new timer to persist after 500ms
+    const timer = setTimeout(() => {
+      setExtraPayment(pennies / 100); // Convert back to pounds
+      
+      // Track analytics
+      if (window.posthog) {
+        window.posthog.capture('home_boost_change', {
+          value_pennies: pennies,
+          delta_months: forecastData.monthsSaved,
+          delta_interest_saved: forecastData.interestSaved
+        });
+      }
+    }, 500);
+    
+    setBoostTimer(timer);
   };
-
+  
+  // Handle CTA clicks with enhanced analytics
+  const handleCtaClick = () => {
+    const { kind } = ctaData;
+    
+    // Enhanced analytics tracking
+    if (window.posthog) {
+      const analyticsData = getCtaAnalytics(ctaData, {
+        hasDebts: debts && debts.length > 0,
+        hasBoost: extraPayment > 0,
+        totalDebtPennies: Math.round((totalDebt || 0) * 100),
+        currentBoostPennies: localBoost
+      });
+      
+      window.posthog.capture('home_cta_click', analyticsData);
+    }
+    
+    // Handle special cases
+    if (kind === 'try-boost') {
+      // For try-boost, actually set a boost instead of navigating
+      handleBoostChange(2500); // Default £25
+      return;
+    }
+    
+    // Navigate using smart path logic
+    const path = getCtaPath(kind, { 
+      currentBoost: Math.round(localBoost / 100) 
+    });
+    
+    navigate(path);
+  };
+  
+  // Handle focus debt click
+  const handleAttackClick = (debtId) => {
+    navigate(`/plan/strategy?focus=${debtId}`);
+  };
+  
+  // Handle teaser clicks
+  const handleTeaserClick = (target) => {
+    if (window.posthog) {
+      window.posthog.capture('home_teaser_click', { target });
+    }
+    navigate(`/plan/${target}`);
+  };
+  
+  // Cleanup timer on unmount
+  useEffect(() => {
+    return () => {
+      if (boostTimer) clearTimeout(boostTimer);
+    };
+  }, [boostTimer]);
+  
+  // Calculate helper text for boost
+  const getBoostHelperText = () => {
+    if (localBoost === 0) return null;
+    const monthsSaved = Math.round(forecastData.monthsSaved || 0);
+    const interestSaved = Math.round(forecastData.interestSaved || 0);
+    
+    if (monthsSaved > 0 && interestSaved > 0) {
+      return `+£${localBoost / 100} → save ≈ £${interestSaved} and ${monthsSaved} months`;
+    } else if (interestSaved > 0) {
+      return `+£${localBoost / 100} → save ≈ £${interestSaved}`;
+    }
+    return null;
+  };
+  
+  // Empty state
+  if (!debts || debts.length === 0) {
+    return (
+      <div className={`min-h-screen ${colors.background} px-4 py-8`}>
+        <div className="max-w-4xl mx-auto">
+          {/* Welcome message */}
+          <div className="text-center py-16">
+            <h1 className="text-4xl font-bold mb-4">Welcome to TrySnowball</h1>
+            <p className="text-lg text-gray-600 mb-8">
+              Let's start by adding your debts to see your path to freedom
+            </p>
+            <ContextCTA kind="add-debts" onClick={handleCtaClick} />
+          </div>
+        </div>
+      </div>
+    );
+  }
+  
   return (
-    <div className={`min-h-screen ${colors.background} ${colors.text.primary} px-6 py-12`}>
-      <header className="text-center mb-16 max-w-4xl mx-auto">
-<h1 className="text-5xl font-bold text-primary mb-4">
-  Try Snowball.<br />Debt Freedom Starts Here
-</h1>
-        <p className="text-lg leading-relaxed mb-4 font-semibold">
-          Pay off debt faster, with less guesswork.
-        </p>
-        <p className="text-lg leading-relaxed mb-6">
-          TrySnowball helps you see your debt clearly, change your habits, and find hidden money to throw at it.
-        </p>
-        <div className="space-y-3 sm:space-y-0 sm:space-x-4 sm:flex sm:justify-center mb-8">
-          <button
-            onClick={handleTryDemo}
-            className="w-full sm:w-auto bg-primary text-white px-8 py-3 rounded-lg font-semibold hover:bg-accent transition-colors shadow-lg"
-          >
-            Try Demo
-          </button>
-          <button
-            onClick={() => navigate('/money-makeover')}
-            className="w-full sm:w-auto border-2 border-green-500 text-green-600 px-8 py-3 rounded-lg font-semibold hover:bg-green-500 hover:text-white transition-colors shadow-lg"
-          >
-            🚀 1-Month Makeover
-          </button>
-        </div>
-      </header>
-
-      {/* Email Signup Section */}
-      <section className="mb-16 max-w-4xl mx-auto">
-        <HomeEmailSignup />
-      </section>
-
-      <section className="mb-16 max-w-4xl mx-auto">
-        <div className={`${colors.surface} rounded-lg p-8 border-l-4 border-primary`}>
+    <div className={`min-h-screen ${colors.background} px-4 py-8`}>
+      <div className="max-w-4xl mx-auto space-y-6">
+        {/* Hero Forecast */}
+        <HeroForecast
+          debtFreeDateLabel={forecastData.debtFreeDate}
+          monthsSooner={forecastData.monthsSaved}
+          interestSavedApprox={forecastData.interestSaved * 100} // Convert to pennies
+        />
+        
+        {/* Payment Strip */}
+        <PaymentStrip
+          total={(totalDebt || 0) * 100} // Convert to pennies
+          minimums={(totalMinPayments || 0) * 100}
+          boost={localBoost}
+        />
+        
+        {/* Boost Row */}
+        <BoostRow
+          value={localBoost}
+          presets={[2500, 5000, 10000, 25000]} // £25, £50, £100, £250
+          onChange={handleBoostChange}
+          helperText={getBoostHelperText()}
+        />
+        
+        {/* Focus Debt Card */}
+        {forecastData.focusDebt && (
+          <FocusDebtCard
+            debtId={forecastData.focusDebt.id}
+            name={forecastData.focusDebt.name}
+            payoffMonthLabel={forecastData.focusDebt.payoffMonth}
+            onAttackClick={handleAttackClick}
+          />
+        )}
+        
+        {/* Teasers Row */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {snowflakeData.hasSnowflakes && (
+            <TeaserSnowflakes
+              totalAmount={snowflakeData.totalAmount}
+              monthsSooner={snowflakeData.monthsSaved}
+              onManageClick={() => handleTeaserClick('snowflakes')}
+            />
+          )}
           
-          <div className={`${colors.surfaceSecondary} rounded-lg p-6 mb-6 ${colors.border} border`}>
-            <h3 className={`text-xl font-bold mb-4 ${colors.text.primary}`}>The Debt Snowball Method (hat tip to Dave Ramsey)</h3>
-            <div className="space-y-4">
-              <div className="flex items-start space-x-3">
-                <div className="bg-primary text-white rounded-full w-8 h-8 flex items-center justify-center font-bold text-sm">1</div>
-                <div>
-                  <p className="font-semibold mb-1">List your debts, smallest to largest</p>
-                  <p className="text-sm text-gray-600">Ignore interest rates — focus on balance amounts only</p>
-                </div>
-              </div>
-              <div className="flex items-start space-x-3">
-                <div className="bg-primary text-white rounded-full w-8 h-8 flex items-center justify-center font-bold text-sm">2</div>
-                <div>
-                  <p className="font-semibold mb-1">Pay minimums on everything</p>
-                  <p className="text-sm text-gray-600">Keep all accounts current and in good standing</p>
-                </div>
-              </div>
-              <div className="flex items-start space-x-3">
-                <div className="bg-primary text-white rounded-full w-8 h-8 flex items-center justify-center font-bold text-sm">3</div>
-                <div>
-                  <p className="font-semibold mb-1">Attack the smallest debt with everything extra</p>
-                  <p className="text-sm text-gray-600">Every spare pound goes to the smallest balance</p>
-                </div>
-              </div>
-              <div className="flex items-start space-x-3">
-                <div className="bg-primary text-white rounded-full w-8 h-8 flex items-center justify-center font-bold text-sm">4</div>
-                <div>
-                  <p className="font-semibold mb-1">Roll payments forward</p>
-                  <p className="text-sm text-gray-600">When one's paid off, add that payment to the next smallest debt</p>
-                </div>
-              </div>
-              <div className="flex items-start space-x-3">
-                <div className="bg-primary text-white rounded-full w-8 h-8 flex items-center justify-center font-bold text-sm">5</div>
-                <div>
-                  <p className="font-semibold mb-1">Repeat until debt-free</p>
-                  <p className="text-sm text-gray-600">The snowball gets bigger with each debt you eliminate</p>
-                </div>
-              </div>
-            </div>
-          </div>
-          
-          <p className={`${colors.text.secondary} text-lg`}>
-            <strong className={colors.text.primary}>Why it works:</strong> Quick wins build momentum. 
-            Psychology beats mathematics when it comes to changing behavior.
-            <br />
-            <strong className={colors.text.primary}>Start small, build momentum, get free.</strong>
-          </p>
+          {goalData.hasActiveGoals && goalData.nextMilestone && (
+            <TeaserGoals
+              progressPct={goalData.nextMilestone.progress || 0}
+              targetPennies={(goalData.activeGoals[0]?.target || 0) * 100}
+              onManageClick={() => handleTeaserClick('goals')}
+            />
+          )}
         </div>
-      </section>
-
-      {/* Dave Ramsey Baby Steps Section */}
-      <section className="mb-16 max-w-4xl mx-auto">
-        <h2 className="text-3xl font-bold mb-6 text-primary">🏗️ Dave Ramsey's Baby Steps</h2>
-        <div className={`${colors.surface} rounded-lg p-8 border-l-4 border-primary`}>
-          <p className="text-lg leading-relaxed mb-4 font-semibold">
-            The debt snowball is just one step in a proven plan to financial freedom
-          </p>
-          <p className="text-lg leading-relaxed mb-6">
-            Dave Ramsey's 7 Baby Steps have helped millions escape debt and build wealth. 
-            The debt snowball method is Baby Step 2 — but it works best as part of the complete system.
-          </p>
-          
-          <div className="grid md:grid-cols-3 gap-4 mb-6">
-            <div className={`${colors.surfaceSecondary} rounded-lg p-4`}>
-              <div className="flex items-center mb-2">
-                <div className="bg-red-500 text-white rounded-full w-8 h-8 flex items-center justify-center font-bold text-sm mr-3">1</div>
-                <h4 className="font-semibold">Emergency Fund</h4>
-              </div>
-              <p className="text-sm text-gray-600">Save £1,000 for starter emergency fund</p>
-            </div>
-            
-            <div className={`${colors.surfaceSecondary} rounded-lg p-4 border-2 border-primary`}>
-              <div className="flex items-center mb-2">
-                <div className="bg-primary text-white rounded-full w-8 h-8 flex items-center justify-center font-bold text-sm mr-3">2</div>
-                <h4 className="font-semibold">Debt Snowball</h4>
-              </div>
-              <p className="text-sm text-gray-600">Pay off all debt (except house) using snowball method</p>
-              <p className="text-xs text-primary font-semibold mt-1">← You are here!</p>
-            </div>
-            
-            <div className={`${colors.surfaceSecondary} rounded-lg p-4`}>
-              <div className="flex items-center mb-2">
-                <div className="bg-green-500 text-white rounded-full w-8 h-8 flex items-center justify-center font-bold text-sm mr-3">3</div>
-                <h4 className="font-semibold">Full Emergency Fund</h4>
-              </div>
-              <p className="text-sm text-gray-600">Save 3-6 months of expenses</p>
-            </div>
-          </div>
-          
-          <p className={`${colors.text.secondary} mb-6`}>
-            <strong className={colors.text.primary}>Plus 4 more steps:</strong> Investing for retirement, children's college, 
-            paying off your home early, and building wealth to give generously.
-          </p>
-          
-          <div className="flex flex-col sm:flex-row gap-3">
-            <button 
-              onClick={() => navigate('/baby-steps')}
-              className="bg-primary text-white px-6 py-3 rounded-lg font-semibold hover:bg-accent transition-colors shadow"
-            >
-              → See All 7 Baby Steps
-            </button>
-            <a
-              href="https://www.moneyhelper.org.uk/en/everyday-money/budgeting/budget-planner"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="px-6 py-3 bg-transparent border-2 border-primary text-primary font-semibold rounded-lg hover:bg-primary hover:text-white transition-colors shadow text-center"
-            >
-              → Start Your Budget (Money Helper)
-            </a>
-          </div>
+        
+        {/* Context CTA - sticky on mobile */}
+        <div className="fixed bottom-0 left-0 right-0 md:relative md:bottom-auto p-4 md:p-0">
+          <ContextCTA kind={ctaData.kind} onClick={handleCtaClick} />
         </div>
-      </section>
-
-      {/* New Money Makeover Feature Section */}
-      <section className="mb-16 max-w-4xl mx-auto">
-        <div className={`${colors.surface} rounded-lg p-8 border-l-4 border-green-500`}>
-          <div className="flex items-start space-x-4 mb-6">
-            <div className="text-4xl">🚀</div>
-            <div>
-              <h2 className="text-3xl font-bold mb-2 text-green-600">1-Month Money Makeover</h2>
-              <p className="text-lg text-gray-600">Clear your smallest debts in 30 days and prove you can do this</p>
-            </div>
-          </div>
-          
-          <div className="grid md:grid-cols-2 gap-6 mb-6">
-            <div>
-              <h3 className="font-semibold text-lg mb-3">Perfect for:</h3>
-              <ul className="space-y-2 text-gray-600">
-                <li className="flex items-center space-x-2">
-                  <span className="text-green-500">✓</span>
-                  <span>Store cards under £500</span>
-                </li>
-                <li className="flex items-center space-x-2">
-                  <span className="text-green-500">✓</span>
-                  <span>Small personal loans</span>
-                </li>
-                <li className="flex items-center space-x-2">
-                  <span className="text-green-500">✓</span>
-                  <span>Overdraft balances</span>
-                </li>
-                <li className="flex items-center space-x-2">
-                  <span className="text-green-500">✓</span>
-                  <span>Credit card balances</span>
-                </li>
-              </ul>
-            </div>
-            
-            <div>
-              <h3 className="font-semibold text-lg mb-3">Why it works:</h3>
-              <ul className="space-y-2 text-gray-600">
-                <li className="flex items-center space-x-2">
-                  <span className="text-orange-500">🎯</span>
-                  <span>Builds real confidence</span>
-                </li>
-                <li className="flex items-center space-x-2">
-                  <span className="text-blue-500">🧠</span>
-                  <span>Clears mental clutter</span>
-                </li>
-                <li className="flex items-center space-x-2">
-                  <span className="text-purple-500">💪</span>
-                  <span>Creates momentum</span>
-                </li>
-                <li className="flex items-center space-x-2">
-                  <span className="text-green-500">💰</span>
-                  <span>Improves cash flow</span>
-                </li>
-              </ul>
-            </div>
-          </div>
-          
-          <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-6 rounded">
-            <p className="font-semibold text-yellow-800 text-lg italic">
-              "I'll clear the smallest debt in my life this month — and prove I can do this."
-            </p>
-          </div>
-          
-          <button 
-            onClick={() => navigate('/money-makeover')}
-            className="bg-green-500 text-white px-8 py-4 rounded-lg font-semibold hover:bg-green-600 transition-colors shadow-lg text-lg"
-          >
-            → Start Your 30-Day Sprint
-          </button>
-        </div>
-      </section>
-
-      <section className="mb-16 max-w-4xl mx-auto">
-        <h2 className="text-3xl font-bold mb-6 text-primary">🔮 The What If Machine</h2>
-        <div className={`${colors.surface} rounded-lg p-8 border-l-4 border-primary`}>
-          <p className="text-lg leading-relaxed mb-4 font-semibold">
-            Want to see your debt-free date?
-          </p>
-          <p className="text-lg leading-relaxed mb-4">
-            What if you ditched that daily coffee? Paid £50 extra a month?
-            <br />
-            What if you could see the impact instantly?
-          </p>
-          <p className={`text-lg font-bold ${colors.text.primary} mb-4`}>
-            Stop guessing. Start seeing.
-          </p>
-          <p className={`${colors.text.secondary} mb-6`}>
-            Our What If Machine shows how small changes create big results.
-          </p>
-          <button 
-            onClick={() => navigate('/what-if')}
-            className="text-primary hover:text-accent font-semibold text-lg"
-          >
-            → See Your Way Out
-          </button>
-        </div>
-      </section>
-
-      <section className="mb-16 max-w-4xl mx-auto">
-        <h2 className="text-3xl font-bold mb-6 text-primary">💡 AI Debt Coach</h2>
-        <div className={`${colors.surface} rounded-lg p-8 border-l-4 border-primary`}>
-          <p className="text-lg leading-relaxed mb-4 font-semibold">
-            Need a no-BS plan?
-          </p>
-          <p className="text-lg leading-relaxed mb-4">
-            Get a personalised ChatGPT script, a printable worksheet, and a plan ready to load into TrySnowball.
-          </p>
-          <p className={`${colors.text.secondary} mb-6`}>
-            Made for real UK life — credit cards, Klarna, overdrafts and all.
-          </p>
-          <div className="space-y-3 sm:space-y-0 sm:space-x-4 sm:flex">
-            <button
-              onClick={() => navigate('/ai-coach')}
-              className="w-full sm:w-auto bg-primary text-white px-6 py-3 rounded-lg font-semibold hover:bg-accent transition-colors shadow"
-            >
-              → Learn More About AI Coach
-            </button>
-            <a
-              href="https://stan.store/trysnowball/p/personal-ai-debt-coach"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="w-full sm:w-auto inline-block px-6 py-3 bg-transparent border-2 border-primary text-primary font-semibold rounded-lg hover:bg-primary hover:text-white transition-colors shadow text-center"
-            >
-              → 🛒 Get the AI Coach – £2.99
-            </a>
-          </div>
-        </div>
-      </section>
-
-
-      {/* Purpose Statement */}
-      <section className={`${colors.surface} rounded-lg shadow-sm p-8 my-16 max-w-4xl mx-auto ${colors.border} border`}>
-        <div className="text-center">
-          <p className={`text-lg mb-4 ${colors.text.secondary}`}>
-            TrySnowball exists for one reason:
-          </p>
-          <p className={`text-2xl font-bold mb-4 ${colors.text.primary}`}>
-            To help you get out of debt, faster, without shame or gimmicks.
-          </p>
-          <p className={`text-lg ${colors.text.secondary}`}>
-            Because you deserve better than minimum payments.
-          </p>
-        </div>
-      </section>
-
-      <footer className={`text-center mt-16 text-sm ${colors.text.muted}`}>
-        <div className="space-y-4">
-          <div className="flex flex-wrap justify-center gap-6">
-            <button onClick={() => navigate('/library')} className="hover:text-primary transition-colors">
-              Library
-            </button>
-            <button onClick={() => navigate('/ai-coach')} className="hover:text-primary transition-colors">
-              AI Coach
-            </button>
-            <a 
-              href="https://trysnowball.substack.com" 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="hover:text-primary transition-colors"
-            >
-              Newsletter
-            </a>
-            <button onClick={() => navigate('/baby-steps')} className="hover:text-primary transition-colors">
-              Baby Steps
-            </button>
-            <a 
-              href="https://stan.store/trysnowball/p/buy-me-a-coffee-figkm7db" 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="hover:text-primary transition-colors"
-            >
-              ☕ Buy me a Coffee
-            </a>
-          </div>
-          <div className="border-t border-gray-200 pt-4">
-            <p>© {new Date().getFullYear()} TrySnowball. Built in the UK.</p>
-            <p className="text-xs mt-2">
-              Free debt management tools. Your data stays private. Built for UK financial situations.
-            </p>
-          </div>
-        </div>
-      </footer>
+      </div>
     </div>
   );
 };

@@ -1,0 +1,21 @@
+/**
+ * Debug utilities - safe for production
+ * Only logs in development, no-ops in production
+ */
+
+export const dbg = (...args) => {
+  if (process.env.NODE_ENV !== 'production') {
+    console.log(...args);
+  }
+};
+
+export const dbgWarn = (...args) => {
+  if (process.env.NODE_ENV !== 'production') {
+    console.warn(...args);
+  }
+};
+
+export const dbgError = (...args) => {
+  // Always show errors, even in production
+  console.error(...args);
+};

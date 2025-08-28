@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Preview Debug Test</title>
+</head>
+<body>
+    <h1>Environment Debug</h1>
+    <div id="results"></div>
+    
+    <script>
+        const hostname = window.location.hostname;
+        const IS_PAGES_PREVIEW = /\.pages\.dev$/i.test(hostname);
+        const IS_PRODUCTION_HOST = /(^|\.)trysnowball\.co\.uk$/i.test(hostname);
+        const IS_PREVIEW = IS_PAGES_PREVIEW && !IS_PRODUCTION_HOST;
+        
+        const results = {
+            hostname,
+            IS_PAGES_PREVIEW,
+            IS_PRODUCTION_HOST, 
+            IS_PREVIEW,
+            FEATURE: {
+                previewBypassAuth: IS_PREVIEW,
+                previewForceDemo: IS_PREVIEW
+            }
+        };
+        
+        document.getElementById('results').innerHTML = '<pre>' + JSON.stringify(results, null, 2) + '</pre>';
+        console.log('🔍 Debug results:', results);
+    </script>
+</body>
+</html>

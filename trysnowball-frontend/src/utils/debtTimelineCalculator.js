@@ -1,0 +1,325 @@
+// Utility functions for calculating debt payoff timelines
+
+import { clampCurrency } from '../lib/snowflakes';
+
+// Apply snowflakes at the start of each month's loop
+function applySnowflakesThisMonth(monthIndex, debtsState, snowflakesMap) {
+  if (!snowflakesMap?.size) return { rolledToExtra: 0 };
+  let rolled = 0;
+
+  for (const d of debtsState) {
+    const key = `${monthIndex}:${d.id}`;
+    const sf = snowflakesMap.get(key);
+    if (!sf) continue;
+
+    const remaining = Math.max(0, d.balance);
+    const applied = Math.min(remaining, sf);
+    d.balance = clampCurrency(remaining - applied);
+
+    // record into debt items for matrix/UX:
+    d._sfApplied = (d._sfApplied || 0) + applied;
+
+    // any excess becomes general extra for this month
+    const excess = sf - applied;
+    if (excess > 0) rolled += excess;
+  }
+  return { rolledToExtra: clampCurrency(rolled) };
+}
+
+export const calculateIndividualDebtTimeline = (debt, extraPayment = 0) => {
+  const balance = debt.amount || debt.balance || 0;
+  const rate = (debt.interest || 0) / 100 / 12; // Monthly interest rate
+  const minPayment = debt.regularPayment || debt.minPayment || 0;
+  const totalPayment = minPayment + extraPayment;
+  
+  if (balance <= 0) return [];
+  if (totalPayment <= 0) return [];
+  
+  // Get the debt start date - use when it was added or current date as fallback
+  const startDate = new Date();
+  if (debt.createdAt) {
+    startDate.setTime(new Date(debt.createdAt).getTime());
+  } else if (debt.history && debt.history.length > 0) {
+    // Use the earliest history entry as start date
+    const sortedHistory = debt.history.sort((a, b) => 
+      new Date(a.changedAt || a.date) - new Date(b.changedAt || b.date)
+    );
+    startDate.setTime(new Date(sortedHistory[0].changedAt || sortedHistory[0].date).getTime());
+  }
+  
+  const timeline = [];
+  let currentBalance = balance;
+  let month = 0;
+  const maxMonths = 360; // 30 years max
+  
+  while (currentBalance > 0.01 && month < maxMonths) {
+    month++;
+    const interestPayment = currentBalance * rate;
+    const principalPayment = Math.min(totalPayment - interestPayment, currentBalance);
+    
+    if (principalPayment <= 0) {
+      // Payment doesn't cover interest - debt will never be paid off
+      break;
+    }
+    
+    currentBalance -= principalPayment;
+    
+    const date = new Date(startDate);
+    date.setMonth(date.getMonth() + month);
+    
+    timeline.push({
+      month,
+      date: date.toISOString().slice(0, 7), // YYYY-MM format
+      displayDate: date.toLocaleDateString('en-GB', { month: 'short', year: 'numeric' }),
+      balance: Math.max(0, currentBalance),
+      payment: totalPayment,
+      interestPayment,
+      principalPayment,
+      debtName: debt.name
+    });
+    
+    if (currentBalance <= 0.01) break;
+  }
+  
+  return timeline;
+};
+
+export const calculateAvalancheTimeline = (debts, totalExtraPayment = 0, snowflakesMap = null) => {
+  if (!debts || debts.length === 0) return [];
+  
+  // Find the earliest debt start date to use as baseline
+  let earliestDate = new Date();
+  debts.forEach(debt => {
+    let debtStartDate = new Date();
+    if (debt.createdAt) {
+      debtStartDate = new Date(debt.createdAt);
+    } else if (debt.history && debt.history.length > 0) {
+      const sortedHistory = debt.history.sort((a, b) => 
+        new Date(a.changedAt || a.date) - new Date(b.changedAt || b.date)
+      );
+      debtStartDate = new Date(sortedHistory[0].changedAt || sortedHistory[0].date);
+    }
+    if (debtStartDate < earliestDate) {
+      earliestDate = debtStartDate;
+    }
+  });
+  
+  // Sort debts by interest rate (avalanche method - highest rate first)
+  const sortedDebts = debts
+    .map(debt => ({
+      ...debt,
+      balance: debt.amount || debt.balance || 0,
+      minPayment: debt.regularPayment || debt.minPayment || 0,
+      rate: (debt.interest || 0) / 100 / 12,
+      annualRate: debt.interest || 0
+    }))
+    .filter(debt => debt.balance > 0)
+    .sort((a, b) => b.annualRate - a.annualRate); // Highest interest rate first
+  
+  if (sortedDebts.length === 0) return [];
+  
+  const timeline = [];
+  const workingDebts = JSON.parse(JSON.stringify(sortedDebts));
+  let month = 0;
+  const maxMonths = 360;
+  let availableExtra = totalExtraPayment;
+  
+  while (workingDebts.some(debt => debt.balance > 0.01) && month < maxMonths) {
+    month++;
+    const date = new Date(earliestDate);
+    date.setMonth(date.getMonth() + month);
+    
+    const monthData = {
+      month,
+      date: date.toISOString().slice(0, 7),
+      displayDate: date.toLocaleDateString('en-GB', { month: 'short', year: 'numeric' }),
+      debts: [],
+      totalBalance: 0,
+      totalPayment: 0
+    };
+    
+    // Apply snowflakes first (month - 1 because we incremented month above)
+    const { rolledToExtra } = applySnowflakesThisMonth(month - 1, workingDebts, snowflakesMap);
+    let extraPool = availableExtra + rolledToExtra;
+    
+    // Pay minimums on all debts first
+    let totalMinPayments = 0;
+    for (const debt of workingDebts) {
+      if (debt.balance > 0) {
+        const interestPayment = debt.balance * debt.rate;
+        const minPrincipal = Math.min(debt.minPayment - interestPayment, debt.balance);
+        
+        if (minPrincipal > 0) {
+          debt.balance -= minPrincipal;
+          totalMinPayments += debt.minPayment;
+        }
+      }
+    }
+    
+    // Apply extra payment to highest interest rate debt (already sorted)
+    let remainingExtra = extraPool;
+    for (const debt of workingDebts) {
+      if (debt.balance > 0 && remainingExtra > 0) {
+        const extraPayment = Math.min(remainingExtra, debt.balance);
+        debt.balance -= extraPayment;
+        remainingExtra -= extraPayment;
+        break; // Only pay extra on highest rate debt
+      }
+    }
+    
+    // Record this month's data
+    let totalBalance = 0;
+    for (const debt of workingDebts) {
+      const debtBalance = Math.max(0, debt.balance);
+      totalBalance += debtBalance;
+      
+      monthData.debts.push({
+        name: debt.name,
+        balance: debtBalance,
+        originalBalance: debt.originalBalance || debt.amount || 0
+      });
+    }
+    
+    monthData.totalBalance = totalBalance;
+    monthData.totalPayment = totalMinPayments + (availableExtra - remainingExtra);
+    
+    timeline.push(monthData);
+    
+    // Remove paid off debts and add their minimum payment to extra payment
+    const paidOffDebts = workingDebts.filter(debt => debt.balance <= 0.01);
+    if (paidOffDebts.length > 0) {
+      availableExtra += paidOffDebts.reduce((sum, debt) => sum + debt.minPayment, 0);
+      workingDebts.splice(0, workingDebts.length, ...workingDebts.filter(debt => debt.balance > 0.01));
+    }
+    
+    if (totalBalance <= 0.01) break;
+  }
+  
+  return timeline;
+};
+
+export const calculateSnowballTimeline = (debts, totalExtraPayment = 0, snowflakesMap = null) => {
+  if (!debts || debts.length === 0) return [];
+  
+  // Find the earliest debt start date to use as baseline
+  let earliestDate = new Date();
+  debts.forEach(debt => {
+    let debtStartDate = new Date();
+    if (debt.createdAt) {
+      debtStartDate = new Date(debt.createdAt);
+    } else if (debt.history && debt.history.length > 0) {
+      const sortedHistory = debt.history.sort((a, b) => 
+        new Date(a.changedAt || a.date) - new Date(b.changedAt || b.date)
+      );
+      debtStartDate = new Date(sortedHistory[0].changedAt || sortedHistory[0].date);
+    }
+    if (debtStartDate < earliestDate) {
+      earliestDate = debtStartDate;
+    }
+  });
+  
+  // Sort debts by balance (snowball method - smallest balance first)
+  const sortedDebts = debts
+    .map(debt => ({
+      ...debt,
+      balance: debt.amount || debt.balance || 0,
+      minPayment: debt.regularPayment || debt.minPayment || 0,
+      rate: (debt.interest || 0) / 100 / 12
+    }))
+    .filter(debt => debt.balance > 0)
+    .sort((a, b) => a.balance - b.balance);
+  
+  if (sortedDebts.length === 0) return [];
+  
+  const timeline = [];
+  const workingDebts = JSON.parse(JSON.stringify(sortedDebts));
+  let month = 0;
+  const maxMonths = 360;
+  let availableExtra = totalExtraPayment;
+  
+  while (workingDebts.some(debt => debt.balance > 0.01) && month < maxMonths) {
+    month++;
+    const date = new Date(earliestDate);
+    date.setMonth(date.getMonth() + month);
+    
+    const monthData = {
+      month,
+      date: date.toISOString().slice(0, 7),
+      displayDate: date.toLocaleDateString('en-GB', { month: 'short', year: 'numeric' }),
+      debts: [],
+      totalBalance: 0,
+      totalPayment: 0
+    };
+    
+    // Apply snowflakes first (month - 1 because we incremented month above)
+    const { rolledToExtra } = applySnowflakesThisMonth(month - 1, workingDebts, snowflakesMap);
+    let extraPool = availableExtra + rolledToExtra;
+    
+    // Pay minimums on all debts first
+    let totalMinPayments = 0;
+    for (const debt of workingDebts) {
+      if (debt.balance > 0) {
+        const interestPayment = debt.balance * debt.rate;
+        const minPrincipal = Math.min(debt.minPayment - interestPayment, debt.balance);
+        
+        if (minPrincipal > 0) {
+          debt.balance -= minPrincipal;
+          totalMinPayments += debt.minPayment;
+        }
+      }
+    }
+    
+    // Apply extra payment to smallest debt
+    let remainingExtra = extraPool;
+    for (const debt of workingDebts) {
+      if (debt.balance > 0 && remainingExtra > 0) {
+        const extraPayment = Math.min(remainingExtra, debt.balance);
+        debt.balance -= extraPayment;
+        remainingExtra -= extraPayment;
+        break; // Only pay extra on smallest debt
+      }
+    }
+    
+    // Record this month's data
+    let totalBalance = 0;
+    for (const debt of workingDebts) {
+      const debtBalance = Math.max(0, debt.balance);
+      totalBalance += debtBalance;
+      
+      monthData.debts.push({
+        name: debt.name,
+        balance: debtBalance,
+        originalBalance: debt.originalBalance || debt.amount || 0
+      });
+    }
+    
+    monthData.totalBalance = totalBalance;
+    monthData.totalPayment = totalMinPayments + (availableExtra - remainingExtra);
+    
+    timeline.push(monthData);
+    
+    // Remove paid off debts and add their minimum payment to extra payment
+    const paidOffDebts = workingDebts.filter(debt => debt.balance <= 0.01);
+    if (paidOffDebts.length > 0) {
+      availableExtra += paidOffDebts.reduce((sum, debt) => sum + debt.minPayment, 0);
+      workingDebts.splice(0, workingDebts.length, ...workingDebts.filter(debt => debt.balance > 0.01));
+    }
+    
+    if (totalBalance <= 0.01) break;
+  }
+  
+  return timeline;
+};
+
+export const calculateDebtFreeDate = (debts, extraPayment = 0) => {
+  const timeline = calculateSnowballTimeline(debts, extraPayment);
+  if (timeline.length === 0) return null;
+  
+  const lastEntry = timeline[timeline.length - 1];
+  return {
+    date: lastEntry.date,
+    displayDate: lastEntry.displayDate,
+    months: lastEntry.month,
+    totalInterest: timeline.reduce((sum, entry) => sum + (entry.totalPayment - entry.principalPayment || 0), 0)
+  };
+};

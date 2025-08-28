@@ -1,0 +1,41 @@
+version: 2
+updates:
+  # 1) App deps (production + dev) - weekly for features/minor
+  - package-ecosystem: npm
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "09:00"
+      timezone: Europe/London
+    open-pull-requests-limit: 5
+    versioning-strategy: increase
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]  # block majors by default pre-launch
+    groups:
+      react-stack:
+        patterns: ["react", "react-*", "next", "vite", "webpack*", "babel*"]
+      build-tools:
+        patterns: ["esbuild", "rollup*", "tsup", "swc*"]
+      typescript:
+        patterns: ["typescript", "@types/*", "ts-node"]
+      testing:
+        patterns: ["jest*", "@testing-library/*", "cypress*"]
+      linting:
+        patterns: ["eslint*", "@typescript-eslint/*", "prettier*"]
+      analytics:
+        patterns: ["posthog-js", "@posthog/*"]
+    pull-request-branch-name:
+      separator: "-"
+
+  # 2) Security-only lane (fast) - daily for security patches
+  - package-ecosystem: npm
+    directory: "/"
+    schedule:
+      interval: daily
+      time: "08:30"
+      timezone: Europe/London
+    allow:
+      - dependency-type: "direct"   # only direct deps for security
+    open-pull-requests-limit: 3

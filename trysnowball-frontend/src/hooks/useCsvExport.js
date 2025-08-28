@@ -1,0 +1,176 @@
+/**
+ * Hook for CSV export functionality
+ * Provides easy-to-use export functions for different data types
+ */
+
+import { useCallback } from 'react';
+import { toCsv, downloadCsv } from '../utils/exportCsv';
+import { 
+  mapPaymentHistoryToCsv, 
+  mapProjectionsToCsv, 
+  mapDebtsToCsv,
+  mapDebtHistoryToCsv,
+  getSuggestedFilename 
+} from '../utils/csvMappers';
+import { useDebts } from './useDebts';
+import logger from '../utils/logger';
+
+export function useCsvExport() {
+  const { paymentHistory, debts } = useDebts();
+
+  /**
+   * Export payment history to CSV
+   */
+  const exportPaymentHistory = useCallback(() => {
+    try {
+      logger.debug('Exporting payment history', { count: paymentHistory?.length || 0 });
+      
+      const csvData = mapPaymentHistoryToCsv(paymentHistory, debts);
+      
+      if (csvData.length === 0) {
+        alert('No payment history available to export. Record some payments first!');
+        return false;
+      }
+
+      const csvContent = toCsv(csvData);
+      const filename = getSuggestedFilename('payments');
+      
+      downloadCsv(filename, csvContent);
+      
+      logger.success('Payment history exported', { filename, rowCount: csvData.length });
+      return true;
+    } catch (error) {
+      logger.error('Failed to export payment history:', error);
+      alert('Failed to export payment history. Please try again.');
+      return false;
+    }
+  }, [paymentHistory, debts]);
+
+  /**
+   * Export debt projections/timeline to CSV
+   */
+  const exportProjections = useCallback((projectionsData) => {
+    try {
+      logger.debug('Exporting projections', { hasData: !!projectionsData });
+      
+      const csvData = mapProjectionsToCsv(projectionsData);
+      
+      if (csvData.length === 0) {
+        alert('No projection data available to export. Add debts and generate a plan first!');
+        return false;
+      }
+
+      const csvContent = toCsv(csvData);
+      const filename = getSuggestedFilename('projections');
+      
+      downloadCsv(filename, csvContent);
+      
+      logger.success('Projections exported', { filename, rowCount: csvData.length });
+      return true;
+    } catch (error) {
+      logger.error('Failed to export projections:', error);
+      alert('Failed to export projections. Please try again.');
+      return false;
+    }
+  }, []);
+
+  /**
+   * Export current debts snapshot to CSV
+   */
+  const exportCurrentDebts = useCallback(() => {
+    try {
+      logger.debug('Exporting current debts', { count: debts?.length || 0 });
+      
+      const csvData = mapDebtsToCsv(debts);
+      
+      if (csvData.length === 0) {
+        alert('No debts available to export. Add some debts first!');
+        return false;
+      }
+
+      const csvContent = toCsv(csvData);
+      const filename = getSuggestedFilename('debts');
+      
+      downloadCsv(filename, csvContent);
+      
+      logger.success('Current debts exported', { filename, rowCount: csvData.length });
+      return true;
+    } catch (error) {
+      logger.error('Failed to export current debts:', error);
+      alert('Failed to export debts. Please try again.');
+      return false;
+    }
+  }, [debts]);
+
+  /**
+   * Export debt history (balance changes over time) to CSV
+   */
+  const exportDebtHistory = useCallback(() => {
+    try {
+      logger.debug('Exporting debt history', { debtCount: debts?.length || 0 });
+      
+      const csvData = mapDebtHistoryToCsv(debts);
+      
+      if (csvData.length === 0 || (csvData.length === 1 && csvData[0].Message)) {
+        alert('No debt history available to export. History tracking may not be enabled.');
+        return false;
+      }
+
+      const csvContent = toCsv(csvData);
+      const filename = getSuggestedFilename('history');
+      
+      downloadCsv(filename, csvContent);
+      
+      logger.success('Debt history exported', { filename, rowCount: csvData.length });
+      return true;
+    } catch (error) {
+      logger.error('Failed to export debt history:', error);
+      alert('Failed to export debt history. Please try again.');
+      return false;
+    }
+  }, [debts]);
+
+  /**
+   * Export timeline data specifically (for use in projections views)
+   */
+  const exportTimelineData = useCallback((timelineData) => {
+    try {
+      if (!timelineData || timelineData.length === 0) {
+        alert('No timeline data available to export.');
+        return false;
+      }
+
+      // Transform timeline data to CSV format
+      const csvData = timelineData.map((entry, index) => ({
+        'Month': index + 1,
+        'Date': entry.displayDate || entry.date || `Month ${index + 1}`,
+        'Total Balance': entry.totalBalance || 0,
+        'Principal Payment': entry.principalPayment || 0,
+        'Interest Payment': entry.interestPayment || 0,
+        'Total Payment': entry.totalPayment || 0,
+        'Debts Remaining': entry.debtsRemaining || 0,
+        'Extra Payment': entry.extraPayment || 0
+      }));
+
+      const csvContent = toCsv(csvData);
+      const filename = getSuggestedFilename('projections');
+      
+      downloadCsv(filename, csvContent);
+      
+      logger.success('Timeline data exported', { filename, rowCount: csvData.length });
+      return true;
+    } catch (error) {
+      logger.error('Failed to export timeline data:', error);
+      alert('Failed to export timeline data. Please try again.');
+      return false;
+    }
+  }, []);
+
+  return {
+    exportPaymentHistory,
+    exportProjections,
+    exportCurrentDebts,
+    exportDebtHistory,
+    exportTimelineData
+  };
+}

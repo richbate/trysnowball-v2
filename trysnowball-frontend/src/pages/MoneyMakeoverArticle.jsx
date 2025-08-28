@@ -1,0 +1,254 @@
+import React, { useEffect } from 'react';
+import { Link } from 'react-router-dom';
+import { analytics } from '../lib/posthog';
+
+const MoneyMakeoverArticle = () => {
+  // Track page view
+  useEffect(() => {
+    analytics.track('article_view', { article_id: 'money_makeover' });
+  }, []);
+
+  const handleStartChallenge = () => {
+    analytics.track('challenge_started', { challenge_type: 'money_makeover' });
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <div className="max-w-4xl mx-auto px-6 py-12">
+        
+        {/* Challenge Banner */}
+        <div className="bg-gradient-to-r from-green-500 to-blue-600 text-white rounded-lg p-8 mb-10">
+          <div className="text-center">
+            <h1 className="text-4xl font-bold mb-4">30-Day Money Makeover Challenge</h1>
+            <p className="text-xl opacity-90">Wipe out a small debt in 30 days — here's the plan</p>
+          </div>
+        </div>
+
+        {/* Article Content */}
+        <article className="bg-white rounded-lg shadow-sm p-8 space-y-8">
+          
+          {/* Hook */}
+          <section>
+            <p className="text-lg text-gray-700 leading-relaxed">
+              Your journey to debt freedom starts with momentum, not perfection. The fastest way to build that momentum? 
+              Target your smallest debt and crush it completely in the next 30 days.
+            </p>
+            <p className="text-gray-600 mt-4">
+              This isn't about huge life changes or cutting out all joy. It's about proving to yourself that you can win, 
+              building the habits that will carry you through your entire debt journey.
+            </p>
+          </section>
+
+          {/* Why Small Debts First */}
+          <section>
+            <h2 className="text-2xl font-bold text-gray-900 mb-4">Why Focus on Small Debts First?</h2>
+            <div className="grid md:grid-cols-3 gap-6">
+              <div className="bg-blue-50 p-6 rounded-lg">
+                <h3 className="font-semibold text-blue-900 mb-2">🚀 Quick Momentum</h3>
+                <p className="text-blue-700 text-sm">Clearing a full debt gives you an instant psychological win and proves the system works</p>
+              </div>
+              <div className="bg-green-50 p-6 rounded-lg">
+                <h3 className="font-semibold text-green-900 mb-2">💰 Freed Cash Flow</h3>
+                <p className="text-green-700 text-sm">Every eliminated payment frees up money to attack the next debt faster</p>
+              </div>
+              <div className="bg-purple-50 p-6 rounded-lg">
+                <h3 className="font-semibold text-purple-900 mb-2">🎯 Simple Focus</h3>
+                <p className="text-purple-700 text-sm">One clear target is easier to attack than trying to pay extra on everything</p>
+              </div>
+            </div>
+          </section>
+
+          {/* 30-Day Challenge Steps */}
+          <section>
+            <h2 className="text-2xl font-bold text-gray-900 mb-6">Your 30-Day Challenge Roadmap</h2>
+            
+            <div className="space-y-6">
+              {/* Week 1 */}
+              <div className="border-l-4 border-blue-500 pl-6">
+                <h3 className="text-xl font-semibold text-blue-900 mb-3">📋 Week 1: Find Your Target & Set Your Goal</h3>
+                <ul className="space-y-2 text-gray-700">
+                  <li className="flex items-start">
+                    <span className="text-blue-500 mr-2">✓</span>
+                    List all debts under £500 (credit cards, store cards, small loans)
+                  </li>
+                  <li className="flex items-start">
+                    <span className="text-blue-500 mr-2">✓</span>
+                    Pick the smallest balance as your target
+                  </li>
+                  <li className="flex items-start">
+                    <span className="text-blue-500 mr-2">✓</span>
+                    Calculate how much extra you need per week to clear it in 30 days
+                  </li>
+                  <li className="flex items-start">
+                    <span className="text-blue-500 mr-2">✓</span>
+                    Write down your "why" — what will clearing this debt mean to you?
+                  </li>
+                </ul>
+              </div>
+
+              {/* Week 2 */}
+              <div className="border-l-4 border-green-500 pl-6">
+                <h3 className="text-xl font-semibold text-green-900 mb-3">💡 Week 2: Free Up Extra Cash</h3>
+                <ul className="space-y-2 text-gray-700">
+                  <li className="flex items-start">
+                    <span className="text-green-500 mr-2">✓</span>
+                    Cancel unused subscriptions (streaming, gym, apps)
+                  </li>
+                  <li className="flex items-start">
+                    <span className="text-green-500 mr-2">✓</span>
+                    Sell items you don't need (clothes, electronics, books)
+                  </li>
+                  <li className="flex items-start">
+                    <span className="text-green-500 mr-2">✓</span>
+                    Pick up extra shifts, freelance work, or gig work
+                  </li>
+                  <li className="flex items-start">
+                    <span className="text-green-500 mr-2">✓</span>
+                    Meal prep to save on takeaway costs
+                  </li>
+                </ul>
+              </div>
+
+              {/* Week 3 */}
+              <div className="border-l-4 border-orange-500 pl-6">
+                <h3 className="text-xl font-semibold text-orange-900 mb-3">⚡ Week 3: Attack Mode</h3>
+                <ul className="space-y-2 text-gray-700">
+                  <li className="flex items-start">
+                    <span className="text-orange-500 mr-2">✓</span>
+                    Make your regular minimum payment
+                  </li>
+                  <li className="flex items-start">
+                    <span className="text-orange-500 mr-2">✓</span>
+                    Add every penny of extra money you've found
+                  </li>
+                  <li className="flex items-start">
+                    <span className="text-orange-500 mr-2">✓</span>
+                    Call and make payments immediately (don't let money sit around)
+                  </li>
+                  <li className="flex items-start">
+                    <span className="text-orange-500 mr-2">✓</span>
+                    Track your progress daily — watch that balance drop
+                  </li>
+                </ul>
+              </div>
+
+              {/* Week 4 */}
+              <div className="border-l-4 border-purple-500 pl-6">
+                <h3 className="text-xl font-semibold text-purple-900 mb-3">🏆 Week 4: Finish Strong & Celebrate</h3>
+                <ul className="space-y-2 text-gray-700">
+                  <li className="flex items-start">
+                    <span className="text-purple-500 mr-2">✓</span>
+                    Make your final payment and get that zero balance
+                  </li>
+                  <li className="flex items-start">
+                    <span className="text-purple-500 mr-2">✓</span>
+                    Screenshot or print your zero balance statement
+                  </li>
+                  <li className="flex items-start">
+                    <span className="text-purple-500 mr-2">✓</span>
+                    Celebrate appropriately (but don't blow your budget!)
+                  </li>
+                  <li className="flex items-start">
+                    <span className="text-purple-500 mr-2">✓</span>
+                    Choose your next target debt and repeat the process
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </section>
+
+          {/* Target Calculator Tool */}
+          <section className="bg-gray-50 p-6 rounded-lg">
+            <h3 className="text-xl font-semibold text-gray-900 mb-4">💡 Quick Target Calculator</h3>
+            <p className="text-gray-600 mb-4">
+              Got a debt under £500? Here's how much extra you need to pay weekly to clear it in 30 days:
+            </p>
+            <div className="grid md:grid-cols-4 gap-4 text-center">
+              <div className="bg-white p-4 rounded border">
+                <div className="text-2xl font-bold text-blue-600">£100</div>
+                <div className="text-sm text-gray-600">~£25/week extra</div>
+              </div>
+              <div className="bg-white p-4 rounded border">
+                <div className="text-2xl font-bold text-green-600">£250</div>
+                <div className="text-sm text-gray-600">~£62/week extra</div>
+              </div>
+              <div className="bg-white p-4 rounded border">
+                <div className="text-2xl font-bold text-orange-600">£400</div>
+                <div className="text-sm text-gray-600">~£100/week extra</div>
+              </div>
+              <div className="bg-white p-4 rounded border">
+                <div className="text-2xl font-bold text-purple-600">£500</div>
+                <div className="text-sm text-gray-600">~£125/week extra</div>
+              </div>
+            </div>
+            <p className="text-xs text-gray-500 mt-2">*Assumes you still make minimum payments</p>
+          </section>
+
+          {/* Motivation */}
+          <section>
+            <h2 className="text-2xl font-bold text-gray-900 mb-4">Real Success Stories</h2>
+            <div className="bg-green-50 border-l-4 border-green-500 p-6 rounded-r-lg">
+              <blockquote className="text-green-800 italic">
+                "I cleared my £180 store card in 3 weeks. Seeing that zero balance was incredible - 
+                it made me believe I could actually do this. Now I'm debt-free completely!"
+              </blockquote>
+              <footer className="text-green-600 text-sm mt-2">— Sarah K., TrySnowball user</footer>
+            </div>
+          </section>
+
+          {/* Call to Action */}
+          <section className="bg-gradient-to-r from-blue-500 to-green-500 text-white rounded-lg p-8 text-center">
+            <h3 className="text-2xl font-bold mb-4">Ready to Start Your 30-Day Challenge?</h3>
+            <p className="mb-6 opacity-90">
+              Track your progress and get personalized debt payoff plans with TrySnowball's free tools
+            </p>
+            <Link
+              to="/my-plan"
+              onClick={handleStartChallenge}
+              className="inline-flex items-center bg-white text-blue-600 px-8 py-3 rounded-lg font-semibold hover:bg-gray-100 transition-colors"
+            >
+              Start Tracking My Debts →
+            </Link>
+          </section>
+
+          {/* Tips Section */}
+          <section>
+            <h2 className="text-2xl font-bold text-gray-900 mb-4">Pro Tips for Success</h2>
+            <div className="grid md:grid-cols-2 gap-6">
+              <div className="space-y-4">
+                <h4 className="font-semibold text-gray-800">🎯 Stay Focused</h4>
+                <ul className="text-gray-600 text-sm space-y-1">
+                  <li>• Only attack ONE debt during the 30 days</li>
+                  <li>• Keep making minimums on everything else</li>
+                  <li>• Don't get distracted by interest rates</li>
+                </ul>
+              </div>
+              <div className="space-y-4">
+                <h4 className="font-semibold text-gray-800">💪 Build Momentum</h4>
+                <ul className="text-gray-600 text-sm space-y-1">
+                  <li>• Celebrate small wins along the way</li>
+                  <li>• Track your progress visually</li>
+                  <li>• Tell someone about your goal for accountability</li>
+                </ul>
+              </div>
+            </div>
+          </section>
+
+        </article>
+
+        {/* Navigation */}
+        <div className="mt-8 text-center">
+          <Link 
+            to="/library" 
+            className="text-blue-600 hover:text-blue-700 font-medium"
+          >
+            ← Back to Library
+          </Link>
+        </div>
+
+      </div>
+    </div>
+  );
+};
+
+export default MoneyMakeoverArticle;

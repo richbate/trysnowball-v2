@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { useSettings } from '../hooks/useSettings';
 
 const ThemeContext = createContext();
 
@@ -11,30 +12,36 @@ export const useTheme = () => {
 };
 
 export const ThemeProvider = ({ children }) => {
+  const { settings, update: updateSettings, loading } = useSettings();
   const [isDarkMode, setIsDarkMode] = useState(() => {
-    // Check localStorage first, then system preference
-    const saved = localStorage.getItem('trysnowball-theme');
-    if (saved) {
-      return saved === 'dark';
-    }
-    // Default to system preference
+    // Default to system preference while settings load
     return window.matchMedia('(prefers-color-scheme: dark)').matches;
   });
 
+  // Update theme when settings load or change
   useEffect(() => {
-    // Save theme preference
-    localStorage.setItem('trysnowball-theme', isDarkMode ? 'dark' : 'light');
+    if (loading) return; // defer until settings loaded
     
-    // Update document class for Tailwind dark mode
-    if (isDarkMode) {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
+    const root = document.documentElement;
+    root.classList.remove('theme-light', 'theme-dark', 'dark');
+    
+    const mode = settings.theme === 'system'
+      ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+      : settings.theme;
+    
+    // Apply both class patterns for compatibility
+    root.classList.add(`theme-${mode}`);
+    if (mode === 'dark') {
+      root.classList.add('dark'); // Tailwind compatibility
     }
-  }, [isDarkMode]);
+    
+    setIsDarkMode(mode === 'dark');
+  }, [loading, settings.theme]);
 
-  const toggleTheme = () => {
-    setIsDarkMode(prev => !prev);
+  const toggleTheme = async () => {
+    const newTheme = isDarkMode ? 'light' : 'dark';
+    setIsDarkMode(!isDarkMode); // Optimistic update
+    await updateSettings({ theme: newTheme });
   };
 
   const theme = {

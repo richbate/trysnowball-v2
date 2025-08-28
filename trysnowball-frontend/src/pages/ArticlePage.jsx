@@ -1,0 +1,164 @@
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { useParams, Link, useNavigate } from "react-router-dom";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import rehypeSanitize from "rehype-sanitize";
+import { ARTICLES } from "../data/articlesIndex";
+
+export default function ArticlePage() {
+  const { slug } = useParams();
+  const navigate = useNavigate();
+  const containerRef = useRef(null);
+
+  const meta = useMemo(() => ARTICLES.find(a => a.slug === slug) || null, [slug]);
+
+  const [markdownContent, setMarkdownContent] = useState("Loading…");
+  const [err, setErr] = useState("");
+
+  useEffect(() => {
+    // SEO
+    const title = meta ? `${meta.title} — TrySnowball` : "Article — TrySnowball";
+    document.title = title;
+    setMeta("description", meta?.summary || "Debt strategies and guidance.");
+    setLinkRel("canonical", `${window.location.origin}/library/${slug}`);
+
+    // bail early if not found in index
+    if (!meta) {
+      setErr("Article not found.");
+      setMarkdownContent("");
+      return;
+    }
+
+    let aborted = false;
+    const controller = new AbortController();
+
+    (async () => {
+      try {
+        setErr("");
+        // session cache
+        const cacheKey = `article:${slug}`;
+        const cached = sessionStorage.getItem(cacheKey);
+        if (cached) {
+          setMarkdownContent(cached);
+          return;
+        }
+
+        const res = await fetch(`/articles/${slug}.md`, { signal: controller.signal });
+        if (!res.ok) throw new Error(res.status === 404 ? "NOT_FOUND" : "FETCH_FAIL");
+
+        const md = await res.text();
+
+        if (!aborted) {
+          setMarkdownContent(md);
+          sessionStorage.setItem(cacheKey, md);
+        }
+      } catch (e) {
+        if (controller.signal.aborted) return;
+        console.error(e);
+        setErr(e.message === "NOT_FOUND" ? "Article not found." : "Could not load article.");
+        setMarkdownContent("");
+      }
+    })();
+
+    return () => {
+      aborted = true;
+      controller.abort();
+    };
+  }, [slug, meta]);
+
+  // Intercept internal links rendered inside the article
+  const onArticleClick = (e) => {
+    const a = e.target.closest("a");
+    if (!a) return;
+    const url = new URL(a.getAttribute("href"), window.location.origin);
+    const isSameOrigin = url.origin === window.location.origin;
+    // treat site links as SPA nav; let external open normally
+    if (isSameOrigin) {
+      e.preventDefault();
+      navigate(url.pathname + url.search + url.hash);
+    } else {
+      a.setAttribute("rel", "noopener noreferrer");
+      a.setAttribute("target", "_blank");
+    }
+  };
+
+  return (
+    <div className="mx-auto max-w-3xl px-4 py-10">
+      <div className="mb-6">
+        <Link to="/library" className="text-sm text-slate-600 hover:underline">← Back to Library</Link>
+      </div>
+
+      {meta && (
+        <>
+          <h1 className="text-3xl font-extrabold tracking-tight">{meta.title}</h1>
+          <div className="mt-1 text-sm text-slate-500">{meta.updated}</div>
+        </>
+      )}
+
+      {err ? (
+        <div className="mt-6 rounded-md border border-red-200 bg-red-50 p-4 text-red-700">
+          <p>{err}</p>
+          {err.includes("not found") && (
+            <Link to="/library" className="mt-2 inline-block text-sm text-red-600 hover:underline">
+              ← Browse all articles
+            </Link>
+          )}
+        </div>
+      ) : markdownContent ? (
+        <article
+          ref={containerRef}
+          className="prose prose-slate max-w-none mt-6"
+        >
+          <ReactMarkdown 
+            remarkPlugins={[remarkGfm]}
+            rehypePlugins={[rehypeSanitize]}
+            skipHtml
+            components={{
+              a: ({href = '', children, ...props}) => {
+                const allowProtocols = (url) => /^(https?:|mailto:|tel:)/i.test(url);
+                return (
+                  <a
+                    href={allowProtocols(href) ? href : '#'}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    {...props}
+                  >
+                    {children}
+                  </a>
+                );
+              },
+              // Block iframes/objects for security
+              iframe: () => null,
+              object: () => null,
+              embed: () => null
+            }}
+          >
+            {markdownContent}
+          </ReactMarkdown>
+        </article>
+      ) : null}
+    </div>
+  );
+}
+
+// --- tiny helpers (keep deps out)
+function setMeta(name, content) {
+  if (!content) return;
+  let tag = document.querySelector(`meta[name="${name}"]`);
+  if (!tag) {
+    tag = document.createElement("meta");
+    tag.setAttribute("name", name);
+    document.head.appendChild(tag);
+  }
+  tag.setAttribute("content", content);
+}
+
+function setLinkRel(rel, href) {
+  let link = document.querySelector(`link[rel="${rel}"]`);
+  if (!link) {
+    link = document.createElement("link");
+    link.setAttribute("rel", rel);
+    document.head.appendChild(link);
+  }
+  link.setAttribute("href", href);
+}

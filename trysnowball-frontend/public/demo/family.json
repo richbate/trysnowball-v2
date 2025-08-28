@@ -1,0 +1,75 @@
+{
+  "meta": {
+    "profile": "family",
+    "description": "Family focusing on high-interest debt while keeping mortgage payments",
+    "totalDebt": 18300,
+    "monthlyMinimums": 555,
+    "debtFreeNarrative": "Clear consumer debt in 18 months, keeping mortgage as planned"
+  },
+  "user": {
+    "name": "Demo Family",
+    "email": "family@trysnowball.co.uk", 
+    "preferredStrategy": "avalanche"
+  },
+  "debts": [
+    {
+      "id": "demo-store-card",
+      "name": "Next Store Card",
+      "balance": 1800,
+      "rate": 28.9,
+      "minimumPayment": 54,
+      "type": "store_card",
+      "source": "demo", 
+      "createdAt": "2024-01-15T10:00:00Z"
+    },
+    {
+      "id": "demo-cc-family",
+      "name": "Halifax Clarity Card", 
+      "balance": 3500,
+      "rate": 19.9,
+      "minimumPayment": 105,
+      "type": "credit_card",
+      "source": "demo",
+      "createdAt": "2024-01-15T10:00:00Z"
+    },
+    {
+      "id": "demo-cc2-family",
+      "name": "AMEX Cashback",
+      "balance": 2200,
+      "rate": 22.9,
+      "minimumPayment": 66,
+      "type": "credit_card",
+      "source": "demo",
+      "createdAt": "2024-01-15T10:00:00Z"
+    },
+    {
+      "id": "demo-car-loan",
+      "name": "VW Car Finance",
+      "balance": 10800,
+      "rate": 6.9,
+      "minimumPayment": 330,
+      "type": "auto_loan", 
+      "source": "demo",
+      "createdAt": "2024-01-15T10:00:00Z"
+    }
+  ],
+  "settings": {
+    "extraPayment": 250,
+    "strategy": "avalanche", 
+    "paymentDay": 1
+  },
+  "projections": {
+    "withoutBoost": {
+      "months": 42,
+      "totalInterest": 3680
+    },
+    "withBoost": {
+      "months": 28,
+      "totalInterest": 2290,
+      "interestSaved": 1390,
+      "monthsSaved": 14
+    },
+    "firstDebtClearMonth": 6,
+    "narrative": "Clear all consumer debt in 2 years 4 months, saving £1,390 in interest"
+  }
+}

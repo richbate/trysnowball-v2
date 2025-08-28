@@ -10,6 +10,7 @@ const ThemeToggle = () => {
       className="p-2 rounded-lg transition-colors hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300"
       aria-label={`Switch to ${isDarkMode ? 'light' : 'dark'} mode`}
       title={`Switch to ${isDarkMode ? 'light' : 'dark'} mode`}
+      data-testid="theme-toggle"
     >
       {isDarkMode ? (
         // Sun icon for light mode

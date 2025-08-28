@@ -1,0 +1,61 @@
+import React from 'react';
+import { useTheme } from '../contexts/ThemeContext';
+import { Target, X } from 'lucide-react';
+
+export default function FocusSelect({ debts, focusedDebtId, onChange }) {
+  const { colors } = useTheme();
+  
+  if (!debts || debts.length === 0) return null;
+  
+  const focusedDebt = debts.find(d => d.id === focusedDebtId || d.name === focusedDebtId);
+  
+  return (
+    <div className="flex items-center space-x-3 mb-4">
+      <div className="flex items-center space-x-2">
+        <Target className={`w-4 h-4 ${colors.text.muted}`} />
+        <span className={`text-sm font-medium ${colors.text.secondary}`}>
+          Focus:
+        </span>
+      </div>
+      
+      <div className="flex items-center space-x-2">
+        <select
+          value={focusedDebtId || ''}
+          onChange={(e) => onChange(e.target.value || null)}
+          className={`
+            text-sm rounded-lg border px-3 py-2 min-w-[180px]
+            ${colors.surface} ${colors.border} ${colors.text.primary}
+            focus:ring-2 focus:ring-primary/20 focus:border-primary
+            transition-colors duration-200
+          `}
+        >
+          <option value="">All debts</option>
+          {debts.map(debt => (
+            <option key={debt.id || debt.name} value={debt.id || debt.name}>
+              {debt.name || debt.label}
+            </option>
+          ))}
+        </select>
+        
+        {focusedDebtId && focusedDebt && (
+          <div className="flex items-center space-x-2">
+            <div className={`px-3 py-1 rounded-full text-xs font-medium bg-primary/10 text-primary border border-primary/20`}>
+              Focused: {focusedDebt.name || focusedDebt.label}
+            </div>
+            <button
+              onClick={() => onChange(null)}
+              className={`
+                p-1 rounded-full transition-colors duration-200
+                ${colors.surfaceSecondary} hover:bg-red-100 dark:hover:bg-red-900/20
+                ${colors.text.muted} hover:text-red-600
+              `}
+              title="Clear focus"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}

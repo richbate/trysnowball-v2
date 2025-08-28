@@ -1,0 +1,30 @@
+/**
+ * Demo Mode Watermark
+ * Shows subtle "DEMO" text on key screens
+ */
+
+import { useDemoMode } from '../providers/DemoModeProvider';
+
+export default function DemoWatermark({ position = 'top-right' }) {
+  const { isDemo } = useDemoMode();
+  
+  if (!isDemo) return null;
+  
+  const positionClasses = {
+    'top-right': 'top-4 right-4',
+    'top-left': 'top-4 left-4',
+    'bottom-right': 'bottom-4 right-4',
+    'bottom-left': 'bottom-4 left-4'
+  };
+  
+  return (
+    <div 
+      className={`fixed ${positionClasses[position]} z-40 pointer-events-none select-none`}
+      aria-hidden="true"
+    >
+      <div className="bg-yellow-100/90 text-yellow-800 px-3 py-1 rounded-md text-xs font-bold tracking-wider shadow-sm">
+        DEMO
+      </div>
+    </div>
+  );
+}

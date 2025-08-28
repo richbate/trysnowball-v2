@@ -1,0 +1,27 @@
+name: No Legacy Patterns Check
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  check-no-legacy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Make script executable
+      run: chmod +x scripts/check-no-legacy.sh
+    
+    - name: Check for legacy patterns
+      run: ./scripts/check-no-legacy.sh
+      
+    - name: Report results
+      if: failure()
+      run: |
+        echo "❌ Legacy patterns detected!"
+        echo "These patterns indicate architectural regression."
+        echo "Please review the output above and fix before merging."

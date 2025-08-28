@@ -1,4 +1,14 @@
 User-agent: *
 Allow: /
+Disallow: /auth/
+Disallow: /billing
+Disallow: /settings
+Disallow: /ai-report
+Disallow: /coach
+Disallow: /my-debts
+Disallow: /my-plan
+Disallow: /debug/
+Disallow: /_/
 
 Sitemap: https://trysnowball.co.uk/sitemap.xml
+Sitemap: https://trysnowball.co.uk/sitemap-library.xml

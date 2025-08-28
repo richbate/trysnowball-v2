@@ -1,5 +1,9 @@
 /**
- * Unified Data Management System
+ * @deprecated Legacy facade slated for removal.
+ * Do NOT add new code. All persistence lives in localDebtStore (Dexie).
+ * Remove once callers are gone. Tracked in cleanup issue.
+ * 
+ * Legacy: Unified Data Management System
  * This will eventually be replaced with API calls to a real database
  */
 
@@ -31,7 +35,8 @@ const DEFAULT_USER_DATA = {
 
 class DataManager {
   constructor() {
-    this.storageKey = 'trysnowball-user-data';
+    // Legacy storage keys removed - data persistence owned by localDebtStore
+    this.storageKey = null;
     this.data = this.loadData();
     this.listeners = new Set();
   }
@@ -66,10 +71,8 @@ class DataManager {
       this.data.profile.lastActive = new Date().toISOString();
       localStorage.setItem(this.storageKey, JSON.stringify(this.data));
       
-      // SYNC: Also save debts to old system for compatibility
-      if (this.data.debts && this.data.debts.length > 0) {
-        localStorage.setItem('debtBalances', JSON.stringify(this.data.debts));
-      }
+      // Deprecated: writes to storage are centralized in localDebtStore
+      // If you need persistence, use localDebtStore.metaSet() instead
       
       this.notifyListeners();
     } catch (error) {
@@ -86,6 +89,23 @@ class DataManager {
   // Notify all listeners of data changes
   notifyListeners() {
     this.listeners.forEach(callback => callback(this.data));
+  }
+
+  // Switch to user-specific storage key
+  setUserStorageKey(userId) {
+    // Legacy: storage keys are no longer used - data persistence via localDebtStore
+    this.storageKey = null;
+  }
+
+  // Reload data with current storage key
+  reloadData() {
+    this.data = this.loadData();
+    this.notifyListeners();
+  }
+
+  // Get current storage key (for debugging)
+  getCurrentStorageKey() {
+    return this.storageKey;
   }
 
   // DEBT MANAGEMENT
@@ -122,7 +142,7 @@ class DataManager {
   deleteDebt(debtId) {
     this.data.debts = this.data.debts.filter(debt => debt.id !== debtId);
     // Also remove payment history for this debt
-    this.data.paymentHistory = this.data.paymentHistory.filter(
+    this.data.paymentHistory = (this.data.paymentHistory || []).filter(
       payment => payment.debtId !== debtId
     );
     this.saveData();
@@ -147,7 +167,7 @@ class DataManager {
   // Get payment history for a specific month or all history
   getPaymentHistory(month = null) {
     if (month) {
-      return this.data.paymentHistory.filter(payment => payment.month === month);
+      return (this.data.paymentHistory || []).filter(payment => payment.month === month);
     }
     return this.data.paymentHistory || [];
   }
@@ -191,7 +211,7 @@ class DataManager {
 
   // Get payment for specific debt and month
   getPayment(debtId, month) {
-    return this.data.paymentHistory.find(
+    return (this.data.paymentHistory || []).find(
       payment => payment.debtId === debtId && payment.month === month
     );
   }

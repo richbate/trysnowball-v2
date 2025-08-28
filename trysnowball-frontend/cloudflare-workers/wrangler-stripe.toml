@@ -1,0 +1,26 @@
+name = "trysnowball-stripe"
+main = "stripe-webhook.js"
+compatibility_date = "2024-01-01"
+
+# D1 Database binding (same as auth worker)
+[[d1_databases]]
+binding = "DB"
+database_name = "auth_db"
+database_id = "c22c4bca-0e0c-44db-957f-5e087c660fb0"
+
+# Environment variables (set via wrangler secret put)
+# STRIPE_WEBHOOK_SECRET - Stripe webhook signing secret
+# STRIPE_SECRET_KEY - Stripe API secret key
+
+[env.production]
+name = "trysnowball-stripe-prod"
+route = "trysnowball.co.uk/webhook/*"
+
+[[env.production.d1_databases]]
+binding = "DB"
+database_name = "auth_db"
+database_id = "c22c4bca-0e0c-44db-957f-5e087c660fb0"
+
+[env.staging]
+name = "trysnowball-stripe-staging"
+route = "staging.trysnowball.co.uk/webhook/*"

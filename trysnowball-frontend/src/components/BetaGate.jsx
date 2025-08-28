@@ -1,0 +1,82 @@
+/**
+ * Beta Access Gate Component
+ * Redirects non-beta users to waitlist page
+ */
+
+import React, { useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext.tsx';
+
+const BetaGate = ({ children, fallback = null }) => {
+  const navigate = useNavigate();
+  const { user, authReady } = useAuth();
+  const loading = !authReady;
+  const isBeta = true; // Everyone is beta user in new auth system
+
+  useEffect(() => {
+    // Don't redirect during loading
+    if (loading) return;
+
+    // If no user, let the auth system handle it
+    if (!user) return;
+
+    // If user exists but doesn't have beta access, redirect to waitlist
+    if (user && !isBeta) {
+      navigate('/waitlist');
+    }
+  }, [user, loading, isBeta, navigate]);
+
+  // Show loading state
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show fallback for non-beta users (optional)
+  if (user && !isBeta && fallback) {
+    return fallback;
+  }
+
+  // If no user or user has beta access, render children
+  if (!user || isBeta) {
+    return <>{children}</>;
+  }
+
+  // Default case - return null (will redirect via useEffect)
+  return null;
+};
+
+/**
+ * Hook for beta access checking
+ */
+export const useBetaAccess = () => {
+  const { user } = useAuth();
+  const isBeta = true; // Everyone is beta user in new auth system
+  
+  return {
+    hasBetaAccess: user && isBeta,
+    isAuthenticated: !!user,
+    requiresBetaAccess: user && !isBeta
+  };
+};
+
+/**
+ * Higher-order component for beta gating
+ */
+export const withBetaGate = (Component) => {
+  return function BetaGatedComponent(props) {
+    return (
+      <BetaGate>
+        <Component {...props} />
+      </BetaGate>
+    );
+  };
+};
+
+export default BetaGate;

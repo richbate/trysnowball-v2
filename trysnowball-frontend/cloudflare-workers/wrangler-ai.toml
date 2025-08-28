@@ -1,0 +1,55 @@
+name = "trysnowball-ai-coach"
+compatibility_date = "2025-07-27"
+main = "./ai-coach-worker.js"
+
+# Main route for AI Coach (configure manually in dashboard)
+# [[routes]]
+# pattern = "trysnowball.co.uk/ai/api/*"
+# zone_name = "trysnowball.co.uk"
+
+# Environment variables for quota control
+[vars]
+GPT_MODEL_CHAT = "gpt-4o-mini"
+GPT_MAX_TOKENS = "512"
+FREE_COACH_MSGS = "0"     # Model A: Pure paywall
+PRO_COACH_MSGS = "2000"   # Safety cap for Pro users
+COACH_DISABLED = "false"  # Emergency kill switch
+
+# Production environment
+[env.production]
+name = "trysnowball-ai-coach-prod"
+
+# [[env.production.routes]]
+# pattern = "trysnowball.co.uk/ai/api/*"
+# zone_name = "trysnowball.co.uk"
+
+[env.production.vars]
+GPT_MODEL_CHAT = "gpt-4o-mini"
+GPT_MAX_TOKENS = "512"
+FREE_COACH_MSGS = "0"     # Pure paywall in production
+PRO_COACH_MSGS = "2000"
+COACH_DISABLED = "false"
+
+# Staging environment  
+[env.staging]
+name = "trysnowball-ai-coach-staging"
+
+# [[env.staging.routes]]
+# pattern = "staging.trysnowball.co.uk/ai/api/*"
+# zone_name = "trysnowball.co.uk"
+
+[env.staging.vars]
+GPT_MODEL_CHAT = "gpt-4o-mini" 
+GPT_MAX_TOKENS = "512"
+FREE_COACH_MSGS = "10"    # Allow testing in staging
+PRO_COACH_MSGS = "2000"
+COACH_DISABLED = "false"
+
+# Secrets (set via wrangler secret put)
+# JWT_SECRET - for auth verification
+# OPENAI_API_KEY - for GPT API calls
+
+[[d1_databases]]
+binding = "DB"
+database_name = "auth_db"
+database_id = "eae0efea-88c5-493e-9491-d08e112e74a4"

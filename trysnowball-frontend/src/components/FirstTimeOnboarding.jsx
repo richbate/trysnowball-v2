@@ -1,0 +1,361 @@
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useTheme } from '../contexts/ThemeContext';
+import { track } from '../lib/analytics';
+import { saveUserProfile } from '../lib/userProfile.ts';
+import Button from './ui/Button';
+import { ChevronLeft, ChevronRight, Target, DollarSign, BarChart3, Sprout, Zap, Settings } from 'lucide-react';
+
+const FirstTimeOnboarding = ({ onComplete }) => {
+  const { colors } = useTheme();
+  const navigate = useNavigate();
+  const [currentStep, setCurrentStep] = useState(1);
+  const [selectedGoal, setSelectedGoal] = useState('');
+  const [selectedSituation, setSelectedSituation] = useState('');
+  const [startTime] = useState(Date.now());
+
+  // Goal options
+  const goalOptions = [
+    {
+      id: 'payoff_faster',
+      title: 'Beat debt faster',
+      description: 'Get debt-free using smart strategies',
+      icon: Target,
+      color: 'text-red-600'
+    },
+    {
+      id: 'stop_paycheck',
+      title: 'Stop living paycheck to paycheck',
+      description: 'Create breathing room in your budget',
+      icon: DollarSign,
+      color: 'text-green-600'
+    },
+    {
+      id: 'get_organized',
+      title: 'Get organized with money',
+      description: 'Understand your debt and options',
+      icon: BarChart3,
+      color: 'text-blue-600'
+    }
+  ];
+
+  // Situation options
+  const situationOptions = [
+    {
+      id: 'starter',
+      title: 'Getting started',
+      description: 'Ready to tackle debt for the first time',
+      icon: Sprout,
+      color: 'text-green-600'
+    },
+    {
+      id: 'progress',
+      title: 'Making progress',
+      description: 'Already paying debt, want to go faster',
+      icon: Zap,
+      color: 'text-yellow-600'
+    },
+    {
+      id: 'optimizer',
+      title: 'Need optimization',
+      description: 'Want to improve my current strategy',
+      icon: Settings,
+      color: 'text-purple-600'
+    }
+  ];
+
+  // Track onboarding start
+  useEffect(() => {
+    track('onboarding_started', {
+      timestamp: startTime
+    });
+
+    // Track abandonment on page unload
+    const handleBeforeUnload = () => {
+      const timeSpent = Math.floor((Date.now() - startTime) / 1000);
+      track('onboarding_abandoned', {
+        last_step: currentStep,
+        time_spent_seconds: timeSpent
+      });
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [startTime, currentStep]);
+
+  // Handle goal selection
+  const handleGoalSelect = (goalId) => {
+    setSelectedGoal(goalId);
+    track('onboarding_goal_selected', {
+      step: 1,
+      goal: goalId
+    });
+  };
+
+  // Handle situation selection
+  const handleSituationSelect = (situationId) => {
+    setSelectedSituation(situationId);
+    track('onboarding_situation_selected', {
+      step: 2,
+      situation: situationId
+    });
+  };
+
+  // Go to next step
+  const handleNext = async () => {
+    if (currentStep === 1 && selectedGoal) {
+      setCurrentStep(2);
+    } else if (currentStep === 2 && selectedSituation) {
+      await handleComplete();
+    }
+  };
+
+  // Go back
+  const handleBack = () => {
+    if (currentStep === 2) {
+      setCurrentStep(1);
+    }
+  };
+
+  // Complete onboarding
+  const handleComplete = async () => {
+    const timeSpent = Math.floor((Date.now() - startTime) / 1000);
+    const userSegment = `${selectedGoal}_${selectedSituation}`;
+
+    // Save to new userProfile system
+    const profile = saveUserProfile({
+      debtFocus: [selectedGoal], // Array format for future multi-select support
+      journeyStage: selectedSituation
+    });
+    
+    // Keep existing localStorage for backward compatibility
+    localStorage.setItem('onboarding_completed', 'true');
+    localStorage.setItem('user_primary_goal', selectedGoal);
+    localStorage.setItem('user_situation', selectedSituation);
+    localStorage.setItem('onboarding_date', new Date().toISOString());
+    localStorage.setItem('user_segment', userSegment);
+    
+    // Set journey start date for milestone tracking
+    const { localDebtStore } = await import('../data/localDebtStore.ts');
+    const existingStart = await localDebtStore.getMeta('journey_start_date');
+    if (!existingStart) {
+      await localDebtStore.setMeta('journey_start_date', new Date().toISOString());
+    }
+
+    // Track completion with new profile data
+    track('onboarding_completed', {
+      debtFocus: selectedGoal,
+      journeyStage: selectedSituation,
+      completion_time_seconds: timeSpent,
+      user_segment: userSegment,
+      // Legacy fields for backward compatibility
+      primary_goal: selectedGoal,
+      current_situation: selectedSituation
+    });
+
+    // Set user properties for segmentation
+    if (window.posthog) {
+      window.posthog.people.set({
+        primary_goal: selectedGoal,
+        current_situation: selectedSituation,
+        onboarding_completed_date: new Date().toISOString(),
+        user_segment: userSegment
+      });
+    }
+
+    // Smart routing based on profile
+    if (onComplete) {
+      onComplete();
+    } else {
+      // Route based on journey stage
+      if (selectedSituation === 'starter') {
+        navigate('/debts?onboarding=completed'); // Get organized → see your debts
+      } else {
+        navigate('/my-plan?onboarding=completed'); // Progress/optimizer → go to plan
+      }
+    }
+  };
+
+  // Skip onboarding
+  const handleSkip = () => {
+    const timeSpent = Math.floor((Date.now() - startTime) / 1000);
+    
+    localStorage.setItem('onboarding_completed', 'true');
+    localStorage.setItem('onboarding_skipped', 'true');
+    
+    track('onboarding_abandoned', {
+      last_step: currentStep,
+      time_spent_seconds: timeSpent,
+      reason: 'user_skipped'
+    });
+
+    if (onComplete) {
+      onComplete();
+    } else {
+      navigate('/');
+    }
+  };
+
+  // Render option card
+  const OptionCard = ({ option, isSelected, onSelect }) => {
+    const Icon = option.icon;
+    
+    return (
+      <button
+        onClick={() => onSelect(option.id)}
+        className={`w-full p-6 rounded-xl border-2 transition-all duration-200 text-left hover:shadow-md ${
+          isSelected
+            ? `border-primary bg-primary/5 shadow-md transform scale-105`
+            : `${colors.border} ${colors.surface} hover:border-primary/50`
+        }`}
+      >
+        <div className="flex items-start space-x-4">
+          <div className={`p-3 rounded-lg ${isSelected ? 'bg-primary/10' : colors.surfaceSecondary}`}>
+            <Icon className={`w-6 h-6 ${isSelected ? 'text-primary' : option.color}`} />
+          </div>
+          <div className="flex-1">
+            <h3 className={`text-lg font-semibold mb-2 ${colors.text.primary}`}>
+              {option.title}
+            </h3>
+            <p className={`text-sm ${colors.text.secondary}`}>
+              {option.description}
+            </p>
+          </div>
+          {isSelected && (
+            <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center">
+              <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+              </svg>
+            </div>
+          )}
+        </div>
+      </button>
+    );
+  };
+
+  return (
+    <div className={`min-h-screen ${colors.background} flex items-center justify-center p-4`}>
+      <div className={`max-w-2xl w-full ${colors.surface} rounded-2xl shadow-xl border ${colors.border} p-8`}>
+        {/* Progress Header */}
+        <div className="mb-8">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center space-x-2">
+              <img 
+                src="/logo-transparent.png" 
+                alt="TrySnowball" 
+                className="h-8 w-auto"
+              />
+              <span className={`text-sm ${colors.text.muted}`}>Setup</span>
+            </div>
+            <Button
+              onClick={handleSkip}
+              variant="ghost"
+              size="sm"
+              className="text-sm"
+            >
+              Skip
+            </Button>
+          </div>
+          
+          {/* Progress Bar */}
+          <div className="flex items-center space-x-2 mb-2">
+            <div className={`flex-1 h-2 rounded-full ${colors.surfaceSecondary}`}>
+              <div 
+                className="h-2 bg-primary rounded-full transition-all duration-300"
+                style={{ width: `${(currentStep / 2) * 100}%` }}
+              />
+            </div>
+            <span className={`text-sm ${colors.text.muted}`}>
+              Step {currentStep} of 2
+            </span>
+          </div>
+        </div>
+
+        {/* Step 1: Goal Selection */}
+        {currentStep === 1 && (
+          <div className="space-y-6">
+            <div className="text-center">
+              <h1 className={`text-3xl font-bold ${colors.text.primary} mb-3`}>
+                What's your main goal?
+              </h1>
+              <p className={`text-lg ${colors.text.secondary}`}>
+                Help us personalize your experience
+              </p>
+            </div>
+
+            <div className="space-y-4">
+              {goalOptions.map((option) => (
+                <OptionCard
+                  key={option.id}
+                  option={option}
+                  isSelected={selectedGoal === option.id}
+                  onSelect={handleGoalSelect}
+                />
+              ))}
+            </div>
+
+            <div className="flex justify-end pt-4">
+              <Button
+                onClick={handleNext}
+                disabled={!selectedGoal}
+                variant="primary"
+                size="lg"
+                leftIcon={ChevronRight}
+              >
+                Continue
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Step 2: Situation Selection */}
+        {currentStep === 2 && (
+          <div className="space-y-6">
+            <div className="text-center">
+              <h1 className={`text-3xl font-bold ${colors.text.primary} mb-3`}>
+                Where are you right now?
+              </h1>
+              <p className={`text-lg ${colors.text.secondary}`}>
+                So we can give you the right next steps
+              </p>
+            </div>
+
+            <div className="space-y-4">
+              {situationOptions.map((option) => (
+                <OptionCard
+                  key={option.id}
+                  option={option}
+                  isSelected={selectedSituation === option.id}
+                  onSelect={handleSituationSelect}
+                />
+              ))}
+            </div>
+
+            <div className="flex justify-between pt-4">
+              <Button
+                onClick={handleBack}
+                variant="muted"
+                size="lg"
+                leftIcon={ChevronLeft}
+              >
+                Back
+              </Button>
+              
+              <Button
+                onClick={handleNext}
+                disabled={!selectedSituation}
+                variant="primary"
+                size="lg"
+                leftIcon={ChevronRight}
+              >
+                Start Planning
+              </Button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default FirstTimeOnboarding;

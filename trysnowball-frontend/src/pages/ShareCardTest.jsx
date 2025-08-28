@@ -1,0 +1,157 @@
+import React, { useState } from 'react';
+import ShareCard from '../components/share/ShareCard';
+import { exportShareCardPNG, copyShareCardToClipboard, buildShareCopy, buildShareCaption } from '../components/share/exportShareCard';
+
+const ShareCardTest = () => {
+  const [variant, setVariant] = useState('square');
+  const [milestone, setMilestone] = useState({
+    type: 'debt_cleared',
+    debtLabel: 'Credit Card',
+    amount: 1500
+  });
+
+  // Test milestones
+  const testMilestones = {
+    debt_cleared: { type: 'debt_cleared', debtLabel: 'Credit Card', amount: 1500 },
+    chunk_paid: { type: 'chunk_paid', amount: 2500 },
+    snowball_growth: { type: 'snowball_growth', delta: 150 },
+    halfway_point: { type: 'halfway_point' },
+    first_payment: { type: 'first_payment' }
+  };
+
+  const shareCopy = buildShareCopy(milestone);
+  const caption = buildShareCaption(milestone);
+
+  const handleSave = async () => {
+    try {
+      await exportShareCardPNG('share-card-root', 'test-share-card.png');
+      console.log('Image saved successfully!');
+    } catch (error) {
+      console.error('Failed to save image:', error);
+    }
+  };
+
+  const handleCopyImage = async () => {
+    try {
+      await copyShareCardToClipboard('share-card-root');
+      console.log('Image copied to clipboard!');
+    } catch (error) {
+      console.error('Failed to copy image:', error);
+    }
+  };
+
+  const handleCopyCaption = async () => {
+    try {
+      await navigator.clipboard.writeText(caption);
+      console.log('Caption copied to clipboard!');
+    } catch (error) {
+      console.error('Failed to copy caption:', error);
+    }
+  };
+
+  return (
+    <div className="max-w-6xl mx-auto p-8">
+      <h1 className="text-3xl font-bold mb-8">Share Card Test</h1>
+      
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        {/* Controls */}
+        <div className="space-y-6">
+          <div>
+            <h2 className="text-xl font-semibold mb-4">Controls</h2>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-2">Variant:</label>
+                <select
+                  value={variant}
+                  onChange={(e) => setVariant(e.target.value)}
+                  className="border rounded px-3 py-2 w-full"
+                >
+                  <option value="square">Square (1080×1080)</option>
+                  <option value="story">Story (1080×1350)</option>
+                  <option value="og">OG/Twitter (1200×630)</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-2">Milestone Type:</label>
+                <select
+                  value={milestone.type}
+                  onChange={(e) => setMilestone(testMilestones[e.target.value])}
+                  className="border rounded px-3 py-2 w-full"
+                >
+                  <option value="debt_cleared">Debt Cleared</option>
+                  <option value="chunk_paid">Chunk Paid</option>
+                  <option value="snowball_growth">Snowball Growth</option>
+                  <option value="halfway_point">Halfway Point</option>
+                  <option value="first_payment">First Payment</option>
+                </select>
+              </div>
+
+              <div className="space-y-2">
+                <button
+                  onClick={handleSave}
+                  className="w-full bg-blue-600 text-white py-2 px-4 rounded hover:bg-blue-700"
+                >
+                  Save Image
+                </button>
+                <button
+                  onClick={handleCopyImage}
+                  className="w-full bg-green-600 text-white py-2 px-4 rounded hover:bg-green-700"
+                >
+                  Copy Image
+                </button>
+                <button
+                  onClick={handleCopyCaption}
+                  className="w-full bg-purple-600 text-white py-2 px-4 rounded hover:bg-purple-700"
+                >
+                  Copy Caption
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Caption Preview */}
+          <div>
+            <h3 className="text-lg font-semibold mb-2">Generated Caption:</h3>
+            <div className="bg-gray-100 p-3 rounded text-sm">
+              {caption}
+            </div>
+          </div>
+
+          {/* Copy Details */}
+          <div>
+            <h3 className="text-lg font-semibold mb-2">Copy Details:</h3>
+            <div className="space-y-2 text-sm">
+              <div><strong>Headline:</strong> {shareCopy.headline}</div>
+              <div><strong>Stat:</strong> {shareCopy.stat}</div>
+              <div><strong>Subline:</strong> {shareCopy.subline}</div>
+            </div>
+          </div>
+        </div>
+
+        {/* Share Card Preview */}
+        <div>
+          <h2 className="text-xl font-semibold mb-4">Preview</h2>
+          <div className="bg-gray-100 p-4 rounded-lg overflow-auto">
+            <div style={{ 
+              transform: variant === 'og' ? 'scale(0.4)' : 'scale(0.3)', 
+              transformOrigin: 'top left',
+              width: variant === 'og' ? '250%' : '333%',
+              height: variant === 'og' ? '250%' : '333%'
+            }}>
+              <ShareCard
+                variant={variant}
+                headline={shareCopy.headline}
+                stat={shareCopy.stat}
+                subline={shareCopy.subline}
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default ShareCardTest;

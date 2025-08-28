@@ -1,0 +1,21 @@
+{
+  "name": "trysnowball-auth-worker",
+  "version": "1.0.0",
+  "description": "Cloudflare Worker for TrySnowball authentication",
+  "main": "auth.js",
+  "scripts": {
+    "deploy": "wrangler deploy",
+    "dev": "wrangler dev",
+    "tail": "wrangler tail"
+  },
+  "dependencies": {
+    "@tsndr/cloudflare-worker-jwt": "^2.4.2",
+    "clsx": "^2.1.1",
+    "lucide-react": "^0.539.0"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-pool-workers": "^0.8.61",
+    "vitest": "^3.2.4",
+    "wrangler": "^3.0.0"
+  }
+}

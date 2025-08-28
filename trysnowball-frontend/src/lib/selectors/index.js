@@ -1,0 +1,13 @@
+/**
+ * Re-export selectors to handle JS/TS import compatibility
+ */
+
+export { 
+  getFocusedDebtIdFromSearch,
+  buildDebtBalanceSeries,
+  buildFocusSearchString,
+  getDebtLabelById,
+  getFocusedDebtPayoffDate,
+  withFocus,
+  filterDebtsForFocus
+} from './focus';

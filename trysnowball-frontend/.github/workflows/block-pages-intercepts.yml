@@ -1,0 +1,16 @@
+name: Block Pages intercepts for auth/ai
+on: [pull_request]
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check for forbidden Pages Functions
+        run: |
+          if git ls-files | grep -E '^functions/(auth|ai)/'; then
+            echo "❌ Do not add functions/auth or functions/ai. Use the Worker."
+            echo "These folders were previously causing route interception issues."
+            echo "All auth and AI requests must go through the dedicated Workers."
+            exit 1
+          fi
+          echo "✅ No forbidden Pages Functions found"

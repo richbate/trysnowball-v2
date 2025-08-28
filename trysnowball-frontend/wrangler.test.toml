@@ -1,0 +1,12 @@
+name = "trysnowball-test"
+main = "cloudflare-workers/auth-magic.js"
+compatibility_date = "2024-12-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "test_db"
+database_id = "local-test"
+
+[vars]
+JWT_SECRET = "test-jwt-secret-12345"
+BASE_URL = "http://localhost:3000"

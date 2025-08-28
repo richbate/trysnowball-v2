@@ -1,20 +1,49 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useTheme } from '../contexts/ThemeContext';
+import { useDebts } from '../hooks/useDebts';
 
 const UpdateBalances = ({ onClose, onUpdate }) => {
   const { colors } = useTheme();
+  const { debts } = useDebts(); // Get actual debts from the system
   
-  // January 2025 baseline data
-  const [balances, setBalances] = useState({
-    paypal: { name: 'Paypal', current: '', january: 1400, min: 255 },
-    flex: { name: 'Flex', current: '', january: 2250, min: 70 },
-    barclaycard: { name: 'Barclaycard', current: '', january: 2461, min: 75 },
-    virgin: { name: 'Virgin', current: '', january: 4762, min: 255 },
-    mbna: { name: 'MBNA', current: '', january: 5931, min: 255 },
-    natwest: { name: 'Natwest', current: '', january: 6820, min: 70 },
-    halifax2: { name: 'Halifax 2', current: '', january: 8587, min: 215 },
-    halifax1: { name: 'Halifax 1', current: '', january: 11694, min: 300 },
-  });
+  console.log('🔍 [DEBUG] UpdateBalances received debts:', debts);
+  console.log('🔍 [DEBUG] Number of debts:', debts?.length);
+  if (debts && debts.length > 0) {
+    debts.forEach((debt, i) => {
+      console.log(`🔍 [DEBUG] Debt ${i}:`, {
+        id: debt.id,
+        name: debt.name,
+        balance: debt.balance,
+        minPayment: debt.minPayment,
+        order: debt.order,
+        originalAmount: debt.originalAmount
+      });
+    });
+  }
+  
+  const [balances, setBalances] = useState({});
+
+  // Initialize balances from actual debt data
+  useEffect(() => {
+    if (debts && debts.length > 0) {
+      const initialBalances = {};
+      
+      // Convert debts to balance update format, maintaining order
+      debts.forEach(debt => {
+        initialBalances[debt.id] = {
+          name: debt.name,
+          current: debt.balance || '', // Pre-fill with current balance
+          originalBalance: debt.originalAmount || debt.balance, // Use as baseline
+          currentBalance: debt.balance, // Current stored balance
+          minPayment: debt.minPayment || 0,
+          interestRate: debt.interestRate || 20, // Include interest rate
+          order: debt.order || 999 // Preserve order
+        };
+      });
+      
+      setBalances(initialBalances);
+    }
+  }, [debts]);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -28,14 +57,16 @@ const UpdateBalances = ({ onClose, onUpdate }) => {
     }));
   };
 
-  const calculateProgress = (january, current) => {
+  const calculateProgress = (previousBalance, current) => {
     if (!current || current === '') return { change: 0, percentage: 0, status: 'no-data' };
     
-    const change = january - parseInt(current);
-    const percentage = ((change / january) * 100);
+    const currentNum = parseInt(current);
+    const change = previousBalance - currentNum;
+    const percentage = previousBalance > 0 ? ((change / previousBalance) * 100) : 0;
     
     let status = 'neutral';
-    if (change > 500) status = 'excellent';
+    if (currentNum === 0) status = 'excellent'; // Debt cleared!
+    else if (change > 500) status = 'excellent';
     else if (change > 100) status = 'good';
     else if (change < -500) status = 'poor';
     else if (change < 0) status = 'concern';
@@ -67,15 +98,20 @@ const UpdateBalances = ({ onClose, onUpdate }) => {
     e.preventDefault();
     setIsSubmitting(true);
     
-    // Convert to format expected by the app
-    const updatedDebts = Object.entries(balances).map(([key, data]) => ({
-      id: key,
-      name: data.name,
-      balance: parseInt(data.current) || data.january,
-      january: data.january,
-      minPayment: data.min,
-      progress: calculateProgress(data.january, data.current)
-    }));
+    // Convert to format expected by the app, preserving order
+    const updatedDebts = Object.entries(balances)
+      .map(([key, data]) => ({
+        id: key,
+        name: data.name,
+        balance: parseInt(data.current) || data.currentBalance,
+        previousBalance: data.currentBalance, // Track the previous balance
+        minPayment: data.minPayment,
+        interestRate: data.interestRate, // Include interest rate
+        order: data.order,
+        originalAmount: data.originalBalance,
+        progress: calculateProgress(data.currentBalance, data.current)
+      }))
+      .sort((a, b) => a.order - b.order); // Maintain order
 
     // Call parent update function
     if (onUpdate) {
@@ -86,12 +122,12 @@ const UpdateBalances = ({ onClose, onUpdate }) => {
     onClose();
   };
 
-  const totalJanuary = Object.values(balances).reduce((sum, debt) => sum + debt.january, 0);
+  const totalOriginal = Object.values(balances).reduce((sum, debt) => sum + (debt.originalBalance || 0), 0);
   const totalCurrent = Object.values(balances).reduce((sum, debt) => {
-    const current = parseInt(debt.current) || debt.january;
+    const current = parseInt(debt.current) || debt.currentBalance || 0;
     return sum + current;
   }, 0);
-  const totalProgress = totalJanuary - totalCurrent;
+  const totalProgress = totalOriginal - totalCurrent;
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -101,7 +137,7 @@ const UpdateBalances = ({ onClose, onUpdate }) => {
           <div className="flex justify-between items-center mb-6">
             <div>
               <h2 className={`text-2xl font-bold ${colors.text.primary}`}>Update Your Balances</h2>
-              <p className={`${colors.text.secondary}`}>Enter your current balances to see your progress since January 2025</p>
+              <p className={`${colors.text.secondary}`}>Enter your current balances to track your debt reduction progress</p>
             </div>
             <button
               onClick={onClose}
@@ -116,8 +152,8 @@ const UpdateBalances = ({ onClose, onUpdate }) => {
           {/* Summary */}
           <div className="grid grid-cols-3 gap-4 mb-6">
             <div className={`p-4 rounded-lg border ${colors.border}`}>
-              <div className="text-lg font-bold text-red-600">£{totalJanuary.toLocaleString()}</div>
-              <div className={`text-sm ${colors.text.muted}`}>January 2025 Total</div>
+              <div className="text-lg font-bold text-red-600">£{totalOriginal.toLocaleString()}</div>
+              <div className={`text-sm ${colors.text.muted}`}>Original Total</div>
             </div>
             <div className={`p-4 rounded-lg border ${colors.border}`}>
               <div className="text-lg font-bold text-blue-600">£{totalCurrent.toLocaleString()}</div>
@@ -134,20 +170,27 @@ const UpdateBalances = ({ onClose, onUpdate }) => {
           <form onSubmit={handleSubmit}>
             {/* Balance Update Grid */}
             <div className="space-y-4 mb-6">
-              {Object.entries(balances).map(([key, debt]) => {
-                const progress = calculateProgress(debt.january, debt.current);
-                return (
-                  <div key={key} className={`p-4 border rounded-lg ${colors.border}`}>
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-center">
-                      <div>
-                        <h3 className={`font-medium ${colors.text.primary}`}>{debt.name}</h3>
-                        <p className={`text-sm ${colors.text.muted}`}>Min payment: £{debt.min}</p>
-                      </div>
-                      
-                      <div className="text-center">
-                        <div className="text-sm text-gray-500">January 2025</div>
-                        <div className="font-semibold">£{debt.january.toLocaleString()}</div>
-                      </div>
+              {Object.entries(balances)
+                .sort(([,a], [,b]) => (a.order || 999) - (b.order || 999)) // Sort by order
+                .map(([key, debt]) => {
+                  const progress = calculateProgress(debt.currentBalance, debt.current);
+                  return (
+                    <div key={key} className={`p-4 border rounded-lg ${colors.border}`}>
+                      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-center">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <div className="bg-blue-100 text-blue-800 text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center">
+                              {debt.order || 1}
+                            </div>
+                            <h3 className={`font-medium ${colors.text.primary}`}>{debt.name}</h3>
+                          </div>
+                          <p className={`text-sm ${colors.text.muted}`}>Min payment: £{debt.minPayment}</p>
+                        </div>
+                        
+                        <div className="text-center">
+                          <div className="text-sm text-gray-500">Current</div>
+                          <div className="font-semibold">£{(debt.currentBalance || 0).toLocaleString()}</div>
+                        </div>
                       
                       <div>
                         <label className={`block text-sm ${colors.text.secondary} mb-1`}>Current Balance</label>

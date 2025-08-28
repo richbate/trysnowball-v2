@@ -1,0 +1,327 @@
+/**
+ * CP-1: Tests for Legacy Data Migration
+ */
+
+import 'fake-indexeddb/auto';
+import { migrateLegacyData } from '../migrateLegacyData';
+import { localDebtStore } from '../../data/localDebtStore';
+
+describe('Legacy Data Migration', () => {
+  beforeEach(async () => {
+    // Clear everything before each test
+    localStorage.clear();
+    await localDebtStore.clearAll();
+    await localDebtStore.setMeta('migration_completed_v2', false);
+  });
+
+  afterEach(() => {
+    localStorage.clear();
+  });
+
+  describe('Migration Detection', () => {
+    it('should detect when migration is needed', async () => {
+      const needsMigration = await localDebtStore.needsMigration();
+      expect(needsMigration).toBe(true);
+    });
+
+    it('should not migrate if already completed', async () => {
+      await localDebtStore.markMigrationComplete();
+      
+      const result = await migrateLegacyData();
+      expect(result.migrated).toBe(false);
+      expect(result.source).toBe('none');
+    });
+  });
+
+  describe('Legacy Format Migration', () => {
+    it('should migrate simple array format', async () => {
+      const legacyData = [
+        {
+          id: 'debt1',
+          name: 'Credit Card',
+          balance: 1500,
+          rate: 19.9,
+          minPayment: 50
+        },
+        {
+          id: 'debt2',
+          name: 'Personal Loan',
+          amount: 3000, // Different field name
+          interestRate: 7.5, // Different field name
+          min: 100 // Different field name
+        }
+      ];
+
+      localStorage.setItem('debts', JSON.stringify(legacyData));
+
+      const result = await migrateLegacyData();
+      expect(result.migrated).toBe(true);
+      expect(result.count).toBe(2);
+      expect(result.source).toBe('debts');
+
+      const migrated = await localDebtStore.listDebts();
+      expect(migrated).toHaveLength(2);
+      
+      const card = migrated.find(d => d.name === 'Credit Card');
+      expect(card?.balance).toBe(1500);
+      expect(card?.interestRate).toBe(19.9);
+      expect(card?.minPayment).toBe(50);
+
+      const loan = migrated.find(d => d.name === 'Personal Loan');
+      expect(loan?.balance).toBe(3000);
+      expect(loan?.interestRate).toBe(7.5);
+      expect(loan?.minPayment).toBe(100);
+    });
+
+    it('should migrate debtsManager format', async () => {
+      const debtsManagerData = {
+        debts: [
+          {
+            name: 'Visa',
+            balance: 2500,
+            rate: 18.9,
+            minPayment: 75,
+            createdAt: '2023-01-15T10:00:00Z'
+          }
+        ],
+        settings: {
+          extraPayment: 100
+        },
+        paymentHistory: []
+      };
+
+      localStorage.setItem('trysnowball-user-data', JSON.stringify(debtsManagerData));
+
+      const result = await migrateLegacyData();
+      expect(result.migrated).toBe(true);
+      expect(result.count).toBe(1);
+      expect(result.source).toBe('trysnowball-user-data');
+
+      const migrated = await localDebtStore.listDebts();
+      expect(migrated).toHaveLength(1);
+      expect(migrated[0].name).toBe('Visa');
+      expect(migrated[0].createdAt).toBe('2023-01-15T10:00:00Z');
+    });
+
+    it('should handle nested data structures', async () => {
+      const nestedData = {
+        data: {
+          debts: [
+            {
+              name: 'Store Card',
+              balance: 500,
+              interest: 22.9, // Yet another variant
+              regularPayment: 25 // Yet another variant
+            }
+          ]
+        }
+      };
+
+      localStorage.setItem('debtBalances', JSON.stringify(nestedData));
+
+      const result = await migrateLegacyData();
+      expect(result.migrated).toBe(true);
+      expect(result.count).toBe(1);
+
+      const migrated = await localDebtStore.listDebts();
+      expect(migrated[0].name).toBe('Store Card');
+      expect(migrated[0].interestRate).toBe(22.9);
+      expect(migrated[0].minPayment).toBe(25);
+    });
+  });
+
+  describe('Data Transformation', () => {
+    it('should normalize string values', async () => {
+      const legacyData = [
+        {
+          name: 'String Test',
+          balance: '1,234.56',
+          rate: '19.9%',
+          minPayment: '£50.00'
+        }
+      ];
+
+      localStorage.setItem('debts', JSON.stringify(legacyData));
+
+      await migrateLegacyData();
+
+      const migrated = await localDebtStore.listDebts();
+      expect(migrated[0].balance).toBe(1234.56);
+      expect(migrated[0].interestRate).toBe(19.9);
+      expect(migrated[0].minPayment).toBe(50);
+    });
+
+    it('should generate IDs for debts without them', async () => {
+      const legacyData = [
+        {
+          name: 'No ID Debt',
+          balance: 1000
+        }
+      ];
+
+      localStorage.setItem('debts', JSON.stringify(legacyData));
+
+      await migrateLegacyData();
+
+      const migrated = await localDebtStore.listDebts();
+      expect(migrated[0].id).toBeTruthy();
+      expect(migrated[0].id).toContain('migrated_');
+    });
+
+    it('should determine debt types from name', async () => {
+      const legacyData = [
+        { name: 'Visa Card', balance: 1000 },
+        { name: 'PayPal Credit', balance: 500 },
+        { name: 'Car Loan', balance: 5000 },
+        { name: 'Student Loan', balance: 10000 },
+        { name: 'Home Mortgage', balance: 100000 },
+        { name: 'Overdraft', balance: 200 },
+        { name: 'Something Else', balance: 300 }
+      ];
+
+      localStorage.setItem('debts', JSON.stringify(legacyData));
+
+      await migrateLegacyData();
+
+      const migrated = await localDebtStore.listDebts();
+      
+      expect(migrated.find(d => d.name === 'Visa Card')?.type).toBe('Credit Card');
+      expect(migrated.find(d => d.name === 'PayPal Credit')?.type).toBe('Store Card');
+      expect(migrated.find(d => d.name === 'Car Loan')?.type).toBe('Car Loan');
+      expect(migrated.find(d => d.name === 'Student Loan')?.type).toBe('Student Loan');
+      expect(migrated.find(d => d.name === 'Home Mortgage')?.type).toBe('Mortgage');
+      expect(migrated.find(d => d.name === 'Overdraft')?.type).toBe('Overdraft');
+      expect(migrated.find(d => d.name === 'Something Else')?.type).toBe('Other');
+    });
+
+    it('should skip invalid debts', async () => {
+      const legacyData = [
+        { name: 'Valid', balance: 1000 },
+        { /* Empty object */ },
+        { name: '', balance: 0 }, // No name, zero balance
+        { name: 'Another Valid', balance: 500 }
+      ];
+
+      localStorage.setItem('debts', JSON.stringify(legacyData));
+
+      await migrateLegacyData();
+
+      const migrated = await localDebtStore.listDebts();
+      expect(migrated).toHaveLength(2);
+      expect(migrated[0].name).toBe('Valid');
+      expect(migrated[1].name).toBe('Another Valid');
+    });
+  });
+
+  describe('Backup and Cleanup', () => {
+    it('should create backup before clearing legacy storage', async () => {
+      const originalData = { debts: [{ name: 'Test', balance: 1000 }] };
+      localStorage.setItem('debts', JSON.stringify(originalData));
+
+      await migrateLegacyData();
+
+      // Original should be cleared
+      expect(localStorage.getItem('debts')).toBeNull();
+
+      // But backup should exist
+      const keys = Object.keys(localStorage);
+      const backupKey = keys.find(k => k.startsWith('legacy_backup_'));
+      expect(backupKey).toBeTruthy();
+
+      if (backupKey) {
+        const backup = JSON.parse(localStorage.getItem(backupKey)!);
+        expect(backup.data.debts).toBeTruthy();
+        const restoredData = JSON.parse(backup.data.debts);
+        expect(restoredData.debts[0].name).toBe('Test');
+      }
+    });
+
+    it('should clear all legacy keys after migration', async () => {
+      // Set multiple legacy keys
+      localStorage.setItem('trysnowball-user-data', JSON.stringify({ debts: [] }));
+      localStorage.setItem('debtBalances', JSON.stringify([]));
+      localStorage.setItem('trysnowball_demo_debts', JSON.stringify([]));
+      localStorage.setItem('unrelated-key', 'should-remain');
+
+      await migrateLegacyData();
+
+      // Legacy keys should be cleared
+      expect(localStorage.getItem('trysnowball-user-data')).toBeNull();
+      expect(localStorage.getItem('debtBalances')).toBeNull();
+      expect(localStorage.getItem('trysnowball_demo_debts')).toBeNull();
+
+      // Unrelated key should remain
+      expect(localStorage.getItem('unrelated-key')).toBe('should-remain');
+    });
+  });
+
+  describe('Idempotence', () => {
+    it('should not duplicate data on repeated migrations', async () => {
+      const legacyData = [
+        { id: 'debt1', name: 'Test Debt', balance: 1000 }
+      ];
+
+      localStorage.setItem('debts', JSON.stringify(legacyData));
+
+      // First migration
+      await migrateLegacyData();
+      
+      // Reset migration flag to force re-run
+      await localDebtStore.setMeta('migration_completed_v2', false);
+      
+      // Re-create legacy data
+      localStorage.setItem('debts', JSON.stringify(legacyData));
+      
+      // Second migration
+      await migrateLegacyData();
+
+      const debts = await localDebtStore.listDebts();
+      
+      // Should still have only one debt (upsert by ID)
+      expect(debts).toHaveLength(1);
+    });
+
+    it('should handle empty legacy storage gracefully', async () => {
+      // No legacy data set
+
+      const result = await migrateLegacyData();
+      
+      expect(result.migrated).toBe(false);
+      expect(result.count).toBe(0);
+      expect(result.source).toBe('none');
+
+      // Should still mark as complete
+      const needsMigration = await localDebtStore.needsMigration();
+      expect(needsMigration).toBe(false);
+    });
+  });
+
+  describe('Error Handling', () => {
+    it('should handle corrupted JSON gracefully', async () => {
+      localStorage.setItem('debts', 'not valid json');
+      localStorage.setItem('debtBalances', '{ broken json');
+
+      const result = await migrateLegacyData();
+      
+      // Should complete without crashing
+      expect(result.migrated).toBe(false);
+      expect(result.count).toBe(0);
+    });
+
+    it('should handle partially valid data', async () => {
+      const mixedData = [
+        { name: 'Valid', balance: 1000 },
+        'not an object',
+        null,
+        { name: 'Also Valid', balance: 500 }
+      ];
+
+      localStorage.setItem('debts', JSON.stringify(mixedData));
+
+      await migrateLegacyData();
+
+      const migrated = await localDebtStore.listDebts();
+      expect(migrated).toHaveLength(2);
+    });
+  });
+});

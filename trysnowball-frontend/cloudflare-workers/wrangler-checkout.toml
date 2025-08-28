@@ -1,0 +1,69 @@
+name = "trysnowball-checkout"
+main = "stripe-checkout-api.js"
+compatibility_date = "2024-01-01"
+
+# D1 Database binding (same as auth worker)
+[[d1_databases]]
+binding = "DB"
+database_name = "auth_db"
+database_id = "c22c4bca-0e0c-44db-957f-5e087c660fb0"
+
+# Environment variables (set via wrangler secret put)
+# STRIPE_SECRET_KEY - Stripe API secret key
+# JWT_SECRET - Same JWT secret as auth worker
+# OPENAI_API_KEY - OpenAI API key for AI chat
+
+# AI Chat configuration
+[vars]
+AI_MAX_TOKENS = "700"
+AI_ALLOWED_MODELS = "gpt-4o-mini,gpt-4o"
+AI_TEMP = "0.2"
+AI_DAILY_REQ = "40"
+
+# KV namespace for AI quotas
+[[kv_namespaces]]
+binding = "AI_QUOTAS"
+id = "ba51298de08941dd9e69254812748a4a"
+
+[env.production]
+name = "trysnowball-checkout-prod"
+routes = [
+  "trysnowball.co.uk/api/*",
+  "trysnowball.co.uk/auth/*"
+]
+
+[[env.production.d1_databases]]
+binding = "DB"
+database_name = "auth_db"
+database_id = "c22c4bca-0e0c-44db-957f-5e087c660fb0"
+
+# AI Chat vars for production
+[env.production.vars]
+AI_MAX_TOKENS = "700"
+AI_ALLOWED_MODELS = "gpt-4o-mini,gpt-4o"
+AI_TEMP = "0.2"
+AI_DAILY_REQ = "40"
+
+[[env.production.kv_namespaces]]
+binding = "AI_QUOTAS"
+id = "ba51298de08941dd9e69254812748a4a"
+
+[env.staging]
+name = "trysnowball-checkout-staging"
+route = "staging-trysnowball.pages.dev/api/*"
+
+# AI Chat vars for staging
+[env.staging.vars]
+AI_MAX_TOKENS = "700"
+AI_ALLOWED_MODELS = "gpt-4o-mini,gpt-4o"
+AI_TEMP = "0.2"
+AI_DAILY_REQ = "40"
+
+[[env.staging.d1_databases]]
+binding = "DB"
+database_name = "auth_db"
+database_id = "c22c4bca-0e0c-44db-957f-5e087c660fb0"
+
+[[env.staging.kv_namespaces]]
+binding = "AI_QUOTAS"
+id = "ba51298de08941dd9e69254812748a4a"

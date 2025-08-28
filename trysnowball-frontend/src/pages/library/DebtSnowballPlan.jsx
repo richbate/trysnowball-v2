@@ -1,0 +1,203 @@
+import React from 'react';
+import { Link } from 'react-router-dom';
+import { useTheme } from '../../contexts/ThemeContext';
+
+const DebtSnowballPlan = () => {
+  const { colors } = useTheme();
+
+  return (
+    <div className={`max-w-4xl mx-auto px-4 py-8 ${colors.background}`}>
+      <div className={`${colors.surface} rounded-lg shadow-sm border ${colors.border} p-8`}>
+        <div className="mb-6">
+          <h1 className={`text-4xl font-bold mb-4 ${colors.text.primary}`}>
+            The Debt Snowball Plan: Build Momentum, Clear Debts
+          </h1>
+          <p className={`text-lg ${colors.text.secondary} leading-relaxed`}>
+            The debt snowball method focuses on paying off your smallest debts first to build psychological momentum. 
+            Here's how to create and execute your snowball plan in the UK.
+          </p>
+        </div>
+
+        <div className="space-y-8">
+          <section>
+            <h2 className={`text-2xl font-semibold mb-4 ${colors.text.primary}`}>How the Debt Snowball Works</h2>
+            <div className="space-y-4">
+              <p className={`${colors.text.secondary} leading-relaxed`}>
+                The debt snowball method prioritizes debts by balance size, regardless of interest rates. You make minimum payments 
+                on all debts, then put every extra pound toward the smallest balance. Once that's paid off, you "roll" that payment 
+                to the next smallest debt, creating a snowball effect.
+              </p>
+              
+              <div className={`${colors.surfaceSecondary} p-6 rounded-lg border-l-4 border-blue-500`}>
+                <h3 className={`text-lg font-semibold mb-3 ${colors.text.primary}`}>Example UK Debt Snowball</h3>
+                <ul className={`space-y-2 ${colors.text.secondary}`}>
+                  <li>• Store card: £350 (pay off first)</li>
+                  <li>• Personal loan: £2,500 (pay off second)</li>
+                  <li>• Credit card: £4,200 (pay off third)</li>
+                  <li>• Car finance: £8,900 (pay off last)</li>
+                </ul>
+                <p className={`mt-3 text-sm ${colors.text.muted}`}>
+                  Note: This ignores interest rates and focuses purely on balance size for maximum psychological impact.
+                </p>
+              </div>
+            </div>
+          </section>
+
+          <section>
+            <h2 className={`text-2xl font-semibold mb-4 ${colors.text.primary}`}>Step-by-Step Implementation</h2>
+            <div className="space-y-6">
+              <div className={`${colors.surface} border ${colors.border} rounded-lg p-6`}>
+                <h3 className={`text-lg font-semibold mb-3 ${colors.text.primary}`}>1. List All Your Debts</h3>
+                <p className={`${colors.text.secondary} mb-3`}>
+                  Gather statements for all debts including credit cards, store cards, personal loans, overdrafts, and any money owed to family.
+                </p>
+                <p className={`text-sm ${colors.text.muted}`}>
+                  Include: creditor name, current balance, minimum payment, and interest rate (for reference).
+                </p>
+              </div>
+
+              <div className={`${colors.surface} border ${colors.border} rounded-lg p-6`}>
+                <h3 className={`text-lg font-semibold mb-3 ${colors.text.primary}`}>2. Order by Balance Size</h3>
+                <p className={`${colors.text.secondary} mb-3`}>
+                  Arrange debts from smallest to largest balance. Ignore interest rates for now - this is about building momentum, not mathematical optimization.
+                </p>
+              </div>
+
+              <div className={`${colors.surface} border ${colors.border} rounded-lg p-6`}>
+                <h3 className={`text-lg font-semibold mb-3 ${colors.text.primary}`}>3. Find Extra Money</h3>
+                <p className={`${colors.text.secondary} mb-3`}>
+                  Review your budget to find additional funds. Even £25-50 per month makes a significant difference when focused on the smallest debt.
+                </p>
+                <ul className={`list-disc pl-6 space-y-1 ${colors.text.secondary} text-sm`}>
+                  <li>Cancel unused subscriptions (Netflix, gym, magazines)</li>
+                  <li>Reduce meal deals and takeaways</li>
+                  <li>Sell items you no longer need</li>
+                  <li>Take on extra work or overtime</li>
+                </ul>
+              </div>
+
+              <div className={`${colors.surface} border ${colors.border} rounded-lg p-6`}>
+                <h3 className={`text-lg font-semibold mb-3 ${colors.text.primary}`}>4. Attack the Smallest Debt</h3>
+                <p className={`${colors.text.secondary} mb-3`}>
+                  Make minimum payments on all other debts, then throw every extra pound at the smallest balance. 
+                  This creates quick wins that maintain motivation.
+                </p>
+              </div>
+            </div>
+          </section>
+
+          <section>
+            <h2 className={`text-2xl font-semibold mb-4 ${colors.text.primary}`}>UK-Specific Considerations</h2>
+            <div className="space-y-4">
+              <div className={`${colors.surfaceSecondary} p-6 rounded-lg`}>
+                <h3 className={`text-lg font-semibold mb-3 ${colors.text.primary}`}>Priority vs Non-Priority Debts</h3>
+                <p className={`${colors.text.secondary} mb-3`}>
+                  Before starting your snowball, ensure all <Link to="/library/priority-debts-uk" className="text-blue-600 hover:text-blue-800 underline">priority debts</Link> are current. 
+                  These include council tax, mortgage/rent, and utilities - debts with serious consequences for non-payment.
+                </p>
+                <p className={`text-sm ${colors.text.muted}`}>
+                  The snowball method works best for non-priority consumer debts like credit cards and personal loans.
+                </p>
+              </div>
+
+              <div className={`${colors.surfaceSecondary} p-6 rounded-lg`}>
+                <h3 className={`text-lg font-semibold mb-3 ${colors.text.primary}`}>Breathing Space Scheme</h3>
+                <p className={`${colors.text.secondary}`}>
+                  If you're struggling, consider applying for <Link to="/library/breathing-space-uk" className="text-blue-600 hover:text-blue-800 underline">Breathing Space</Link>, 
+                  which gives you 60 days of protection from creditor action while you get debt advice and plan your strategy.
+                </p>
+              </div>
+            </div>
+          </section>
+
+          <section>
+            <h2 className={`text-2xl font-semibold mb-4 ${colors.text.primary}`}>Snowball vs Avalanche</h2>
+            <div className={`${colors.surface} border ${colors.border} rounded-lg p-6`}>
+              <p className={`${colors.text.secondary} mb-4`}>
+                The debt snowball prioritizes motivation over mathematics. If you're disciplined and motivated by saving money, 
+                consider the <Link to="/library/debt-avalanche-plan" className="text-blue-600 hover:text-blue-800 underline">debt avalanche method</Link> instead, 
+                which targets high-interest debts first.
+              </p>
+              <p className={`${colors.text.secondary}`}>
+                For a detailed comparison, see our <Link to="/library/debt-snowball-vs-avalanche" className="text-blue-600 hover:text-blue-800 underline">snowball vs avalanche guide</Link>.
+              </p>
+            </div>
+          </section>
+
+          <section>
+            <h2 className={`text-2xl font-semibold mb-4 ${colors.text.primary}`}>Staying Motivated</h2>
+            <div className="grid md:grid-cols-2 gap-6">
+              <div className={`${colors.surface} border ${colors.border} rounded-lg p-6`}>
+                <h3 className={`text-lg font-semibold mb-3 ${colors.text.primary}`}>Celebrate Wins</h3>
+                <p className={`${colors.text.secondary} text-sm`}>
+                  Each debt you clear is a victory. Celebrate (within your budget) to maintain motivation for the longer journey ahead.
+                </p>
+              </div>
+              <div className={`${colors.surface} border ${colors.border} rounded-lg p-6`}>
+                <h3 className={`text-lg font-semibold mb-3 ${colors.text.primary}`}>Track Progress</h3>
+                <p className={`${colors.text.secondary} text-sm`}>
+                  Keep a visual record of your progress. Use TrySnowball's tracking tools to see your momentum building over time.
+                </p>
+              </div>
+              <div className={`${colors.surface} border ${colors.border} rounded-lg p-6`}>
+                <h3 className={`text-lg font-semibold mb-3 ${colors.text.primary}`}>Find Accountability</h3>
+                <p className={`${colors.text.secondary} text-sm`}>
+                  Share your goals with a trusted friend or family member. Regular check-ins help maintain commitment to your plan.
+                </p>
+              </div>
+              <div className={`${colors.surface} border ${colors.border} rounded-lg p-6`}>
+                <h3 className={`text-lg font-semibold mb-3 ${colors.text.primary}`}>Plan for Setbacks</h3>
+                <p className={`${colors.text.secondary} text-sm`}>
+                  Emergency expenses happen. Build a small buffer if possible, and don't abandon your plan if you need to pause temporarily.
+                </p>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <div className={`mt-10 p-6 ${colors.surfaceSecondary} rounded-lg border-l-4 border-green-500`}>
+          <h3 className={`text-xl font-semibold mb-3 ${colors.text.primary}`}>Ready to Start Your Debt Snowball?</h3>
+          <p className={`${colors.text.secondary} mb-4`}>
+            TrySnowball's AI coach can help you build a personalized debt snowball plan, track your progress, and stay motivated throughout your journey.
+          </p>
+          <div className="flex flex-wrap gap-3">
+            <Link 
+              to="/debts"
+              className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition-colors"
+            >
+              Add Your Debts
+            </Link>
+            <Link 
+              to="/plan"
+              className={`${colors.surface} border ${colors.border} hover:${colors.surfaceSecondary} ${colors.text.primary} font-medium py-2 px-4 rounded-lg transition-colors`}
+            >
+              View Payoff Plan
+            </Link>
+          </div>
+        </div>
+
+        <div className={`mt-8 pt-6 border-t ${colors.border}`}>
+          <h4 className={`text-lg font-semibold mb-3 ${colors.text.primary}`}>Related Articles</h4>
+          <div className="grid sm:grid-cols-2 gap-4">
+            <Link 
+              to="/library/debt-avalanche-plan" 
+              className={`block p-4 ${colors.surface} border ${colors.border} rounded-lg hover:${colors.surfaceSecondary} transition-colors`}
+            >
+              <h5 className={`font-medium ${colors.text.primary}`}>The Debt Avalanche Method</h5>
+              <p className={`text-sm ${colors.text.muted} mt-1`}>Mathematical approach focusing on highest interest rates first</p>
+            </Link>
+            <Link 
+              to="/library/priority-debts-uk" 
+              className={`block p-4 ${colors.surface} border ${colors.border} rounded-lg hover:${colors.surfaceSecondary} transition-colors`}
+            >
+              <h5 className={`font-medium ${colors.text.primary}`}>UK Priority Debts Guide</h5>
+              <p className={`text-sm ${colors.text.muted} mt-1`}>Understanding which debts to prioritize in the UK</p>
+            </Link>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default DebtSnowballPlan;

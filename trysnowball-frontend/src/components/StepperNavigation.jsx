@@ -1,0 +1,113 @@
+import React from 'react';
+import { Link, useLocation } from 'react-router-dom';
+import { useTheme } from '../contexts/ThemeContext';
+import { getCoreSteps, getCurrentStep } from '../config/routes';
+
+const StepperNavigation = ({ hasDebtData = false }) => {
+  const { colors } = useTheme();
+  const location = useLocation();
+  const currentStep = getCurrentStep(location.pathname);
+  const coreSteps = getCoreSteps();
+
+  // Don't show stepper on Home page or non-core pages
+  if (currentStep === 0 || currentStep === undefined) {
+    return null;
+  }
+
+  return (
+    <div className={`${colors.surface} border-b ${colors.border} py-2`}>
+      <div className="max-w-6xl mx-auto px-2 sm:px-4 lg:px-6">
+        <nav aria-label="Progress">
+          <ol className="flex items-center justify-center space-x-1 sm:space-x-2 md:space-x-4 overflow-x-auto pb-1">
+            {coreSteps.slice(1).map((step, index) => {
+              const stepNumber = step.stepNumber;
+              const isCompleted = stepNumber < currentStep;
+              const isCurrent = stepNumber === currentStep;
+              const isAccessible = stepNumber <= 1 || hasDebtData || isCompleted; // Can access first step or if has data
+              const isGated = step.gated && !hasDebtData;
+
+              return (
+                <li key={step.route} className="flex items-center">
+                  {/* Step Circle */}
+                  <div className="flex items-center">
+                    {isAccessible && !isGated ? (
+                      <Link
+                        to={step.route}
+                        className="group flex items-center"
+                      >
+                        <div
+                          className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-medium transition-colors ${
+                            isCurrent
+                              ? 'bg-primary text-white'
+                              : isCompleted
+                              ? 'bg-green-500 text-white hover:bg-green-600'
+                              : `${colors.surfaceSecondary} ${colors.text.secondary} hover:${colors.text.primary}`
+                          }`}
+                        >
+                          {isCompleted ? (
+                            <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                            </svg>
+                          ) : (
+                            stepNumber
+                          )}
+                        </div>
+                        <div className="ml-1 sm:ml-2 text-sm">
+                          <p className={`font-medium text-xs sm:text-sm whitespace-nowrap ${isCurrent ? colors.text.primary : colors.text.secondary}`}>
+                            {step.name}
+                          </p>
+                          <p className={`hidden lg:block ${colors.text.muted} text-xs`}>
+                            {step.description}
+                          </p>
+                        </div>
+                      </Link>
+                    ) : (
+                      <div className="group flex items-center">
+                        <div
+                          className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-medium ${
+                            isGated
+                              ? 'bg-yellow-100 text-yellow-600 border-2 border-yellow-200'
+                              : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                          }`}
+                        >
+                          {isGated ? (
+                            <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
+                            </svg>
+                          ) : (
+                            stepNumber
+                          )}
+                        </div>
+                        <div className="ml-1 sm:ml-2 text-sm">
+                          <p className={`font-medium text-xs sm:text-sm whitespace-nowrap ${colors.text.muted}`}>
+                            {step.name}
+                            {!hasDebtData && stepNumber > 1 && (
+                              <span className="hidden sm:inline text-xs ml-1">(Add debts first)</span>
+                            )}
+                            {isGated && (
+                              <span className="hidden sm:inline text-xs ml-1 text-yellow-600">(Pro)</span>
+                            )}
+                          </p>
+                          <p className={`hidden lg:block ${colors.text.muted} text-xs`}>
+                            {step.description}
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Connector Line */}
+                  {index < coreSteps.slice(1).length - 1 && (
+                    <div className={`ml-1 sm:ml-2 h-px w-2 sm:w-4 md:w-8 ${isCompleted ? 'bg-green-500' : colors.border}`} />
+                  )}
+                </li>
+              );
+            })}
+          </ol>
+        </nav>
+      </div>
+    </div>
+  );
+};
+
+export default StepperNavigation;

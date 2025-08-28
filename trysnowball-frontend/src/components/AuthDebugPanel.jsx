@@ -1,0 +1,373 @@
+/**
+ * AuthDebugPanel.jsx - Comprehensive authentication debugging component
+ * Shows real-time auth state, session data, and premium gating status
+ * Use this to diagnose login and gated page issues
+ */
+
+import React, { useState, useEffect } from 'react';
+import { useAuth } from '../contexts/AuthContext.tsx';
+import { useUser } from '../contexts/UserContext';
+import { usePremiumGate } from '../hooks/usePremiumGate';
+import { getToken } from '../utils/tokenStorage';
+import { decodeJWT, verifyToken } from '../utils/magicLinkAuth';
+
+const AuthDebugPanel = ({ showInProduction = false }) => {
+  const [jwtSession, setJwtSession] = useState(null);
+  const [sessionLoading, setSessionLoading] = useState(true);
+  const [authEvents, setAuthEvents] = useState([]);
+  const [isVisible, setIsVisible] = useState(false);
+  
+  // Get Auth state
+  const userContext = useAuth();
+  const userCtx = useUser();
+  
+  // Get premium gate state
+  const premiumGate = usePremiumGate();
+
+  // Only show in development unless explicitly allowed
+  const shouldShow = process.env.NODE_ENV === 'development' || showInProduction;
+
+  useEffect(() => {
+    if (!shouldShow) return;
+
+    // Check current JWT session
+    const checkSession = async () => {
+      setSessionLoading(true);
+      try {
+        const token = getToken();
+        if (token) {
+          const decoded = decodeJWT(token);
+          const verification = await verifyToken(token);
+          setJwtSession({
+            token,
+            decoded,
+            verified: verification.valid,
+            error: verification.error
+          });
+        } else {
+          setJwtSession(null);
+        }
+      } catch (err) {
+        console.error('JWT session check failed:', err);
+        setJwtSession(null);
+      } finally {
+        setSessionLoading(false);
+      }
+    };
+
+    checkSession();
+
+    // Listen for auth state changes via custom events
+    const handleAuthChange = (event) => {
+      const timestamp = new Date().toLocaleTimeString();
+      const eventType = event.type === 'auth-success' ? 'SIGNED_IN' : 'SIGNED_OUT';
+      setAuthEvents(prev => [
+        { event: eventType, session: userContext.user?.email || 'null', timestamp },
+        ...prev.slice(0, 9) // Keep last 10 events
+      ]);
+      checkSession(); // Refresh session data
+    };
+
+    window.addEventListener('auth-success', handleAuthChange);
+    window.addEventListener('auth-signout', handleAuthChange);
+
+    return () => {
+      window.removeEventListener('auth-success', handleAuthChange);
+      window.removeEventListener('auth-signout', handleAuthChange);
+    };
+  }, [shouldShow, userContext.user]);
+
+  if (!shouldShow) return null;
+
+  const formatJson = (obj) => JSON.stringify(obj, null, 2);
+
+  return (
+    <>
+      {/* Toggle Button */}
+      <button
+        onClick={() => setIsVisible(!isVisible)}
+        className="fixed top-4 left-4 z-50 bg-red-600 text-white px-3 py-1 rounded text-xs font-mono shadow-lg hover:bg-red-700"
+        style={{ fontFamily: 'monospace' }}
+      >
+        🐛 Auth Debug {isVisible ? '▼' : '▶'}
+      </button>
+
+      {/* Debug Panel */}
+      {isVisible && (
+        <div className="fixed top-12 left-4 right-4 bottom-4 bg-black text-green-400 p-4 rounded-lg shadow-2xl z-40 overflow-auto font-mono text-xs">
+          <div className="mb-4 border-b border-green-600 pb-2">
+            <h2 className="text-lg font-bold text-green-300">🔐 Authentication Debug Panel</h2>
+            <p className="text-green-500">Real-time auth state • {new Date().toLocaleTimeString()}</p>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            
+            {/* UserContext State */}
+            <div className="bg-gray-900 p-3 rounded border border-green-600">
+              <h3 className="text-green-300 font-bold mb-2">📱 UserContext State</h3>
+              <div className="space-y-1">
+                <div>
+                  <span className="text-yellow-400">Loading:</span> 
+                  <span className={userContext.loading ? 'text-red-400' : 'text-green-400'}>
+                    {userContext.loading ? 'true' : 'false'}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-yellow-400">User:</span> 
+                  <span className={userContext.user ? 'text-green-400' : 'text-red-400'}>
+                    {userContext.user ? userContext.user.email : 'null'}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-yellow-400">isPro:</span> 
+                  <span className={userContext.isPro ? 'text-green-400' : 'text-red-400'}>
+                    {userContext.isPro ? 'true' : 'false'}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-yellow-400">hasBetaAccess:</span> 
+                  <span className={userCtx.hasBetaAccess ? 'text-green-400' : 'text-red-400'}>
+                    {userCtx.hasBetaAccess ? 'true' : 'false'}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-yellow-400">Daily Quota:</span> 
+                  <span className="text-blue-400">{userCtx.entitlement?.dailyQuota || 40}</span>
+                </div>
+                <div>
+                  <span className="text-yellow-400">Debts:</span> 
+                  <span className="text-blue-400">{userContext.debts?.length || 0}</span>
+                </div>
+                <div>
+                  <span className="text-yellow-400">Total Debt:</span> 
+                  <span className="text-blue-400">£{userContext.totalDebt || 0}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* JWT Session */}
+            <div className="bg-gray-900 p-3 rounded border border-green-600">
+              <h3 className="text-green-300 font-bold mb-2">🗄️ JWT Session</h3>
+              {sessionLoading ? (
+                <div className="text-yellow-400">Loading session...</div>
+              ) : jwtSession ? (
+                <div className="space-y-1">
+                  <div>
+                    <span className="text-yellow-400">Email:</span> 
+                    <span className="text-green-400">{jwtSession.decoded?.email}</span>
+                  </div>
+                  <div>
+                    <span className="text-yellow-400">ID:</span> 
+                    <span className="text-blue-400">{jwtSession.decoded?.sub?.slice(0, 8)}...</span>
+                  </div>
+                  <div>
+                    <span className="text-yellow-400">Verified:</span> 
+                    <span className={jwtSession.verified ? 'text-green-400' : 'text-red-400'}>
+                      {jwtSession.verified ? 'true' : 'false'}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-yellow-400">Expires:</span> 
+                    <span className="text-orange-400">
+                      {jwtSession.decoded?.exp ? new Date(jwtSession.decoded.exp * 1000).toLocaleTimeString() : 'N/A'}
+                    </span>
+                  </div>
+                  {jwtSession.error && (
+                    <div>
+                      <span className="text-yellow-400">Error:</span> 
+                      <span className="text-red-400">{jwtSession.error}</span>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="text-red-400">No active session</div>
+              )}
+            </div>
+
+            {/* Premium Gate State */}
+            <div className="bg-gray-900 p-3 rounded border border-green-600">
+              <h3 className="text-green-300 font-bold mb-2">🚪 Premium Gate Status</h3>
+              <div className="space-y-1">
+                <div>
+                  <span className="text-yellow-400">Has Access:</span> 
+                  <span className={premiumGate.hasAccess ? 'text-green-400' : 'text-red-400'}>
+                    {premiumGate.hasAccess ? 'true' : 'false'}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-yellow-400">Is Blocked:</span> 
+                  <span className={premiumGate.isBlocked ? 'text-red-400' : 'text-green-400'}>
+                    {premiumGate.isBlocked ? 'true' : 'false'}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-yellow-400">Needs Auth:</span> 
+                  <span className={premiumGate.needsAuth ? 'text-red-400' : 'text-green-400'}>
+                    {premiumGate.needsAuth ? 'true' : 'false'}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-yellow-400">Needs Upgrade:</span> 
+                  <span className={premiumGate.needsUpgrade ? 'text-orange-400' : 'text-green-400'}>
+                    {premiumGate.needsUpgrade ? 'true' : 'false'}
+                  </span>
+                </div>
+                {premiumGate.reason && (
+                  <div>
+                    <span className="text-yellow-400">Reason:</span> 
+                    <span className="text-red-400">{premiumGate.reason}</span>
+                  </div>
+                )}
+                {premiumGate.debug && (
+                  <div className="mt-2 text-xs">
+                    <div className="text-gray-400">Debug Info:</div>
+                    <div className="text-purple-400">Dev Mode: {premiumGate.debug.isDevelopment ? 'ON' : 'OFF'}</div>
+                    <div className="text-purple-400">Env Override: {premiumGate.debug.environmentOverride ? 'ON' : 'OFF'}</div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Auth Events */}
+            <div className="bg-gray-900 p-3 rounded border border-green-600">
+              <h3 className="text-green-300 font-bold mb-2">📜 Recent Auth Events</h3>
+              {authEvents.length > 0 ? (
+                <div className="space-y-1 max-h-32 overflow-y-auto">
+                  {authEvents.map((event, index) => (
+                    <div key={index} className="text-xs">
+                      <span className="text-gray-400">{event.timestamp}</span>
+                      <span className="text-yellow-400 ml-2">{event.event}</span>
+                      <span className="text-blue-400 ml-2">{event.session}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-gray-400">No events yet</div>
+              )}
+            </div>
+
+            {/* Environment Info */}
+            <div className="bg-gray-900 p-3 rounded border border-green-600 lg:col-span-2">
+              <h3 className="text-green-300 font-bold mb-2">🌍 Environment & Config</h3>
+              <div className="grid grid-cols-2 gap-4 text-xs">
+                <div>
+                  <div><span className="text-yellow-400">NODE_ENV:</span> <span className="text-blue-400">{process.env.NODE_ENV}</span></div>
+                  <div><span className="text-yellow-400">Hostname:</span> <span className="text-blue-400">{window.location.hostname}</span></div>
+                  <div><span className="text-yellow-400">Current Path:</span> <span className="text-blue-400">{window.location.pathname}</span></div>
+                </div>
+                <div>
+                  <div><span className="text-yellow-400">Require Pro:</span> <span className="text-blue-400">{process.env.REACT_APP_REQUIRE_PRO || 'default'}</span></div>
+                  <div><span className="text-yellow-400">Auth API URL:</span> <span className="text-blue-400">{process.env.REACT_APP_AUTH_API_URL ? 'Set' : 'Missing'}</span></div>
+                  <div><span className="text-yellow-400">JWT Token:</span> <span className="text-blue-400">{getToken() ? 'Present' : 'Missing'}</span></div>
+                </div>
+              </div>
+            </div>
+
+            {/* Quick Actions */}
+            <div className="bg-gray-900 p-3 rounded border border-green-600 lg:col-span-2">
+              <h3 className="text-green-300 font-bold mb-2">🔧 Quick Actions</h3>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  onClick={async () => {
+                    const token = getToken();
+                    const decoded = token ? decodeJWT(token) : null;
+                    const verified = token ? await verifyToken(token) : null;
+                    console.log('JWT Session:', { token, decoded, verified });
+                    alert('Check console for JWT session data');
+                  }}
+                  className="bg-blue-600 hover:bg-blue-700 px-2 py-1 rounded text-xs"
+                >
+                  Log JWT Session
+                </button>
+                <button
+                  onClick={() => {
+                    console.log('UserContext:', userContext);
+                    alert('Check console for UserContext data');
+                  }}
+                  className="bg-purple-600 hover:bg-purple-700 px-2 py-1 rounded text-xs"
+                >
+                  Log UserContext
+                </button>
+                <button
+                  onClick={async () => {
+                    const token = getToken();
+                    if (token) {
+                      const verification = await verifyToken(token);
+                      console.log('Token verification:', verification);
+                      alert('Check console for token verification result');
+                    } else {
+                      alert('No JWT token found');
+                    }
+                  }}
+                  className="bg-green-600 hover:bg-green-700 px-2 py-1 rounded text-xs"
+                >
+                  Verify JWT
+                </button>
+                <button
+                  onClick={() => {
+                    const token = getToken();
+                    if (token) {
+                      const decoded = decodeJWT(token);
+                      console.log('JWT Payload:', decoded);
+                      console.log('Is Expired:', decoded && decoded.exp < Date.now() / 1000);
+                      alert('Check console for JWT payload data');
+                    } else {
+                      alert('No JWT token found');
+                    }
+                  }}
+                  className="bg-cyan-600 hover:bg-cyan-700 px-2 py-1 rounded text-xs"
+                >
+                  Decode JWT
+                </button>
+                <button
+                  onClick={() => {
+                    localStorage.clear();
+                    sessionStorage.clear();
+                    window.location.reload();
+                  }}
+                  className="bg-red-600 hover:bg-red-700 px-2 py-1 rounded text-xs"
+                >
+                  Clear & Reload
+                </button>
+                <button
+                  onClick={() => {
+                    window.location.href = '/login';
+                  }}
+                  className="bg-orange-600 hover:bg-orange-700 px-2 py-1 rounded text-xs"
+                >
+                  Go to Login
+                </button>
+              </div>
+              <div className="mt-2 text-xs text-gray-400">
+                Debug magic link authentication, JWT tokens, and user context state
+              </div>
+            </div>
+
+            {/* User Metadata Details */}
+            {jwtSession?.decoded && (
+              <div className="bg-gray-900 p-3 rounded border border-green-600 lg:col-span-2">
+                <h3 className="text-green-300 font-bold mb-2">👤 JWT Payload</h3>
+                <div className="text-xs">
+                  <div className="mb-2">
+                    <span className="text-yellow-400">JWT Claims:</span>
+                    <pre className="text-blue-400 mt-1 overflow-x-auto">
+                      {formatJson(jwtSession.decoded || {})}
+                    </pre>
+                  </div>
+                  <div>
+                    <span className="text-yellow-400">user_metadata:</span>
+                    <pre className="text-purple-400 mt-1 overflow-x-auto">
+                      {formatJson(jwtSession.decoded.user_metadata || {})}
+                    </pre>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </>
+  );
+};
+
+export default AuthDebugPanel;

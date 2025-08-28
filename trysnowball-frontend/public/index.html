@@ -3,12 +3,13 @@
   <head>
     <meta charset="utf-8" />
     <!-- Favicon and app icons -->
-    <link rel="icon" href="%PUBLIC_URL%/favicon.ico" />
-    <link rel="icon" type="image/png" sizes="32x32" href="%PUBLIC_URL%/favicon-32x32.png" />
-    <link rel="icon" type="image/png" sizes="16x16" href="%PUBLIC_URL%/favicon-16x16.png" />
-    <link rel="apple-touch-icon" sizes="180x180" href="%PUBLIC_URL%/apple-touch-icon.png" />
+    <link rel="icon" href="%PUBLIC_URL%/favicon.ico?v=2" />
+    <link rel="icon" type="image/svg+xml" href="%PUBLIC_URL%/favicon.svg?v=2" />
+    <link rel="icon" type="image/png" sizes="96x96" href="%PUBLIC_URL%/favicon-96x96.png?v=2" />
+    <link rel="apple-touch-icon" sizes="180x180" href="%PUBLIC_URL%/apple-touch-icon.png?v=2" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="theme-color" content="#3B82F6" />
+    <meta name="color-scheme" content="light dark">
     <meta name="description" content="Try Snowball is a UK-first AI debt coach that helps you understand your debts, create a payoff plan, and change your financial habits." />
     <meta name="keywords" content="AI debt coach UK, credit card payoff, debt snowball calculator, UK debt help, financial coaching, debt management UK, credit card debt, personal finance UK, debt-free UK, financial planning" />
     <meta name="author" content="TrySnowball" />
@@ -31,21 +32,17 @@
     <!-- Canonical URL -->
     <link rel="canonical" href="https://trysnowball.co.uk/" />
     
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://substack.com https://static.cloudflareinsights.com https://*.cloudflareinsights.com https://eu.i.posthog.com https://*.posthog.com https://eu-assets.i.posthog.com https://app.posthog.com https://pagead2.googlesyndication.com https://googleads.g.doubleclick.net https://tpc.googlesyndication.com; style-src 'self' 'unsafe-inline' https:; font-src 'self' data: https:; img-src 'self' data: https:; connect-src 'self' https://trysnowball.co.uk https://api.openai.com https://www.google-analytics.com https://www.googletagmanager.com https://*.google-analytics.com https://cloudflareinsights.com https://*.cloudflareinsights.com https://eu.i.posthog.com https://*.posthog.com https://eu-assets.i.posthog.com https://app.posthog.com https://pagead2.googlesyndication.com https://googleads.g.doubleclick.net; frame-src https://trysnowball.substack.com https://chatgpt.com https://googleads.g.doubleclick.net https://tpc.googlesyndication.com; form-action 'self' https://trysnowball.co.uk; frame-ancestors 'none';" />
+    <!-- Note: Main CSP is in _headers file for Cloudflare deployment -->
+    
+    <!-- FOUC Prevention: System theme until settings hydrate -->
+    <style>
+      :root { color-scheme: light dark; }
+      @media (prefers-color-scheme: dark) { html { background: #0b0b0b; color: #f9fafb; } }
+      @media (prefers-color-scheme: light) { html { background: #fff; color: #111827; } }
+    </style>
 
-    <!-- PostHog Web Snippet -->
-<script>
-    !function(t,e){var o,n,p,r;e.__SV||(window.posthog=e,e._i=[],e.init=function(i,s,a){function g(t,e){var o=e.split(".");2==o.length&&(t=t[o[0]],e=o[1]),t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}}(p=t.createElement("script")).type="text/javascript",p.crossOrigin="anonymous",p.async=!0,p.src=s.api_host.replace(".i.posthog.com","-assets.i.posthog.com")+"/static/array.js",(r=t.getElementsByTagName("script")[0]).parentNode.insertBefore(p,r);var u=e;for(void 0!==a?u=e[a]=[]:a="posthog",u.people=u.people||[],u.toString=function(t){var e="posthog";return"posthog"!==a&&(e+="."+a),t||(e+=" (stub)"),e},u.people.toString=function(){return u.toString(1)+".people (stub)"},o="init Re Cs Fs Pe Rs Ms capture Ve calculateEventProperties Ds register register_once register_for_session unregister unregister_for_session zs getFeatureFlag getFeatureFlagPayload isFeatureEnabled reloadFeatureFlags updateEarlyAccessFeatureEnrollment getEarlyAccessFeatures on onFeatureFlags onSurveysLoaded onSessionId getSurveys getActiveMatchingSurveys renderSurvey canRenderSurvey canRenderSurveyAsync identify setPersonProperties group resetGroups setPersonPropertiesForFlags resetPersonPropertiesForFlags setGroupPropertiesForFlags resetGroupPropertiesForFlags reset get_distinct_id getGroups get_session_id get_session_replay_url alias set_config startSessionRecording stopSessionRecording sessionRecordingStarted captureException loadToolbar get_property getSessionProperty js As createPersonProfile Ns Is Us opt_in_capturing opt_out_capturing has_opted_in_capturing has_opted_out_capturing clear_opt_in_out_capturing Os debug I Ls getPageViewId captureTraceFeedback captureTraceMetric".split(" "),n=0;n<o.length;n++)g(u,o[n]);e._i.push([i,s,a])},e.__SV=1)}(document,window.posthog||[]);
-    posthog.init('phc_TiBCyhgzWEmeR7XdAFMpzAoqZXfeAvVDJwmqiP2Eo7X', {
-        api_host: 'https://eu.i.posthog.com',
-        defaults: '2025-05-24',
-        person_profiles: 'identified_only', // or 'always' to create profiles for anonymous users as well
-    })
-</script>
+    <!-- PostHog loaded lazily via src/lib/posthog.js -->
 
-    <!-- Google AdSense -->
-    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-7275885513696944"
-         crossorigin="anonymous"></script>
 
     <!-- Google tag (gtag.js) -->
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-5QLHMSPPZ6"></script>
@@ -101,12 +98,11 @@
       }
     }
     </script>
-    <link rel="apple-touch-icon" href="%PUBLIC_URL%/logo192.png" />
     <!--
       manifest.json provides metadata used when your web app is installed on a
       user's mobile device or desktop. See https://developers.google.com/web/fundamentals/web-app-manifest/
     -->
-    <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
+    <link rel="manifest" href="%PUBLIC_URL%/manifest.json?v=2" />
     <!--
       Notice the use of %PUBLIC_URL% in the tags above.
       It will be replaced with the URL of the `public` folder during the build.
@@ -117,6 +113,22 @@
       Learn how to configure a non-root public URL by running `npm run build`.
     -->
 <title>Try Snowball | AI Debt Coach for UK Credit Card Payoff</title>
+  
+  <script>
+    window.addEventListener('error', function (e) {
+      const box = document.createElement('pre');
+      box.style = 'padding:12px;margin:0;background:#fee;color:#900;white-space:pre-wrap;';
+      box.textContent = '🧨 JS Error: ' + (e.message || '') + '\n' + (e.error && e.error.stack || '');
+      document.body.prepend(box);
+    });
+    window.addEventListener('unhandledrejection', function (e) {
+      const box = document.createElement('pre');
+      box.style = 'padding:12px;margin:0;background:#fffbdd;color:#6b5900;white-space:pre-wrap;';
+      box.textContent = '⚠️ Unhandled Promise rejection: ' + (e.reason && (e.reason.stack || e.reason.message) || e.reason);
+      document.body.prepend(box);
+    });
+  </script>
+  
   </head>
   <body>
     <noscript>You need to enable JavaScript to run this app.</noscript>

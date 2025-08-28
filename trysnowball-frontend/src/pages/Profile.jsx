@@ -1,14 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useUser } from '../contexts/UserContext';
-import { useDataManager } from '../hooks/useDataManager';
-import { supabase } from '../Supabase';
-import dataManager from '../lib/dataManager';
+import { useDebts } from '../hooks/useDebts';
+import { useCsvExport } from '../hooks/useCsvExport';
+import { logout } from '../utils/magicLinkAuth';
+import { debtsManager } from '../lib/debtsManager';
+import Button from '../components/ui/Button';
+import { LogOut, Download, Upload, Trash2, RotateCcw } from 'lucide-react';
+import AchievementsChecklist from '../components/account/AchievementsChecklist.jsx';
+import { computeAchievements, cacheStartTotalBalance, getCachedStartTotalBalance } from '../lib/achievements.js';
 
 const Profile = () => {
   const navigate = useNavigate();
   const { user } = useUser();
-  const { debts, totalMinPayments, paymentHistory } = useDataManager();
+  const { debts, totalMinPayments, paymentHistory } = useDebts();
+  const { exportPaymentHistory, exportCurrentDebts } = useCsvExport();
   const [activeTab, setActiveTab] = useState('overview');
   const [importText, setImportText] = useState('');
   const [importError, setImportError] = useState('');
@@ -16,7 +22,7 @@ const Profile = () => {
   // Redirect if not authenticated
   useEffect(() => {
     if (!user) {
-      navigate('/login');
+      navigate('/auth/login');
     }
   }, [user, navigate]);
 
@@ -39,9 +45,48 @@ const Profile = () => {
 
   const progress = calculateProgress();
 
+  // Cache start total balance on first render
+  useEffect(() => {
+    if (debts.length > 0) {
+      cacheStartTotalBalance(debts);
+    }
+  }, [debts.length > 0]); // Only trigger when first debts are loaded
+
+  // Compute achievements
+  const computeUserAchievements = () => {
+    if (!debts.length) return [];
+    
+    const currentTotalBalance = debts.reduce((sum, debt) => sum + (debt.amount || debt.balance || 0), 0);
+    const startTotalBalance = getCachedStartTotalBalance() || currentTotalBalance;
+    const totalPaid = paymentHistory.reduce((sum, payment) => sum + (payment.amount || 0), 0);
+    
+    // Map debts to achievements format
+    const achievementDebts = debts.map(debt => ({
+      id: debt.id,
+      label: debt.name,
+      balance: debt.amount || debt.balance || 0,
+      originalAmount: debt.originalAmount || debt.amount || debt.balance || 0
+    }));
+    
+    return computeAchievements({
+      debts: achievementDebts,
+      currentTotalBalance,
+      startTotalBalance,
+      timelineActive: null, // We'll add timeline support later
+      currentSnowball: Math.max(0, totalMinPayments), // Simplified snowball calculation
+      firstClearedAtISO: null // Could be derived from payment history
+    });
+  };
+
+  const achievements = computeUserAchievements();
+
+  const handleSeePlan = () => {
+    navigate('/my-plan');
+  };
+
   const handleSignOut = async () => {
     try {
-      await supabase.auth.signOut();
+      await logout();
       navigate('/');
     } catch (error) {
       console.error('Error signing out:', error);
@@ -82,9 +127,29 @@ const Profile = () => {
   };
 
   const clearAllData = () => {
-    if (window.confirm('Are you sure you want to clear ALL data? This action cannot be undone.')) {
-      localStorage.clear();
-      window.location.reload();
+    const confirmation = prompt(
+      'This will permanently delete ALL your local data.\n\nType "DELETE" to confirm:'
+    );
+    
+    if (confirmation === 'DELETE') {
+      // Use the safe reset function
+      import('../utils/resetUserData').then(({ resetAllUserData }) => {
+        const result = resetAllUserData(user?.id, { factoryReset: true });
+        
+        if (result.ok) {
+          alert('All data cleared successfully!');
+          window.location.reload();
+        } else {
+          alert('Failed to clear data: ' + result.message);
+        }
+      }).catch(error => {
+        console.error('Reset import failed:', error);
+        // Fallback to direct localStorage clear
+        localStorage.clear();
+        window.location.reload();
+      });
+    } else if (confirmation !== null) {
+      alert('Data not cleared. You must type "DELETE" exactly to confirm.');
     }
   };
 
@@ -257,7 +322,7 @@ const Profile = () => {
           paymentHistory: [] // Don't import payment history for security
         };
       }
-      // AI script format (simplified)
+      // External calculator format (simplified)
       else if (importedData.debts && Array.isArray(importedData.debts)) {
         // Security: Limit number of debts
         if (importedData.debts.length > 50) {
@@ -268,7 +333,7 @@ const Profile = () => {
           throw new Error('No debts found in the imported data.');
         }
 
-        // Convert AI script format to TrySnowball format with validation
+        // Convert external calculator format to TrySnowball format with validation
         processedData = {
           debts: importedData.debts.slice(0, 50).map(validateDebt),
           settings: {
@@ -295,7 +360,7 @@ const Profile = () => {
       });
 
       // Import the data
-      dataManager.importData(processedData);
+      debtsManager.importData(processedData);
       
       // Refresh the page to show new data
       window.location.reload();
@@ -402,6 +467,14 @@ const Profile = () => {
         {/* Content */}
         {activeTab === 'overview' && (
           <div className="space-y-8">
+            {/* Achievements Checklist */}
+            {achievements.length > 0 && (
+              <AchievementsChecklist 
+                achievements={achievements} 
+                onSeePlan={handleSeePlan}
+              />
+            )}
+
             {/* User Info */}
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
               <div className="flex items-center justify-between">
@@ -416,12 +489,14 @@ const Profile = () => {
                     })}
                   </p>
                 </div>
-                <button
+                <Button
                   onClick={handleSignOut}
-                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm font-medium"
+                  variant="destructive"
+                  size="sm"
+                  leftIcon={LogOut}
                 >
                   Sign Out
-                </button>
+                </Button>
               </div>
             </div>
 
@@ -483,13 +558,13 @@ const Profile = () => {
         {activeTab === 'data' && (
           <div className="space-y-6">
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-              <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4">Data Management</h2>
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4">Export & Import</h2>
               
               <div className="space-y-4">
                 <div>
                   <h3 className="font-medium text-gray-900 dark:text-gray-100 mb-2">Import Data</h3>
                   <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
-                    Import debt data from AI scripts, other calculators, or exported TrySnowball files. Supports JSON and pipe-separated formats.
+                    Import debt data from other tools or exported TrySnowball files.
                   </p>
                   
                   {/* Security Notice */}
@@ -501,7 +576,7 @@ const Profile = () => {
                       <div className="text-sm">
                         <p className="font-medium text-blue-800 dark:text-blue-300 mb-1">Security Protected</p>
                         <p className="text-blue-700 dark:text-blue-300">
-                          All imports are validated and sanitized. Maximum 50 debts, 1MB file size. Malicious content is automatically blocked.
+                          All imports are validated and sanitized. Max 50 debts, 1MB file size.
                         </p>
                       </div>
                     </div>
@@ -552,32 +627,49 @@ Recommended Extra Payment: £200/month'
                     </div>
                   )}
 
-                  <button
+                  <Button
                     onClick={handleImportData}
                     disabled={!importText.trim()}
-                    className="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                    variant="primary"
+                    size="sm"
+                    leftIcon={Upload}
+                    className="bg-green-600 hover:bg-green-700"
                   >
-                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
-                    </svg>
                     Import Data
-                  </button>
+                  </Button>
                 </div>
 
                 <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
                   <h3 className="font-medium text-gray-900 dark:text-gray-100 mb-2">Export Your Data</h3>
                   <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
-                    Download all your debt information, payment history, and settings as a JSON file.
+                    Download your data in different formats for spreadsheet analysis or backup.
                   </p>
-                  <button
-                    onClick={exportData}
-                    className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
-                  >
-                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
-                    Export Data
-                  </button>
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      onClick={exportData}
+                      variant="primary"
+                      size="sm"
+                      leftIcon={Download}
+                    >
+                      Export JSON
+                    </Button>
+                    <Button
+                      onClick={exportPaymentHistory}
+                      variant="ghost"
+                      size="sm"
+                      className="text-green-600 hover:text-green-700 hover:bg-green-50"
+                    >
+                      📊 Payment History CSV
+                    </Button>
+                    <Button
+                      onClick={exportCurrentDebts}
+                      variant="ghost" 
+                      size="sm"
+                      className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                    >
+                      💳 Current Debts CSV
+                    </Button>
+                  </div>
                 </div>
 
                 <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
@@ -585,15 +677,15 @@ Recommended Extra Payment: £200/month'
                   <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
                     Replace your current data with demo data to test the app features.
                   </p>
-                  <button
+                  <Button
                     onClick={resetToDemo}
-                    className="inline-flex items-center px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-colors text-sm font-medium"
+                    variant="secondary"
+                    size="sm"
+                    leftIcon={RotateCcw}
+                    className="bg-yellow-600 text-white hover:bg-yellow-700"
                   >
-                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                    </svg>
                     Reset to Demo
-                  </button>
+                  </Button>
                 </div>
 
                 <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
@@ -601,15 +693,14 @@ Recommended Extra Payment: £200/month'
                   <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
                     Permanently delete all your data. This action cannot be undone.
                   </p>
-                  <button
+                  <Button
                     onClick={clearAllData}
-                    className="inline-flex items-center px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm font-medium"
+                    variant="destructive"
+                    size="sm"
+                    leftIcon={Trash2}
                   >
-                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                    </svg>
                     Clear All Data
-                  </button>
+                  </Button>
                 </div>
               </div>
             </div>

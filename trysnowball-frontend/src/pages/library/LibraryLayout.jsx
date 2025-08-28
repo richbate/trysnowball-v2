@@ -1,0 +1,24 @@
+import React from 'react';
+import { Link, NavLink, Outlet } from 'react-router-dom';
+
+export default function LibraryLayout({ children }) {
+  return (
+    <div className="max-w-3xl mx-auto px-4 py-8">
+      <header className="mb-8">
+        <Link to="/" className="text-sm text-gray-500 hover:text-gray-700">← Home</Link>
+        <h1 className="text-3xl font-semibold mt-2">Library</h1>
+        <p className="text-gray-600 mt-1">Short, practical guides to help you pay off debt faster.</p>
+        <nav className="mt-4 flex flex-wrap gap-3 text-sm">
+          <NavLink className={({isActive})=>`px-3 py-1 rounded-full border ${isActive? 'bg-gray-900 text-white border-gray-900':'hover:bg-gray-100'}`} to="/library">All</NavLink>
+          <NavLink className={({isActive})=>`px-3 py-1 rounded-full border ${isActive? 'bg-gray-900 text-white border-gray-900':'hover:bg-gray-100'}`} to="/library/debt-snowball-vs-avalanche">Snowball vs Avalanche</NavLink>
+          <NavLink className={({isActive})=>`px-3 py-1 rounded-full border ${isActive? 'bg-gray-900 text-white border-gray-900':'hover:bg-gray-100'}`} to="/library/small-debt-challenge">30‑Day Challenge</NavLink>
+          <NavLink className={({isActive})=>`px-3 py-1 rounded-full border ${isActive? 'bg-gray-900 text-white border-gray-900':'hover:bg-gray-100'}`} to="/library/ai-coach">AI Coach</NavLink>
+          <NavLink className={({isActive})=>`px-3 py-1 rounded-full border ${isActive? 'bg-gray-900 text-white border-gray-900':'hover:bg-gray-100'}`} to="/library/pay-off-5000-fast">Pay off £5,000</NavLink>
+          <NavLink className={({isActive})=>`px-3 py-1 rounded-full border ${isActive? 'bg-gray-900 text-white border-gray-900':'hover:bg-gray-100'}`} to="/library/spend-review-snoop">Spend Review</NavLink>
+          <NavLink className={({isActive})=>`px-3 py-1 rounded-full border ${isActive? 'bg-gray-900 text-white border-gray-900':'hover:bg-gray-100'}`} to="/library/five-debt-mistakes">5 Mistakes</NavLink>
+        </nav>
+      </header>
+      {children || <Outlet />}
+    </div>
+  );
+}

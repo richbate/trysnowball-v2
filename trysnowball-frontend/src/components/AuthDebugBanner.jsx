@@ -1,0 +1,91 @@
+import React from 'react';
+import { useAuth } from '../contexts/AuthContext.tsx';
+import { getToken } from '../utils/tokenStorage';
+import { decodeJWT, logout } from '../utils/magicLinkAuth';
+
+const AuthDebugBanner = () => {
+  const { user, authReady } = useAuth();
+  const loading = !authReady;
+
+  // Debug logging
+  console.log('AuthDebugBanner - NODE_ENV:', process.env.NODE_ENV);
+  console.log('AuthDebugBanner - hostname:', window.location.hostname);
+  console.log('AuthDebugBanner - includes pages.dev:', window.location.hostname.includes('.pages.dev'));
+  
+  // Only show in development or on dev URLs
+  const isDevEnvironment = process.env.NODE_ENV === 'development' || 
+                           window.location.hostname.includes('.pages.dev') ||
+                           window.location.hostname === 'localhost';
+  
+  console.log('AuthDebugBanner - isDevEnvironment:', isDevEnvironment);
+  
+  if (!isDevEnvironment) {
+    console.log('AuthDebugBanner - Not showing (not dev environment)');
+    return null;
+  }
+  
+  console.log('AuthDebugBanner - Showing banner');
+
+  const handleLogout = async () => {
+    await logout();
+    window.location.reload();
+  };
+
+  const getJWTExpiration = () => {
+    const token = getToken();
+    if (!token) return 'No JWT';
+    
+    const payload = decodeJWT(token);
+    if (!payload || !payload.exp) return 'Invalid JWT';
+    
+    const expDate = new Date(payload.exp * 1000);
+    const now = new Date();
+    const timeLeft = expDate - now;
+    
+    if (timeLeft <= 0) return 'Expired';
+    
+    const hours = Math.floor(timeLeft / (1000 * 60 * 60));
+    const minutes = Math.floor((timeLeft % (1000 * 60 * 60)) / (1000 * 60));
+    
+    return `${hours}h ${minutes}m`;
+  };
+
+  return (
+    <div className="bg-red-500 border-b border-red-600 px-4 py-4 text-sm text-white font-bold" style={{zIndex: 9999}}>
+      <div className="max-w-7xl mx-auto flex items-center justify-between">
+        <div className="flex items-center space-x-4">
+          <span className="font-medium text-white">🔧 AUTH DEBUG:</span>
+          
+          {loading ? (
+            <span className="text-white">Loading...</span>
+          ) : user ? (
+            <>
+              <span className="text-green-200">
+                ✅ {user.email}
+              </span>
+              <span className="text-blue-200">
+                ⏰ {getJWTExpiration()}
+              </span>
+            </>
+          ) : (
+            <span className="text-red-200">❌ Not logged in</span>
+          )}
+        </div>
+        
+        <div className="flex items-center space-x-2">
+          {user && (
+            <button
+              onClick={handleLogout}
+              className="px-3 py-1 bg-white text-red-500 text-xs rounded hover:bg-gray-200 transition-colors"
+            >
+              Logout
+            </button>
+          )}
+          <span className="text-white text-xs">DEV MODE</span>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default AuthDebugBanner;

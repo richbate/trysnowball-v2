@@ -1,0 +1,25 @@
+/**
+ * Feature Flags Hook
+ * Simple environment-based feature flags for safe rollouts
+ */
+
+import { useMemo } from 'react';
+
+const useFeatureFlags = () => {
+  const flags = useMemo(() => ({
+    // Beta access pricing feature flag
+    betaLifetimeEnabled: process.env.REACT_APP_BETA_ACCESS_ENABLED !== 'false',
+    
+    // Other potential flags
+    newMathDetailsEnabled: process.env.REACT_APP_NEW_MATH_DETAILS !== 'false',
+    enhancedAnalyticsEnabled: process.env.REACT_APP_ENHANCED_ANALYTICS === 'true',
+    
+    // Debug flags
+    debugMode: process.env.NODE_ENV === 'development',
+    verboseLogging: process.env.REACT_APP_VERBOSE_LOGGING === 'true',
+  }), []);
+
+  return flags;
+};
+
+export default useFeatureFlags;

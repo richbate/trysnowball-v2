@@ -1,6 +1,7 @@
 {
-  "short_name": "React App",
-  "name": "Create React App Sample",
+  "short_name": "TrySnowball",
+  "name": "TrySnowball - AI Debt Coach for UK Credit Card Payoff",
+  "description": "Free debt payoff planning tool with AI coaching for UK users",
   "icons": [
     {
       "src": "favicon.ico",
@@ -20,6 +21,7 @@
   ],
   "start_url": ".",
   "display": "standalone",
-  "theme_color": "#000000",
-  "background_color": "#ffffff"
+  "theme_color": "#3B82F6",
+  "background_color": "#F8FAFC",
+  "categories": ["finance", "productivity", "utilities"]
 }

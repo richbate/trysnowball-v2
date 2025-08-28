@@ -1,0 +1,72 @@
+name: Uptime Monitor
+
+on:
+  schedule:
+    # Run every 5 minutes
+    - cron: "*/5 * * * *"
+  
+  # Allow manual trigger for testing
+  workflow_dispatch:
+
+jobs:
+  health-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    
+    steps:
+      - name: Check Frontend Health
+        run: |
+          echo "🏥 Checking TrySnowball frontend health..."
+          
+          # Check main site responds
+          if ! curl -fsS --max-time 10 https://trysnowball.co.uk/ > /dev/null; then
+            echo "❌ Frontend homepage is down"
+            exit 1
+          fi
+          
+          echo "✅ Frontend homepage is responding"
+
+      - name: Check Worker Health
+        run: |
+          echo "🔧 Checking auth worker health..."
+          
+          # Check auth worker health endpoint
+          HEALTH_RESPONSE=$(curl -fsS --max-time 10 https://trysnowball.co.uk/health)
+          
+          # Parse JSON and check 'ok' field
+          if ! echo "$HEALTH_RESPONSE" | jq -e '.ok == true' > /dev/null; then
+            echo "❌ Auth worker health check failed"
+            echo "Response: $HEALTH_RESPONSE"
+            exit 1
+          fi
+          
+          echo "✅ Auth worker is healthy"
+          echo "Response: $HEALTH_RESPONSE"
+
+      - name: Check Critical Endpoints
+        run: |
+          echo "🔍 Checking critical endpoints..."
+          
+          # Test endpoints that should return 200 or expected responses
+          ENDPOINTS=(
+            "https://trysnowball.co.uk/library"
+            "https://trysnowball.co.uk/how-it-works"
+            "https://trysnowball.co.uk/upgrade"
+          )
+          
+          for endpoint in "${ENDPOINTS[@]}"; do
+            if curl -fsS --max-time 10 "$endpoint" > /dev/null; then
+              echo "✅ $endpoint is responding"
+            else
+              echo "❌ $endpoint is not responding"
+              exit 1
+            fi
+          done
+
+      # Optional: Post to status page or Slack on failure
+      - name: Report Status
+        if: failure()
+        run: |
+          echo "🚨 UPTIME ALERT: TrySnowball health check failed at $(date)"
+          # TODO: Add Slack webhook or status page integration
+          # curl -X POST ${{ secrets.SLACK_WEBHOOK }} -d '{"text":"🚨 TrySnowball is down"}'

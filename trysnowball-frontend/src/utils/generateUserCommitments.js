@@ -1,0 +1,216 @@
+/**
+ * AI-powered Commitment Generator for TrySnowball
+ * Generates personalized monthly goals based on user's debt data and strategy
+ */
+
+import { buildGPTPayload, getAPIConfig } from '../config/gptConfig';
+
+/**
+ * Generate user commitments based on debt data and current plan
+ * @param {Object} params - Generation parameters
+ * @param {Object} params.user - User data with firstName, goalDate
+ * @param {Array} params.debts - Array of debt objects with name and balance
+ * @param {string} params.strategy - Debt payoff strategy (snowball, avalanche, etc.)
+ * @param {number} params.extraPayment - Extra payment amount per month
+ * @param {string} params.month - Optional month override (defaults to current month)
+ * @param {Array} params.customExtras - Optional custom goals to include
+ * @returns {Promise<Object>} Generated commitments with content and metadata
+ */
+export const generateUserCommitments = async ({
+  user,
+  debts,
+  strategy,
+  extraPayment,
+  month = null,
+  customExtras = []
+}) => {
+  try {
+    // Get current month if not provided
+    const currentMonth = month || new Date().toLocaleDateString('en-US', { month: 'long' });
+    
+    // Calculate total debt and find smallest debt (for snowball motivation)
+    const totalDebt = debts.reduce((sum, debt) => sum + (debt.balance || debt.amount || 0), 0);
+    const sortedDebts = [...debts].sort((a, b) => (a.balance || a.amount || 0) - (b.balance || b.amount || 0));
+    const smallestDebt = sortedDebts[0];
+    
+    // Calculate rough payoff timeline
+    const totalMinPayments = debts.reduce((sum, debt) => sum + (debt.minPayment || debt.regularPayment || 0), 0);
+    const totalMonthlyPayment = totalMinPayments + (extraPayment || 0);
+    const roughMonthsToPayoff = totalMonthlyPayment > 0 ? Math.ceil(totalDebt / totalMonthlyPayment) : 0;
+    
+    // Build the AI prompt
+    const prompt = `You are a motivational assistant helping users make progress on their debt goals.
+
+The user is named ${user.firstName || 'there'}. They are using the "${strategy}" strategy and plan to be debt-free by ${user.goalDate || 'their target date'}.
+
+Here is their current debt situation:
+${debts.map(d => `- ${d.name}: £${(d.balance || d.amount || 0).toLocaleString()}`).join('\n')}
+
+Total debt: £${totalDebt.toLocaleString()}
+They currently have £${extraPayment || 0} extra per month for payments.
+${roughMonthsToPayoff > 0 ? `At this rate, they could be debt-free in approximately ${roughMonthsToPayoff} months.` : ''}
+
+Generate a short list of 3–5 monthly goals to help them stay motivated this month (${currentMonth}).
+Keep the tone positive, human, and supportive — not too formal or corporate.
+
+✅ Use ✔️ checkmarks for completed-style goals  
+• Use • bullets for wellness or personal habits  
+Do not include any promotional text or links.
+
+${customExtras.length > 0 ? `Please include these custom goals they've added:\n${customExtras.map(extra => `- ${extra}`).join('\n')}\n` : ''}
+
+Focus on:
+- Specific debt milestones (especially the smallest debt: ${smallestDebt?.name} with £${(smallestDebt?.balance || smallestDebt?.amount || 0).toLocaleString()})
+- Actionable extra payment goals
+- Simple wellness or no-spend habits
+- Celebrating progress milestones
+
+Format output like this:
+
+📆 ${currentMonth} Goals
+✔️ Goal 1  
+✔️ Goal 2  
+• Personal habit  
+✔️ Debt milestone  
+✔️ Other goal`;
+
+    // Get API configuration
+    const apiConfig = getAPIConfig();
+    if (!apiConfig.isConfigured) {
+      throw new Error('GPT API not configured');
+    }
+
+    // Build the GPT request
+    const messages = [
+      {
+        role: 'system',
+        content: 'You are a supportive debt coach who creates motivating, achievable monthly goals. Keep responses concise, positive, and actionable.'
+      },
+      {
+        role: 'user',
+        content: prompt
+      }
+    ];
+
+    const payload = buildGPTPayload(messages, 'commitments', {
+      temperature: 0.7 // Slightly creative but consistent
+    });
+
+    // Make the API request
+    const response = await fetch(apiConfig.endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiConfig.apiKey}`
+      },
+      body: JSON.stringify(payload)
+    });
+
+    if (!response.ok) {
+      throw new Error(`GPT API request failed: ${response.status} ${response.statusText}`);
+    }
+
+    const data = await response.json();
+
+    // Extract the generated content
+    const content = data.choices[0]?.message?.content || '';
+    
+    if (!content.trim()) {
+      throw new Error('Empty response from AI');
+    }
+
+    // Create the commitment object
+    const commitment = {
+      month: new Date().toISOString().slice(0, 7), // YYYY-MM format
+      content: content.trim(),
+      createdAt: new Date().toISOString(),
+      metadata: {
+        strategy,
+        totalDebt,
+        extraPayment,
+        debtsCount: debts.length,
+        hasCustomExtras: customExtras.length > 0,
+        estimatedMonthsToPayoff: roughMonthsToPayoff
+      }
+    };
+
+    return commitment;
+    
+  } catch (error) {
+    console.error('[generateUserCommitments] Error:', error);
+    
+    // Fallback to template-based commitments if AI fails
+    return generateFallbackCommitments({
+      user,
+      debts,
+      strategy,
+      extraPayment,
+      month,
+      customExtras
+    });
+  }
+};
+
+/**
+ * Generate fallback commitments if AI request fails
+ * @param {Object} params - Same parameters as main function
+ * @returns {Object} Template-based commitments
+ */
+const generateFallbackCommitments = ({
+  user,
+  debts,
+  strategy,
+  extraPayment,
+  month,
+  customExtras
+}) => {
+  const currentMonth = month || new Date().toLocaleDateString('en-US', { month: 'long' });
+  const smallestDebt = [...debts].sort((a, b) => (a.balance || a.amount || 0) - (b.balance || b.amount || 0))[0];
+  const totalDebt = debts.reduce((sum, debt) => sum + (debt.balance || debt.amount || 0), 0);
+  
+  let content = `📆 ${currentMonth} Goals\n`;
+  
+  // Add debt-specific goals
+  if (smallestDebt && (smallestDebt.balance || smallestDebt.amount) < 1000) {
+    content += `✔️ Pay off ${smallestDebt.name} (£${(smallestDebt.balance || smallestDebt.amount || 0).toLocaleString()} remaining)\n`;
+  } else if (smallestDebt) {
+    content += `✔️ Make progress on ${smallestDebt.name} (£${(smallestDebt.balance || smallestDebt.amount || 0).toLocaleString()} balance)\n`;
+  }
+  
+  // Add extra payment goal
+  if (extraPayment > 0) {
+    content += `✔️ Add £${extraPayment} in extra payments\n`;
+  }
+  
+  // Add custom extras
+  customExtras.forEach(extra => {
+    content += `✔️ ${extra}\n`;
+  });
+  
+  // Add wellness goals
+  content += `• 10 no spend days\n`;
+  content += `✔️ Review all account balances\n`;
+  
+  // Add milestone if close to significant amount
+  const paidSoFar = debts.reduce((sum, debt) => sum + ((debt.originalAmount || debt.balance || debt.amount || 0) - (debt.balance || debt.amount || 0)), 0);
+  const nextMilestone = Math.ceil((paidSoFar + 1000) / 1000) * 1000;
+  if (nextMilestone - paidSoFar < 500) {
+    content += `✔️ Hit £${nextMilestone.toLocaleString()} total paid off 🎉`;
+  }
+  
+  return {
+    month: new Date().toISOString().slice(0, 7),
+    content: content.trim(),
+    createdAt: new Date().toISOString(),
+    metadata: {
+      strategy,
+      totalDebt,
+      extraPayment,
+      debtsCount: debts.length,
+      hasCustomExtras: customExtras.length > 0,
+      isFallback: true
+    }
+  };
+};
+
+export default generateUserCommitments;

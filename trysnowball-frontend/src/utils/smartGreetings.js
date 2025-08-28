@@ -1,0 +1,146 @@
+/**
+ * Smart Greeting System for Yuki AI Coach
+ * Handles casual inputs without hitting the GPT API
+ * Keeps responses punchy, human, and brand-aligned
+ */
+
+// Regex patterns for soft greetings that don't need GPT
+export const SOFT_GREETING_REGEX = /^(hi|hello|hey|yo|hiya|sup|what's up|wassup)[.!]*$/i;
+export const CASUAL_INPUTS_REGEX = /^(thanks|thank you|thx|cool|nice|ok|okay|good|great)[.!]*$/i;
+export const READY_INPUTS_REGEX = /^(ready|let's go|let's do this|i'm ready)[.!]*$/i;
+
+/**
+ * Check if input should use smart greeting instead of GPT
+ */
+export function shouldUseSmartGreeting(userInput) {
+  const trimmed = userInput.trim();
+  
+  return (
+    SOFT_GREETING_REGEX.test(trimmed) ||
+    CASUAL_INPUTS_REGEX.test(trimmed) ||
+    READY_INPUTS_REGEX.test(trimmed) ||
+    trimmed.length < 4 // Very short inputs
+  );
+}
+
+/**
+ * Get the next debt in the user's snowball plan
+ */
+function getNextDebt(debts = []) {
+  // Filter active debts (balance > 0) and sort by order
+  const activeDebts = debts
+    .filter(debt => (debt.balance || debt.amount || 0) > 0)
+    .sort((a, b) => (a.order || 999) - (b.order || 999));
+  
+  return activeDebts.length > 0 ? activeDebts[0] : null;
+}
+
+/**
+ * Hard-coded hello responses with proper context
+ */
+function getHelloReply(context) {
+  const next = getNextDebt(context?.debts || []);
+  const userIsClear = !next && context?.debtSummary?.totalDebt === 0;
+
+  if (userIsClear) {
+    return `Hey you 🐾 Looks like you're debt-free — that's incredible. Want to set a new goal together?`;
+  }
+
+  if (next) {
+    return `Hey! 👋 I was just thinking about your plan — ${next.name} is up next. Want to check your progress?`;
+  }
+
+  return `Hi there! It's good to see you. Want to take a look at your debts or tweak your plan?`;
+}
+
+/**
+ * Generate contextual friendly greeting based on user's debt situation
+ */
+export function generateSmartGreeting(userInput, context = {}) {
+  const trimmed = userInput.trim().toLowerCase();
+  
+  // Hard-coded responses for hello-type inputs
+  if (SOFT_GREETING_REGEX.test(trimmed)) {
+    return getHelloReply(context);
+  }
+
+  // Other response types
+  if (CASUAL_INPUTS_REGEX.test(trimmed)) {
+    // Acknowledgment responses
+    const options = [
+      `You got it! What's the next move?`,
+      `💪 Ready when you are.`,
+      `Exactly. Let's keep this rolling.`,
+      `That's the energy. What do you want to tackle?`
+    ];
+    return options[Math.floor(Math.random() * options.length)];
+  }
+
+  if (READY_INPUTS_REGEX.test(trimmed)) {
+    // Ready/action responses
+    const options = [
+      `Love the energy! Time to crush some debt?`,
+      `That's what I like to hear. Where do we start?`,
+      `Let's do this! What's the target today?`,
+      `🔥 Ready to make progress. What's calling to you?`
+    ];
+    return options[Math.floor(Math.random() * options.length)];
+  }
+
+  // Very short or unclear inputs
+  const options = [
+    `Yuki here. What's on your mind?`,
+    `I'm listening. What do you need?`,
+    `What's up? Ready to tackle something?`,
+    `Here for you. What can we work on?`
+  ];
+  return options[Math.floor(Math.random() * options.length)];
+}
+
+/**
+ * Create smart greeting response object
+ */
+export function createSmartGreetingResponse(userInput, context = {}) {
+  return {
+    id: `smart-greeting-${Date.now()}`,
+    type: 'gpt',
+    content: generateSmartGreeting(userInput, context),
+    timestamp: new Date().toISOString(),
+    isGPT: true,
+    isSmartGreeting: true // Flag for analytics
+  };
+}
+
+/**
+ * Analytics tracking for smart greetings
+ */
+export function trackSmartGreeting(userInput, context = {}) {
+  const inputType = SOFT_GREETING_REGEX.test(userInput) ? 'greeting' :
+                   CASUAL_INPUTS_REGEX.test(userInput) ? 'casual' :
+                   READY_INPUTS_REGEX.test(userInput) ? 'ready' : 'short';
+
+  // Track the smart greeting usage
+  if (window.gtag) {
+    window.gtag('event', 'chat_smart_greeting_used', {
+      input_type: inputType,
+      input_length: userInput.length,
+      has_debt_context: !!(context?.debtSummary?.totalDebt),
+      total_debt: context?.debtSummary?.totalDebt || 0
+    });
+  }
+
+  // Console logging for development
+  if (process.env.NODE_ENV === 'development') {
+    console.log(`🐈‍⬛ [Smart Greeting] ${inputType}:`, {
+      input: userInput,
+      contextAvailable: Object.keys(context).length > 0
+    });
+  }
+}
+
+export default {
+  shouldUseSmartGreeting,
+  generateSmartGreeting,
+  createSmartGreetingResponse,
+  trackSmartGreeting
+};

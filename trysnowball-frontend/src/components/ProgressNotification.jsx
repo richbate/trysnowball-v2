@@ -19,6 +19,12 @@ const ProgressNotification = ({ totalProgress, onDismiss }) => {
 
   const isPositive = totalProgress > 0;
   const absProgress = Math.abs(totalProgress);
+  
+  // Don't show notification for zero or very small changes - these are likely milestone scenarios
+  if (absProgress < 1) {
+    onDismiss();
+    return null;
+  }
 
   return (
     <div className={`fixed top-4 right-4 z-50 max-w-sm ${colors.surface} rounded-lg shadow-lg border-l-4 ${
@@ -38,7 +44,7 @@ const ProgressNotification = ({ totalProgress, onDismiss }) => {
             {isPositive ? (
               <>
                 <span className="text-green-600 font-semibold">Amazing progress! </span>
-                You've reduced your debt by £{absProgress.toLocaleString()} since January!
+                You've reduced your debt by £{absProgress.toLocaleString()} since July!
               </>
             ) : (
               <>

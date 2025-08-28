@@ -8,6 +8,9 @@
 # testing
 /coverage
 
+# screenshots
+/screenshots
+
 # production
 /build
 
@@ -24,3 +27,6 @@ yarn-error.log*
 
 # Local Netlify folder
 .netlify
+.cache/
+.cache/
+# Force rebuild Mon Aug 25 11:10:36 BST 2025

@@ -1,0 +1,43 @@
+name = "trysnowball-auth-main"       # local/dev name; harmless
+main = "auth-magic.js"
+account_id = "7e5c7c88e7d6dff2229754583610529e"
+
+[vars]
+PRICE_LIFETIME_BETA = "price_1QXZyqFJ5K2TUEZvT4Xs7G1K"  # Replace with actual price ID
+
+[[kv_namespaces]]
+binding = "ENTITLEMENTS"
+id = "entitlements_dev_id"  # Replace with actual KV namespace ID
+
+# ----- PROD (re-use the existing routed worker) -----
+[env.production]
+name = "trysnowball-auth-prod"       # MUST match the live route owner
+
+[env.production.vars]
+PRICE_LIFETIME_BETA = "price_1QXZyqFJ5K2TUEZvT4Xs7G1K"  # Replace with actual price ID
+
+[[env.production.kv_namespaces]]
+binding = "ENTITLEMENTS"
+id = "entitlements_prod_id"  # Replace with actual KV namespace ID
+
+[[env.production.d1_databases]]
+binding = "DB"
+database_name = "auth_db"
+database_id = "c22c4bca-0e0c-44db-957f-5e087c660fb0"
+
+# ----- STAGING (workers.dev by default; no route) -----
+[env.staging]
+name = "trysnowball-auth-staging"
+workers_dev = true
+
+[env.staging.vars]
+PRICE_LIFETIME_BETA = "price_1QXZyqFJ5K2TUEZvT4Xs7G1K"  # Replace with actual price ID
+
+[[env.staging.kv_namespaces]]
+binding = "ENTITLEMENTS"
+id = "entitlements_staging_id"  # Replace with actual KV namespace ID
+
+[[env.staging.d1_databases]]
+binding = "DB"
+database_name = "auth_db"
+database_id = "c22c4bca-0e0c-44db-957f-5e087c660fb0"

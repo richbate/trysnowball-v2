@@ -1,0 +1,29 @@
+name = "trysnowball-e2e-tests"
+main = "trysnowball-e2e-worker.ts"
+compatibility_date = "2025-08-01"
+
+# E2E Testing Worker Configuration
+# Worker-native TypeScript E2E comprehensive test runner
+
+[env.staging]
+name = "trysnowball-e2e-tests-staging"
+workers_dev = true
+
+[env.staging.vars]
+TARGET_BASE_URL = "https://trysnowball.co.uk"
+STRIPE_MODE = "test"
+E2E_MAGIC_DOMAIN = "trysnowball.co.uk"
+E2E_TIMEOUT_MS = "15000"
+
+[env.production]
+name = "trysnowball-e2e-tests-prod"
+
+[env.production.vars]
+TARGET_BASE_URL = "https://trysnowball.co.uk"
+STRIPE_MODE = "live"
+E2E_MAGIC_DOMAIN = "trysnowball.co.uk"
+E2E_TIMEOUT_MS = "15000"
+
+# Secrets to set via wrangler secret put:
+# E2E_PRO_USER_EMAIL - seeded pro user email for testing
+# E2E_PRO_USER_TOKEN - pre-issued JWT for pro user (skips auth flow)

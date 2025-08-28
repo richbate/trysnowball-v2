@@ -1,4 +1,2 @@
-# Auth callback redirect to custom domain
-/login?*  https://www.trysnowball.co.uk/login:splat  302
-
-/*    /index.html   200
+# SPA fallback - serve index.html for non-existing files only
+/*    /index.html   200!

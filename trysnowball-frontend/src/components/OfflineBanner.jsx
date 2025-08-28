@@ -1,0 +1,26 @@
+/**
+ * Offline Banner Component
+ * Shows when user loses internet connectivity
+ */
+
+import React from 'react';
+import { useOnlineStatus } from '../hooks/useOnlineStatus';
+
+const OfflineBanner = () => {
+  const isOnline = useOnlineStatus();
+
+  if (isOnline) return null;
+
+  return (
+    <div className="fixed top-0 left-0 right-0 z-50 bg-red-600 text-white px-4 py-2 text-center text-sm font-medium shadow-lg">
+      <div className="flex items-center justify-center space-x-2">
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 5.636l-12.728 12.728m0-12.728l12.728 12.728" />
+        </svg>
+        <span>You're offline. Changes are saved locally and will sync when you reconnect.</span>
+      </div>
+    </div>
+  );
+};
+
+export default OfflineBanner;
