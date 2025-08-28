@@ -104,16 +104,12 @@ const DebtTable = ({ debts, onEdit, onDelete, onBalanceUpdate, onViewHistory, lo
           onViewHistory={onViewHistory}
           isExpanded={expandedDebt === debt.id}
           onToggleExpand={handleToggleExpand}
-          onDragStart={handleDragStart}
-          onDragEnd={handleDragEnd}
-          onDragOver={handleDragOver}
-          onDragLeave={handleDragLeave}
-          onDrop={handleDrop}
-          isDragOver={dragOverIndex === index}
-          isDragging={draggedItem?.index === index}
+          // Drag functionality disabled on debts list
+          isDragOver={false}
+          isDragging={false}
         />
       )),
-    [debts, expandedDebt, onEdit, onDelete, onBalanceUpdate, onViewHistory, handleToggleExpand, handleDragStart, handleDragEnd, handleDragOver, handleDragLeave, handleDrop, dragOverIndex, draggedItem]
+    [debts, expandedDebt, onEdit, onDelete, onBalanceUpdate, onViewHistory, handleToggleExpand]
   );
 
   if (debts.length === 0) {

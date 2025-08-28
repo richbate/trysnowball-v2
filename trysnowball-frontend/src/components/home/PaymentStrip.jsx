@@ -8,12 +8,14 @@
 
 import React from 'react';
 import { useTheme } from '../../contexts/ThemeContext';
+import { formatCurrency } from '../../utils/debtFormatting';
 
 const PaymentStrip = ({ total, minimums, boost }) => {
   const { colors } = useTheme();
   
-  const formatCurrency = (pennies) => {
-    return `£${(pennies / 100).toFixed(2)}`;
+  // Convert pennies to pounds for formatting
+  const formatPennies = (pennies) => {
+    return formatCurrency(pennies / 100);
   };
   
   const monthlyTotal = minimums + boost;
@@ -24,15 +26,15 @@ const PaymentStrip = ({ total, minimums, boost }) => {
         {/* Total Debt */}
         <div>
           <p className="text-sm text-gray-600 mb-1">Total Debt</p>
-          <p className="text-2xl font-bold text-red-600">{formatCurrency(total)}</p>
+          <p className="text-2xl font-bold text-red-600" data-testid="home-total-debts">{formatPennies(total)}</p>
         </div>
         
         {/* Monthly Payment */}
         <div>
           <p className="text-sm text-gray-600 mb-1">Your Payment</p>
-          <p className="text-2xl font-bold text-blue-600">{formatCurrency(monthlyTotal)}</p>
+          <p className="text-2xl font-bold text-blue-600">{formatPennies(monthlyTotal)}</p>
           <p className="text-xs text-gray-500 mt-1">
-            {formatCurrency(minimums)} min + {formatCurrency(boost)} boost
+            {formatPennies(minimums)} min + {formatPennies(boost)} boost
           </p>
         </div>
         
@@ -40,7 +42,7 @@ const PaymentStrip = ({ total, minimums, boost }) => {
         <div>
           <p className="text-sm text-gray-600 mb-1">Monthly Boost</p>
           <p className={`text-2xl font-bold ${boost > 0 ? 'text-green-600' : 'text-gray-400'}`}>
-            {boost > 0 ? formatCurrency(boost) : '£0'}
+            {boost > 0 ? formatPennies(boost) : '£0'}
           </p>
         </div>
       </div>

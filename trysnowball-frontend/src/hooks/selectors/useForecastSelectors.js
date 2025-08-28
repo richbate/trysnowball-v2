@@ -65,17 +65,21 @@ export const useForecastSelectors = () => {
       return 0;
     };
     
-    // Calculate interest saved
+    // Calculate interest saved with threshold
     const getInterestSaved = () => {
       if (projections?.interestSaved) {
-        return Math.round(projections.interestSaved);
+        const saved = Math.round(projections.interestSaved);
+        // Hide trivial savings < £50
+        return saved >= 50 ? saved : 0;
       }
       
       // Fallback estimate: extra payment * average interest rate * time
       if (extraPayment > 0) {
         const avgInterestRate = debts.reduce((sum, debt) => sum + (debt.rate || debt.interest || 0), 0) / debts.length;
         const monthsSaved = getMonthsSaved();
-        return Math.round(extraPayment * (avgInterestRate / 100) * (monthsSaved / 12));
+        const saved = Math.round(extraPayment * (avgInterestRate / 100) * (monthsSaved / 12));
+        // Hide trivial savings < £50
+        return saved >= 50 ? saved : 0;
       }
       
       return 0;

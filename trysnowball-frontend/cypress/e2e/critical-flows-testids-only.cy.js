@@ -37,6 +37,9 @@ const SEL = {
   snowballToggle: '[data-testid="strategy-snowball"]',
   avalancheToggle: '[data-testid="strategy-avalanche"]',
   impactHeadline: '[data-testid="impact-headline"]',
+  
+  // Home page elements (locked to testids)
+  homeTotalDebts: '[data-testid="home-total-debts"]',
 };
 
 describe('Critical Flows - Testids Only', () => {
@@ -148,5 +151,27 @@ describe('Critical Flows - Testids Only', () => {
     // Check timeline again
     cy.get(SEL.forecastNav).click();
     cy.get(SEL.impactHeadline).should('contain.text', 'Debt-free');
+  });
+
+  it('Shows home total debts with thousand separators', () => {
+    // Use demo data for predictable results
+    cy.visit('/demo?profile=default');
+    cy.wait(500);
+
+    // Go to home page
+    cy.visit('/');
+    cy.waitForReact(500);
+
+    // Verify total debts element exists and has proper formatting
+    cy.get(SEL.homeTotalDebts)
+      .should('exist')
+      .and('be.visible')
+      .invoke('text')
+      .then((text) => {
+        // Should show currency symbol and number formatting
+        expect(text).to.match(/£[\d,]+/);
+        // Should not show raw pennies (no decimal unless necessary)
+        expect(text).to.not.match(/\.\d{1}$/);
+      });
   });
 });

@@ -1,0 +1,3 @@
+export function formatNumber(n: number, opts: Intl.NumberFormatOptions = {}) {
+  return new Intl.NumberFormat('en-GB', { maximumFractionDigits: 0, ...opts }).format(n || 0);
+}

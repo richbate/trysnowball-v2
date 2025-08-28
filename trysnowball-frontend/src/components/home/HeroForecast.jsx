@@ -23,26 +23,13 @@ const HeroForecast = ({ debtFreeDateLabel, monthsSooner, interestSavedApprox }) 
         Debt-free by <span className="text-primary">{debtFreeDateLabel || 'calculating...'}</span>
       </h1>
       
-      {/* Deltas */}
+      {/* Clean impact line with dot separator */}
       {(monthsSooner > 0 || interestSavedApprox > 0) && (
-        <div className="flex flex-wrap justify-center gap-4 mt-4">
-          {monthsSooner > 0 && (
-            <div className="flex items-center space-x-2">
-              <span className="text-green-600 text-2xl">↓</span>
-              <span className="text-lg font-medium">
-                {monthsSooner} {monthsSooner === 1 ? 'month' : 'months'} sooner
-              </span>
-            </div>
-          )}
-          
-          {interestSavedApprox > 0 && (
-            <div className="flex items-center space-x-2">
-              <span className="text-green-600 text-2xl">💰</span>
-              <span className="text-lg font-medium">
-                Save {formatCurrency(interestSavedApprox)}
-              </span>
-            </div>
-          )}
+        <div className="text-lg font-medium text-green-600 mt-4">
+          {[
+            monthsSooner > 0 ? `${monthsSooner} ${monthsSooner === 1 ? 'month' : 'months'} sooner` : null,
+            interestSavedApprox > 0 ? `save ${formatCurrency(interestSavedApprox)}` : null
+          ].filter(Boolean).join(' · ')}
         </div>
       )}
       
