@@ -1,0 +1,7 @@
+{
+  "query": "mutation CreateComment($issueId: String!, $body: String!) { commentCreate(input: { issueId: $issueId, body: $body }) { success comment { id } } }",
+  "variables": {
+    "issueId": "TRY-29",
+    "body": "## 🚀 **Starting Implementation** - Landing Page with Purple Glass Design\n\n### **Implementation Plan:**\n\n1. **Hero Section**: Full viewport height with main value prop and CTA\n2. **How It Works**: Three-step process with glass cards\n3. **Trust/Privacy Section**: UK-specific messaging and security signals\n4. **Final CTA**: Secondary conversion opportunity\n5. **Responsive Testing**: Mobile-first design verification\n\n### **Design System Ready:**\n✅ **TRY-28 Complete**: Purple glassmorphism design system available\n- Glass utility classes: `.glass`, `.glass-card`, `.glass-button`\n- Purple gradient background: `.purple-gradient-bg`\n- Fuchsia accent colors and white typography\n- Accessibility verified and responsive\n\n### **Target Structure:**\n- **Route**: `/` (root landing page)\n- **Background**: Purple gradient with glass overlay effects\n- **CTAs**: Link to `/upgrade` for conversion\n- **Content**: UK-focused debt planning messaging\n\n**Status**: Starting implementation now..."
+  }
+}
