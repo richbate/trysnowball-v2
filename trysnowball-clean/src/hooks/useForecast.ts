@@ -11,14 +11,7 @@ import { simulateCompositePlan, compositeResultsToPlanResults, generateComposite
 import { hasMultiAPRBuckets } from '../types/UKDebt';
 import { PlanResult, ForecastSummary } from '../types/Forecast';
 import { useMultiAPRFeature } from './useFeatureFlags';
-import { 
-  trackForecastRun, 
-  trackBucketCleared, 
-  trackForecastFailed, 
-  trackBucketInterestBreakdown,
-  trackForecastCompared,
-  FORECAST_ERROR_CODES
-} from '../lib/analytics';
+import { analytics, FORECAST_ERROR_CODES } from '../services/analytics';
 
 interface UseForecastOptions {
   extraPerMonth: number;
@@ -42,6 +35,8 @@ export function useForecast(options: UseForecastOptions): UseForecastResult {
   const { isEnabled: multiAPREnabled } = useMultiAPRFeature();
 
   const forecast = useMemo(() => {
+    const userId = 'user-' + Math.random().toString(36).substr(2, 9); // Simple user ID for demo
+
     if (!debts.length) {
       return {
         results: [] as PlanResult[],
@@ -78,17 +73,17 @@ export function useForecast(options: UseForecastOptions): UseForecastResult {
           // Use enhanced summary that includes bucket details
           summary = generateCompositeForecastSummary(compositeResults, startDate);
           
-          // Track bucket clearance milestones 
+          // Track bucket clearance milestones
           if (summary.bucketDetails) {
             summary.bucketDetails.bucketMilestones.forEach(milestone => {
               // Track when bucket is cleared
-              trackBucketCleared({
-                bucket_label: milestone.bucketName,
-                debt_name: milestone.debtName,
+              analytics.trackBucketCleared({
+                bucketLabel: milestone.bucketName,
+                debtName: milestone.debtName,
                 apr: milestone.apr,
-                cleared_month: milestone.monthCleared,
-                total_interest_paid: milestone.totalInterestPaid,
-                forecast_version: 'v2.0'
+                clearedMonth: milestone.monthCleared,
+                totalInterestPaid: milestone.totalInterestPaid,
+                userId
               });
             });
             
@@ -98,12 +93,12 @@ export function useForecast(options: UseForecastOptions): UseForecastResult {
               (sum, milestone) => sum + milestone.totalInterestPaid, 0
             );
             
-            trackBucketInterestBreakdown({
-              bucket_label: 'All Buckets',
-              debt_name: 'Forecast Summary',
+            analytics.trackInterestBreakdown({
+              bucketLabel: 'All Buckets',
+              debtName: 'Forecast Summary',
               apr: 0, // Aggregated - no single APR
-              interest_total: totalInterestBreakdown,
-              forecast_version: 'v2.0'
+              interestTotal: totalInterestBreakdown,
+              userId
             });
           }
         } else {
@@ -135,12 +130,12 @@ export function useForecast(options: UseForecastOptions): UseForecastResult {
       }
       
       // Track forecast run - Golden Analytics Event Suite — CP-4.x
-      trackForecastRun({
+      analytics.trackForecastRun({
         mode: forecastMode,
-        debt_count: debts.length,
-        bucket_count: totalBuckets,
-        extra_per_month: extraPerMonth,
-        forecast_version: 'v2.0'
+        userId,
+        debtCount: debts.length,
+        bucketCount: totalBuckets,
+        extraPerMonth
       });
       
       return { results, summary };
@@ -148,12 +143,12 @@ export function useForecast(options: UseForecastOptions): UseForecastResult {
       console.error('Forecast simulation error:', err);
       
       // Track forecast failure
-      trackForecastFailed({
-        error_code: FORECAST_ERROR_CODES.SIMULATION_ERROR,
-        error_message: err instanceof Error ? err.message : 'Unknown error',
-        debt_count: debts.length,
-        has_buckets: debts.some(debt => hasMultiAPRBuckets(debt)),
-        forecast_version: 'v2.0'
+      analytics.trackForecastFailed({
+        errorCode: FORECAST_ERROR_CODES.SIMULATION_ERROR,
+        errorMessage: err instanceof Error ? err.message : 'Unknown error',
+        debtCount: debts.length,
+        hasBuckets: debts.some(debt => hasMultiAPRBuckets(debt)),
+        userId
       });
       
       return {
@@ -201,20 +196,21 @@ export function useCompareForecast(extraPerMonth: number) {
 
     // Track forecast comparison - Golden Analytics Event Suite — CP-4.x
     if (monthsSaved > 0 || interestSaved > 0) {
-      const totalBuckets = snowballForecast.results.length > 0 ? 
-        snowballForecast.results[0]?.debts?.reduce((count, debt: any) => 
+      const totalBuckets = snowballForecast.results.length > 0 ?
+        snowballForecast.results[0]?.debts?.reduce((count, debt: any) =>
           count + (debt.buckets ? debt.buckets.length : 0), 0) || 0 : 0;
-          
-      trackForecastCompared({
-        months_saved: monthsSaved,
-        interest_difference: interestSaved,
-        percentage_reduction: percentageReduction,
-        composite_months: snowballForecast.summary.totalMonths,
-        flat_months: minimumOnlyForecast.summary.totalMonths,
-        debt_count: snowballForecast.results.length > 0 ? snowballForecast.results[0]?.debts?.length || 0 : 0,
-        bucket_count: totalBuckets,
-        extra_per_month: extraPerMonth,
-        forecast_version: 'v2.0'
+
+      const userId = 'user-' + Math.random().toString(36).substr(2, 9); // Simple user ID for demo
+      analytics.trackForecastComparison({
+        monthsSaved,
+        interestDifference: interestSaved,
+        percentageReduction,
+        compositeMonths: snowballForecast.summary.totalMonths,
+        flatMonths: minimumOnlyForecast.summary.totalMonths,
+        debtCount: snowballForecast.results.length > 0 ? snowballForecast.results[0]?.debts?.length || 0 : 0,
+        bucketCount: totalBuckets,
+        extraPerMonth,
+        userId
       });
     }
 

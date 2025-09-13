@@ -70,10 +70,75 @@ export interface AnalyticsEvent {
     location: string;
     page: string;
   };
+
+  // CP-4 Forecast Analytics Events
+  forecast_run: {
+    mode: 'composite' | 'flat';
+    user_id: string;
+    debt_count: number;
+    bucket_count: number;
+    extra_per_month: number;
+    forecast_version: string;
+  };
+
+  bucket_cleared: {
+    bucket_label: string;
+    debt_name: string;
+    apr: number;
+    cleared_month: number;
+    total_interest_paid: number;
+    forecast_version: string;
+    user_id: string;
+  };
+
+  forecast_failed: {
+    error_code: string;
+    error_message: string;
+    debt_count: number;
+    has_buckets: boolean;
+    forecast_version: string;
+    user_id: string;
+  };
+
+  bucket_interest_breakdown: {
+    bucket_label: string;
+    debt_name: string;
+    apr: number;
+    interest_total: number;
+    forecast_version: string;
+    user_id: string;
+  };
+
+  forecast_compared: {
+    months_saved: number;
+    interest_difference: number;
+    percentage_reduction: number;
+    composite_months: number;
+    flat_months: number;
+    debt_count: number;
+    bucket_count: number;
+    extra_per_month: number;
+    forecast_version: string;
+    user_id: string;
+  };
 }
 
 export type AnalyticsEventName = keyof AnalyticsEvent;
 export type AnalyticsEventData<T extends AnalyticsEventName> = AnalyticsEvent[T];
+
+// Forecast Error Codes as specified in CP-4
+export const FORECAST_ERROR_CODES = {
+  MISSING_APR: 'MISSING_APR',
+  INVALID_BUCKET_SUM: 'INVALID_BUCKET_SUM',
+  MALFORMED_BUCKETS: 'MALFORMED_BUCKETS',
+  SIMULATION_ERROR: 'SIMULATION_ERROR',
+  TIMEOUT: 'TIMEOUT',
+  INVALID_PAYMENT: 'INVALID_PAYMENT',
+  NEGATIVE_BALANCE: 'NEGATIVE_BALANCE',
+  DIVISION_BY_ZERO: 'DIVISION_BY_ZERO'
+} as const;
+
+export type ForecastErrorCode = typeof FORECAST_ERROR_CODES[keyof typeof FORECAST_ERROR_CODES];
 
 class AnalyticsService {
   private isInitialized = false;
@@ -203,6 +268,118 @@ class AnalyticsService {
    */
   get isAvailable() {
     return this.isInitialized;
+  }
+
+  // CP-4 Forecast Analytics Helper Methods
+
+  /**
+   * Track forecast simulation run
+   */
+  trackForecastRun(params: {
+    mode: 'composite' | 'flat';
+    userId: string;
+    debtCount: number;
+    bucketCount: number;
+    extraPerMonth: number;
+  }) {
+    this.track('forecast_run', {
+      mode: params.mode,
+      user_id: params.userId,
+      debt_count: params.debtCount,
+      bucket_count: params.bucketCount,
+      extra_per_month: Math.round(params.extraPerMonth * 100) / 100, // Round to 2 decimal places
+      forecast_version: 'v2.0',
+    });
+  }
+
+  /**
+   * Track bucket being fully paid off
+   */
+  trackBucketCleared(params: {
+    bucketLabel: string;
+    debtName: string;
+    apr: number;
+    clearedMonth: number;
+    totalInterestPaid: number;
+    userId: string;
+  }) {
+    this.track('bucket_cleared', {
+      bucket_label: params.bucketLabel,
+      debt_name: params.debtName,
+      apr: Math.round(params.apr * 10) / 10, // Round to 1 decimal place
+      cleared_month: params.clearedMonth,
+      total_interest_paid: Math.round(params.totalInterestPaid * 100) / 100, // Round to 2 decimal places
+      forecast_version: 'v2.0',
+      user_id: params.userId,
+    });
+  }
+
+  /**
+   * Track forecast simulation failure
+   */
+  trackForecastFailed(params: {
+    errorCode: ForecastErrorCode;
+    errorMessage: string;
+    debtCount: number;
+    hasBuckets: boolean;
+    userId: string;
+  }) {
+    this.track('forecast_failed', {
+      error_code: params.errorCode,
+      error_message: params.errorMessage,
+      debt_count: params.debtCount,
+      has_buckets: params.hasBuckets,
+      forecast_version: 'v2.0',
+      user_id: params.userId,
+    });
+  }
+
+  /**
+   * Track interest breakdown being displayed
+   */
+  trackInterestBreakdown(params: {
+    bucketLabel: string;
+    debtName: string;
+    apr: number;
+    interestTotal: number;
+    userId: string;
+  }) {
+    this.track('bucket_interest_breakdown', {
+      bucket_label: params.bucketLabel,
+      debt_name: params.debtName,
+      apr: Math.round(params.apr * 10) / 10, // Round to 1 decimal place
+      interest_total: Math.round(params.interestTotal * 100) / 100, // Round to 2 decimal places
+      forecast_version: 'v2.0',
+      user_id: params.userId,
+    });
+  }
+
+  /**
+   * Track composite vs flat forecast comparison
+   */
+  trackForecastComparison(params: {
+    monthsSaved: number;
+    interestDifference: number;
+    percentageReduction: number;
+    compositeMonths: number;
+    flatMonths: number;
+    debtCount: number;
+    bucketCount: number;
+    extraPerMonth: number;
+    userId: string;
+  }) {
+    this.track('forecast_compared', {
+      months_saved: params.monthsSaved,
+      interest_difference: Math.round(params.interestDifference * 100) / 100, // Round to 2 decimal places
+      percentage_reduction: Math.round(params.percentageReduction * 10) / 10, // Round to 1 decimal place
+      composite_months: params.compositeMonths,
+      flat_months: params.flatMonths,
+      debt_count: params.debtCount,
+      bucket_count: params.bucketCount,
+      extra_per_month: Math.round(params.extraPerMonth * 100) / 100, // Round to 2 decimal places
+      forecast_version: 'v2.0',
+      user_id: params.userId,
+    });
   }
 }
 

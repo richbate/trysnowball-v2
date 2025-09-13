@@ -5,6 +5,7 @@
 
 import React, { useState } from 'react';
 import { BucketSummary } from '../types/Forecast';
+import { analytics } from '../services/analytics';
 
 interface InterestBreakdownProps {
   bucketDetails?: BucketSummary;
@@ -72,7 +73,21 @@ export default function InterestBreakdown({
             Total: {formatCurrency(totalInterest)}
           </div>
           <button
-            onClick={() => setIsExpanded(!isExpanded)}
+            onClick={() => {
+              setIsExpanded(!isExpanded);
+
+              // Track interest breakdown being displayed
+              if (!isExpanded) {
+                const userId = 'user-' + Math.random().toString(36).substr(2, 9);
+                analytics.trackInterestBreakdown({
+                  bucketLabel: 'User-requested Breakdown',
+                  debtName: 'Interest Breakdown Component',
+                  apr: 0,
+                  interestTotal: totalInterest,
+                  userId
+                });
+              }
+            }}
             className="text-xs text-blue-600 underline hover:text-blue-800 focus:outline-none"
           >
             {isExpanded ? 'Hide details' : 'Show breakdown'}
