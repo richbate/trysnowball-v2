@@ -11,6 +11,8 @@ import Landing from './pages/Landing';
 import Upgrade from './pages/Upgrade';
 import Success from './pages/Success';
 import EnvironmentBanner from './components/EnvironmentBanner';
+import DemoMode from './components/DemoMode';
+import DemoWatermark from './components/DemoWatermark';
 import DebtList from './components/DebtList';
 import DebtForm from './components/DebtForm';
 import ForecastPage from './components/ForecastPage';
@@ -19,6 +21,8 @@ import { Library } from './pages/Library';
 import DebugShowcase from './components/DebugShowcase';
 import { UKDebt, CreateUKDebt, UpdateUKDebt } from './types/UKDebt';
 import { useDebts, useCreateDebt, useUpdateDebt, useDeleteDebt } from './hooks/useDebts';
+import { useDemoMode } from './hooks/useDemoMode';
+import { DemoScenario } from './data/demoScenarios';
 
 // Create a client for React Query
 const queryClient = new QueryClient({
@@ -35,18 +39,40 @@ function Dashboard() {
   const [showForm, setShowForm] = useState(false);
   const [editingDebt, setEditingDebt] = useState<UKDebt | null>(null);
 
+  // Demo mode management
+  const demoMode = useDemoMode();
+
   // Server-first state management - no manual useState for debts
-  const { data: debts = [], isLoading, isError, error, refetch } = useDebts();
+  const { data: serverDebts = [], isLoading, isError, error, refetch } = useDebts();
   const createMutation = useCreateDebt();
   const updateMutation = useUpdateDebt();
   const deleteMutation = useDeleteDebt();
 
+  // Use demo debts if demo mode is enabled, otherwise use server debts
+  const debts = demoMode.isEnabled ? demoMode.getDemoDebts() : serverDebts;
+
   const handleAddDebt = () => {
+    // In demo mode, suggest switching to real mode for adding debts
+    if (demoMode.isEnabled) {
+      if (window.confirm('To add your own debts, you need to exit demo mode. Would you like to exit demo mode now?')) {
+        demoMode.disableDemo();
+        setEditingDebt(null);
+        setShowForm(true);
+      }
+      return;
+    }
+
     setEditingDebt(null);
     setShowForm(true);
   };
 
   const handleEditDebt = (debt: UKDebt) => {
+    // Prevent editing demo debts
+    if (demoMode.isDemoDebt(debt.id)) {
+      alert('Demo debts cannot be edited. Exit demo mode to manage your own debts.');
+      return;
+    }
+
     setEditingDebt(debt);
     setShowForm(true);
   };
@@ -69,6 +95,12 @@ function Dashboard() {
   };
 
   const handleDeleteDebt = async (id: string) => {
+    // Prevent deleting demo debts
+    if (demoMode.isDemoDebt(id)) {
+      alert('Demo debts cannot be deleted. Exit demo mode to manage your own debts.');
+      return;
+    }
+
     if (!window.confirm('Are you sure you want to delete this debt?')) {
       return;
     }
@@ -177,8 +209,29 @@ function Dashboard() {
         </div>
       </header>
 
+      {/* Demo Watermark */}
+      <DemoWatermark
+        isVisible={demoMode.isEnabled}
+        scenarioName={demoMode.currentScenario?.title}
+      />
+
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Demo Mode Selector */}
+        {activeTab === 'debts' && (
+          <DemoMode
+            onScenarioSelect={(scenario: DemoScenario | null) => {
+              if (scenario) {
+                demoMode.enableDemo(scenario);
+              } else {
+                demoMode.disableDemo();
+              }
+            }}
+            currentScenarioId={demoMode.scenarioId || undefined}
+            isVisible={true}
+          />
+        )}
+
         {activeTab === 'debts' ? (
           <>
             {/* Summary Cards */}
