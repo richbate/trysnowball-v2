@@ -4,11 +4,32 @@
  */
 
 import React, { useEffect } from 'react';
+import { analytics } from '../services/analytics';
 
 export default function Success() {
   useEffect(() => {
     // Clear any checkout session data from URL params
     const url = new URL(window.location.href);
+    const sessionId = url.searchParams.get('session_id');
+
+    // Track successful payment completion
+    if (sessionId) {
+      analytics.track('stripe_checkout_completed', {
+        session_id: sessionId,
+        price_id: 'price_beta_annual',
+        amount: 10,
+        currency: 'GBP'
+      });
+
+      analytics.track('user_onboarded', {
+        source: 'payment_success',
+        plan: 'beta'
+      });
+    }
+
+    // Track page view
+    analytics.trackPageView('Success');
+
     url.searchParams.delete('session_id');
     window.history.replaceState({}, document.title, url.pathname);
   }, []);

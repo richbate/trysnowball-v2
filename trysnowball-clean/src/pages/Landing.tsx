@@ -3,9 +3,28 @@
  * Marketing page to introduce TrySnowball and drive beta signups
  */
 
-import React from 'react';
+import React, { useEffect } from 'react';
+import { analytics } from '../services/analytics';
 
 export default function Landing() {
+  useEffect(() => {
+    // Track landing page view
+    analytics.trackPageView('Landing', {
+      referrer: document.referrer,
+      utm_source: new URLSearchParams(window.location.search).get('utm_source'),
+      utm_medium: new URLSearchParams(window.location.search).get('utm_medium'),
+      utm_campaign: new URLSearchParams(window.location.search).get('utm_campaign'),
+    });
+  }, []);
+
+  const handleCTAClick = (location: string) => {
+    analytics.track('cta_clicked', {
+      text: 'Get Started Free',
+      location,
+      page: 'Landing'
+    });
+  };
+
   return (
     <div className="min-h-screen purple-gradient-bg text-white">
       {/* Hero Section */}
@@ -31,6 +50,7 @@ export default function Landing() {
           <div className="pt-4">
             <a
               href="/upgrade"
+              onClick={() => handleCTAClick('hero')}
               className="inline-block glass-button bg-fuchsia-600 hover:bg-fuchsia-700 text-white text-lg px-8 py-4 rounded-xl font-semibold shadow-lg transform hover:scale-105 transition-all duration-200"
             >
               Get Started Free

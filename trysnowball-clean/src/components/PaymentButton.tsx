@@ -4,17 +4,22 @@
  */
 
 import React, { useState } from 'react';
+import { analytics } from '../services/analytics';
 
 interface PaymentButtonProps {
   priceId?: string;
   className?: string;
   children: React.ReactNode;
+  source?: 'landing_page' | 'upgrade_page';
+  ctaLocation?: 'hero' | 'pricing_card' | 'final_cta';
 }
 
 export default function PaymentButton({
   priceId = process.env.REACT_APP_STRIPE_PRICE_ID || 'price_beta_annual',
   className = '',
-  children
+  children,
+  source = 'upgrade_page',
+  ctaLocation = 'pricing_card'
 }: PaymentButtonProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -22,6 +27,12 @@ export default function PaymentButton({
   const handlePayment = async () => {
     setIsLoading(true);
     setError(null);
+
+    // Track beta signup started
+    analytics.track('beta_signup_started', {
+      source,
+      cta_location: ctaLocation
+    });
 
     try {
       // TODO: Replace with actual Stripe checkout session creation
@@ -42,7 +53,14 @@ export default function PaymentButton({
         throw new Error('Failed to create checkout session');
       }
 
-      const { sessionUrl } = await response.json();
+      const { sessionUrl, sessionId } = await response.json();
+
+      // Track Stripe checkout initiated
+      analytics.track('stripe_checkout_initiated', {
+        price_id: priceId,
+        amount: 10, // £10 for beta
+        currency: 'GBP'
+      });
 
       // Redirect to Stripe Checkout
       if (sessionUrl) {
@@ -50,6 +68,13 @@ export default function PaymentButton({
       }
     } catch (err) {
       console.error('Payment error:', err);
+
+      // Track payment failure
+      analytics.track('stripe_checkout_failed', {
+        error: err instanceof Error ? err.message : 'Unknown error',
+        price_id: priceId
+      });
+
       setError('Unable to process payment. Please try again.');
       setIsLoading(false);
     }

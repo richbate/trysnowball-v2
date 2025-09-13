@@ -1,0 +1,7 @@
+{
+  "query": "mutation CreateComment($issueId: String!, $body: String!) { commentCreate(input: { issueId: $issueId, body: $body }) { success comment { id } } }",
+  "variables": {
+    "issueId": "TRY-32",
+    "body": "## 🚀 **Starting Implementation** - PostHog Analytics Foundation\n\n### **Context:**\n\nTRY-30 (Upgrade page) is complete but missing critical analytics events:\n- `beta_signup_started` - When user clicks payment button\n- `stripe_checkout_initiated` - When Stripe session begins\n- `payment_completed` - When payment succeeds\n- `user_onboarded` - When user reaches success page\n\n### **Implementation Plan:**\n\n1. **PostHog Setup**: Install and configure PostHog SDK\n2. **Analytics Service**: Create centralized analytics wrapper\n3. **Event Types**: Define TypeScript interfaces for all events\n4. **Integration Points**: Add tracking to upgrade/payment flow\n5. **Environment Config**: Add PostHog project key to .env\n6. **Testing**: Verify events fire correctly in development\n\n### **Required Events for TRY-30:**\n\n- **Upgrade Page**: Page view, CTA clicks, FAQ interactions\n- **Payment Flow**: Checkout initiation, success, failure\n- **Success Page**: Onboarding completion, dashboard navigation\n\n### **Dependencies:**\n- PostHog SDK installation\n- Project key configuration\n- Event schema definition\n\n**Status**: Starting implementation now..."
+  }
+}

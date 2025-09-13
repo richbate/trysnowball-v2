@@ -3,10 +3,18 @@
  * Conversion-optimized pricing page for TrySnowball beta
  */
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import PaymentButton from '../components/PaymentButton';
+import { analytics } from '../services/analytics';
 
 export default function Upgrade() {
+  useEffect(() => {
+    // Track upgrade page view
+    analytics.trackPageView('Upgrade', {
+      referrer: document.referrer,
+    });
+  }, []);
+
   return (
     <div className="min-h-screen purple-gradient-bg text-white">
       {/* Header/Logo */}
@@ -90,6 +98,8 @@ export default function Upgrade() {
 
             <PaymentButton
               className="bg-fuchsia-600 hover:bg-fuchsia-700 text-white text-lg px-8 py-4 rounded-xl font-semibold shadow-lg transform hover:scale-105 transition-all duration-200 w-full sm:w-auto mb-4"
+              source="upgrade_page"
+              ctaLocation="pricing_card"
             >
               Start Your Beta Access
             </PaymentButton>
@@ -231,6 +241,8 @@ export default function Upgrade() {
         <div className="text-center mt-12">
           <PaymentButton
             className="bg-fuchsia-600 hover:bg-fuchsia-700 text-white text-xl px-10 py-5 rounded-xl font-bold shadow-lg transform hover:scale-105 transition-all duration-200 mb-4"
+            source="upgrade_page"
+            ctaLocation="final_cta"
           >
             Join Beta - £10/year
           </PaymentButton>
