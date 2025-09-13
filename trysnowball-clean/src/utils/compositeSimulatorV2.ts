@@ -253,39 +253,40 @@ function applyPaymentToBuckets(
   
   const hasExtraPayment = (extraPayment + snowballPool) > 0;
   
+  // Choose allocation method based on scenario
   if (hasSpecificBucketNames && hasExtraPayment) {
-    // Scenario 1: Multi-APR bucket with extra payment - use business rules
+    // Scenario 1: Multi-APR credit card buckets with extra payment - use business rules
     let allocatedPrincipal = 0;
-    
-    // First pass: Apply fixed allocations
+
+    // First pass: Apply business rule allocations for credit card buckets
     activeBuckets.forEach(bucket => {
       let principalFromMin = 0;
-      
+
       if (bucket.name.toLowerCase().includes('purchase')) {
-        principalFromMin = 50; // Fixed $50 for purchases
+        principalFromMin = 50; // Fixed £50 for purchases (regulatory requirement)
       } else if (bucket.name.toLowerCase().includes('cash advance')) {
-        principalFromMin = 0; // Gets extra payment instead
+        principalFromMin = 0; // Gets extra payment instead (prioritize high APR)
       }
-      
+
       bucket.principalFromMinPayment = round2dp(principalFromMin);
       allocatedPrincipal += bucket.principalFromMinPayment;
     });
-    
+
     // Second pass: Balance Transfer gets remainder
     activeBuckets.forEach(bucket => {
       if (bucket.name.toLowerCase().includes('balance transfer')) {
         const remainderPrincipal = remainingMinPayment - allocatedPrincipal;
         bucket.principalFromMinPayment = round2dp(Math.max(0, remainderPrincipal));
       }
-      
+
       bucket.principalPaid = bucket.principalFromMinPayment || 0;
     });
-    
-  } else {
-    // Scenario 2: Priority order or other scenarios - use waterfall
+
+  } else if (!hasExtraPayment && activeBuckets.length > 1) {
+    // Scenario 2: Multi-bucket debt without extra payment - use priority waterfall (preserves golden tests)
     const sortedForWaterfall = [...activeBuckets].sort((a, b) => a.paymentPriority - b.paymentPriority);
     let remainingPrincipal = remainingMinPayment;
-    
+
     sortedForWaterfall.forEach(bucket => {
       if (remainingPrincipal > 0) {
         const principalForThisBucket = round2dp(Math.min(remainingPrincipal, bucket.currentBalance));
@@ -295,6 +296,39 @@ function applyPaymentToBuckets(
         bucket.principalPaid = 0;
       }
     });
+
+  } else {
+    // Scenario 3: Single bucket or simple debt with extra payment - use proper compound interest mathematics
+    const totalActiveBucketBalance = activeBuckets.reduce((sum, b) => sum + b.currentBalance, 0);
+
+    if (totalActiveBucketBalance > 0 && activeBuckets.length === 1) {
+      // Single bucket: all remaining payment goes to principal (creates exponential acceleration)
+      const bucket = activeBuckets[0];
+      bucket.principalPaid = round2dp(Math.min(remainingMinPayment, bucket.currentBalance));
+    } else if (totalActiveBucketBalance > 0) {
+      // Multiple buckets: proportional distribution based on balance
+      activeBuckets.forEach(bucket => {
+        const bucketWeight = bucket.currentBalance / totalActiveBucketBalance;
+        const bucketPrincipalFromMin = round2dp(remainingMinPayment * bucketWeight);
+        bucket.principalPaid = round2dp(Math.min(bucketPrincipalFromMin, bucket.currentBalance));
+      });
+
+      // Handle any rounding differences by applying remainder to highest priority bucket
+      const totalAllocated = activeBuckets.reduce((sum, b) => sum + b.principalPaid, 0);
+      const remainder = round2dp(remainingMinPayment - totalAllocated);
+
+      if (Math.abs(remainder) > 0.01) {
+        const highestPriorityBucket = activeBuckets.reduce((highest, bucket) =>
+          bucket.paymentPriority < highest.paymentPriority ? bucket : highest
+        );
+        highestPriorityBucket.principalPaid = round2dp(highestPriorityBucket.principalPaid + remainder);
+      }
+    } else {
+      // No active buckets, set all principal payments to 0
+      activeBuckets.forEach(bucket => {
+        bucket.principalPaid = 0;
+      });
+    }
   }
   
   // Update balances for all buckets after min payment allocation

@@ -1,0 +1,7 @@
+{
+  "query": "mutation CreateComment($issueId: String!, $body: String!) { commentCreate(input: { issueId: $issueId, body: $body }) { success comment { id } } }",
+  "variables": {
+    "issueId": "TRY-25",
+    "body": "## ✅ Fixed - Chart Now Shows Correct Comparison\n\n**Implementation Complete**: Updated the debt burndown chart to show the proper snowball vs minimum payments comparison as requested.\n\n### What the Chart Now Shows:\n- **Green line**: Debt burndown with snowball payments (faster payoff)\n- **Yellow line**: Debt burndown with minimum payments only (slower payoff)\n\n### Key Features:\n- ✅ Automatically detects when user has extra payments > £0\n- ✅ Shows comparison to demonstrate snowball method effectiveness\n- ✅ Clean two-line visualization focused on debt elimination speed\n- ✅ Updated title and legend to clearly explain the comparison\n- ✅ Enhanced tooltips and summary text\n\n### Files Updated:\n- `src/components/DebtBurndownChart.tsx` - Chart implementation\n- `src/components/ForecastPage.tsx` - Integration with forecast data\n\n**Commit**: `4c3e053` - \"feat: implement snowball vs minimum payments comparison chart\"\n\n**Result**: The chart now clearly demonstrates that by following the Snowball method, users get out of debt sooner, exactly as specified in the requirements."
+  }
+}
