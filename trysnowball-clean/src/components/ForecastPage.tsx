@@ -190,8 +190,9 @@ export default function ForecastPage() {
             )}
 
             {/* Debt Burndown Chart */}
-            <DebtBurndownChart 
+            <DebtBurndownChart
               results={forecast.results}
+              minimumResults={extraPerMonth > 0 ? comparison.minimumOnlyForecast.results : undefined}
               className="mb-8"
             />
 

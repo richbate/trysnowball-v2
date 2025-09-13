@@ -18,44 +18,44 @@ import { PlanResult } from '../types/Forecast';
 
 interface DebtBurndownChartProps {
   results: PlanResult[];
+  minimumResults?: PlanResult[];
   className?: string;
 }
 
 interface ChartDataPoint {
   month: string;
   monthNumber: number;
-  totalBalance: number;
-  totalPaid: number;
-  interestPaid: number;
-  principalPaid: number;
+  snowballBalance: number;
+  minimumBalance?: number;
 }
 
-export default function DebtBurndownChart({ results, className = '' }: DebtBurndownChartProps) {
+export default function DebtBurndownChart({ results, minimumResults, className = '' }: DebtBurndownChartProps) {
   
   const chartData = useMemo((): ChartDataPoint[] => {
     if (!results.length) return [];
 
-    let cumulativeInterest = 0;
-    let cumulativePrincipal = 0;
+    // Determine the maximum number of months to show
+    const maxMonths = Math.max(
+      results.length,
+      minimumResults?.length || 0
+    );
 
-    return results.map((result, index) => {
-      // Accumulate actual payments (snowball is already included in principal)
-      cumulativeInterest += result.totalInterest;
-      cumulativePrincipal += result.totalPrincipal;
-      
-      // Total paid is simply principal + interest (no double counting)
-      const totalPaid = cumulativePrincipal + cumulativeInterest;
+    const data: ChartDataPoint[] = [];
 
-      return {
-        month: `Month ${index + 1}`,
-        monthNumber: index + 1,
-        totalBalance: result.totalBalance,
-        totalPaid: totalPaid,
-        interestPaid: cumulativeInterest,
-        principalPaid: cumulativePrincipal
-      };
-    });
-  }, [results]);
+    for (let i = 0; i < maxMonths; i++) {
+      const snowballResult = results[i];
+      const minimumResult = minimumResults?.[i];
+
+      data.push({
+        month: `Month ${i + 1}`,
+        monthNumber: i + 1,
+        snowballBalance: snowballResult?.totalBalance || 0,
+        minimumBalance: minimumResult?.totalBalance
+      });
+    }
+
+    return data;
+  }, [results, minimumResults]);
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('en-GB', {
@@ -68,10 +68,8 @@ export default function DebtBurndownChart({ results, className = '' }: DebtBurnd
 
   const formatTooltip = (value: number, name: string) => {
     const labels: Record<string, string> = {
-      totalBalance: 'Remaining Debt',
-      totalPaid: 'Total Paid',
-      interestPaid: 'Interest Paid',
-      principalPaid: 'Principal Paid'
+      snowballBalance: 'Remaining Debt (Snowball)',
+      minimumBalance: 'Remaining Debt (Minimum Payments)'
     };
     return [formatCurrency(value), labels[name] || name];
   };
@@ -90,14 +88,21 @@ export default function DebtBurndownChart({ results, className = '' }: DebtBurnd
     );
   }
 
-  const maxBalance = Math.max(...chartData.map(d => d.totalBalance));
+  const maxBalance = Math.max(
+    ...chartData.map(d => Math.max(d.snowballBalance, d.minimumBalance || 0))
+  );
 
   return (
     <div className={`bg-white border border-gray-200 rounded-lg p-6 ${className}`}>
       <div className="mb-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-2">Debt Burndown Timeline</h3>
+        <h3 className="text-lg font-semibold text-gray-900 mb-2">
+          {minimumResults ? 'Snowball vs Minimum Payments Comparison' : 'Debt Burndown Timeline'}
+        </h3>
         <p className="text-sm text-gray-600">
-          Watch your debt balances decrease over time with your current payment plan
+          {minimumResults
+            ? 'See how the snowball method helps you pay off debt faster compared to minimum payments only'
+            : 'Watch your debt balances decrease over time with your current payment plan'
+          }
         </p>
       </div>
 
@@ -133,28 +138,29 @@ export default function DebtBurndownChart({ results, className = '' }: DebtBurnd
             
             <Legend />
 
-            {/* Total Balance Line - Main debt burndown */}
+            {/* Green Line - Snowball Debt Burndown */}
             <Line
               type="monotone"
-              dataKey="totalBalance"
-              stroke="#ef4444"
+              dataKey="snowballBalance"
+              stroke="#10b981"
               strokeWidth={3}
-              name="Remaining Debt"
-              dot={{ fill: '#ef4444', strokeWidth: 2, r: 4 }}
-              activeDot={{ r: 6, stroke: '#ef4444', strokeWidth: 2 }}
+              name="Debt with Snowball Payments"
+              dot={{ fill: '#10b981', strokeWidth: 2, r: 4 }}
+              activeDot={{ r: 6, stroke: '#10b981', strokeWidth: 2 }}
             />
 
-
-            {/* Interest Paid Line - Shows cumulative interest costs */}
-            <Line
-              type="monotone"
-              dataKey="interestPaid"
-              stroke="#f59e0b"
-              strokeWidth={2}
-              name="Interest Paid"
-              dot={{ fill: '#f59e0b', strokeWidth: 2, r: 3 }}
-              activeDot={{ r: 5, stroke: '#f59e0b', strokeWidth: 2 }}
-            />
+            {/* Yellow Line - Minimum Payments Only (if available) */}
+            {minimumResults && (
+              <Line
+                type="monotone"
+                dataKey="minimumBalance"
+                stroke="#f59e0b"
+                strokeWidth={3}
+                name="Debt with Minimum Payments Only"
+                dot={{ fill: '#f59e0b', strokeWidth: 2, r: 4 }}
+                activeDot={{ r: 6, stroke: '#f59e0b', strokeWidth: 2 }}
+              />
+            )}
           </ComposedChart>
         </ResponsiveContainer>
       </div>
@@ -163,21 +169,25 @@ export default function DebtBurndownChart({ results, className = '' }: DebtBurnd
       <div className="mt-6 pt-4 border-t border-gray-200">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
           <div className="flex items-center gap-2">
-            <div className="w-3 h-3 bg-red-500 rounded"></div>
-            <span className="text-gray-600">Remaining Debt (decreasing to £0)</span>
+            <div className="w-3 h-3 bg-green-500 rounded"></div>
+            <span className="text-gray-600">Snowball Method (faster payoff)</span>
           </div>
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 bg-amber-500 rounded"></div>
-            <span className="text-gray-600">Interest Paid (cumulative cost)</span>
-          </div>
+          {minimumResults && (
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 bg-amber-500 rounded"></div>
+              <span className="text-gray-600">Minimum Payments Only (slower payoff)</span>
+            </div>
+          )}
         </div>
 
-        {/* Total Repayment Summary */}
-        <div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
-          <div className="text-sm text-blue-800">
-            <span className="font-medium">💰 Total Repayment:</span> You'll repay your debt principal + interest shown above = your total cost of debt elimination
+        {/* Comparison Summary */}
+        {minimumResults && (
+          <div className="mt-4 p-3 bg-green-50 rounded-lg border border-green-200">
+            <div className="text-sm text-green-800">
+              <span className="font-medium">💡 Snowball Impact:</span> The green line shows how extra payments help you eliminate debt faster than minimum payments alone
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );
