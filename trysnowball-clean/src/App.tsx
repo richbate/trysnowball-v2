@@ -85,16 +85,16 @@ function Dashboard() {
   const totalMinPayment = debts.reduce((sum, debt) => sum + debt.min_payment, 0);
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen purple-gradient-bg text-white">
       {/* Header */}
-      <header className="bg-white shadow-sm border-b border-gray-200">
+      <header className="glass-subtle shadow-sm border-b border-white/10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div>
-              <h1 className="text-xl font-semibold text-gray-900">
+              <h1 className="text-xl font-semibold text-white">
                 Clean UK Debt Manager
               </h1>
-              <p className="text-sm text-gray-500">
+              <p className="text-sm text-white/70">
                 Zero conversions, bulletproof and boring
               </p>
             </div>
@@ -102,7 +102,7 @@ function Dashboard() {
             {activeTab === 'debts' && (
               <button
                 onClick={handleAddDebt}
-                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="px-4 py-2 text-sm font-medium text-white bg-fuchsia-600 rounded-xl hover:bg-fuchsia-700 focus:outline-none focus:ring-2 focus:ring-fuchsia-500 transition-colors duration-200"
               >
                 Add Debt
               </button>
@@ -110,59 +110,59 @@ function Dashboard() {
           </div>
           
           {/* Navigation Tabs */}
-          <div className="border-t border-gray-200">
+          <div className="border-t border-white/10">
             <nav className="-mb-px flex space-x-8">
               <button
                 onClick={() => setActiveTab('debts')}
-                className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors duration-200 ${
                   activeTab === 'debts'
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    ? 'border-fuchsia-500 text-fuchsia-300'
+                    : 'border-transparent text-white/70 hover:text-white hover:border-white/30'
                 }`}
               >
                 My Debts
                 {debts.length > 0 && (
-                  <span className="ml-2 bg-gray-100 text-gray-900 py-0.5 px-2.5 rounded-full text-xs">
+                  <span className="ml-2 bg-white/20 text-white py-0.5 px-2.5 rounded-full text-xs backdrop-blur-sm">
                     {debts.length}
                   </span>
                 )}
               </button>
               <button
                 onClick={() => setActiveTab('forecast')}
-                className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors duration-200 ${
                   activeTab === 'forecast'
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    ? 'border-fuchsia-500 text-fuchsia-300'
+                    : 'border-transparent text-white/70 hover:text-white hover:border-white/30'
                 }`}
               >
                 Freedom Plan
               </button>
               <button
                 onClick={() => setActiveTab('goals')}
-                className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors duration-200 ${
                   activeTab === 'goals'
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    ? 'border-fuchsia-500 text-fuchsia-300'
+                    : 'border-transparent text-white/70 hover:text-white hover:border-white/30'
                 }`}
               >
                 Goals & Challenges
               </button>
               <button
                 onClick={() => setActiveTab('library')}
-                className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors duration-200 ${
                   activeTab === 'library'
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    ? 'border-fuchsia-500 text-fuchsia-300'
+                    : 'border-transparent text-white/70 hover:text-white hover:border-white/30'
                 }`}
               >
                 📚 Library
               </button>
               <button
                 onClick={() => setActiveTab('debug')}
-                className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors duration-200 ${
                   activeTab === 'debug'
-                    ? 'border-red-500 text-red-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    ? 'border-red-400 text-red-300'
+                    : 'border-transparent text-white/70 hover:text-white hover:border-white/30'
                 }`}
               >
                 🛠️ Debug Showcase
@@ -179,19 +179,19 @@ function Dashboard() {
             {/* Summary Cards */}
             {debts.length > 0 && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-                <div className="bg-white rounded-lg border border-gray-200 p-6">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">Total Debt</h3>
-                  <p className="text-3xl font-bold text-red-600">
+                <div className="glass-card">
+                  <h3 className="text-lg font-semibold text-white mb-2">Total Debt</h3>
+                  <p className="text-3xl font-bold text-red-300">
                     {new Intl.NumberFormat('en-GB', {
                       style: 'currency',
                       currency: 'GBP',
                     }).format(totalDebt)}
                   </p>
                 </div>
-                
-                <div className="bg-white rounded-lg border border-gray-200 p-6">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">Total Min Payments</h3>
-                  <p className="text-3xl font-bold text-orange-600">
+
+                <div className="glass-card">
+                  <h3 className="text-lg font-semibold text-white mb-2">Total Min Payments</h3>
+                  <p className="text-3xl font-bold text-orange-300">
                     {new Intl.NumberFormat('en-GB', {
                       style: 'currency',
                       currency: 'GBP',
@@ -203,13 +203,13 @@ function Dashboard() {
 
             {/* Error Display */}
             {isError && (
-              <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-md">
-                <p className="text-red-700">
+              <div className="mb-6 glass-card bg-red-500/20 border-red-400/30">
+                <p className="text-red-200">
                   Failed to load debts: {error?.message || 'Please try again.'}
                 </p>
                 <button
                   onClick={() => refetch()}
-                  className="mt-2 text-sm text-red-600 hover:text-red-800 underline"
+                  className="mt-2 text-sm text-red-300 hover:text-red-100 underline transition-colors duration-200"
                 >
                   Try again
                 </button>
@@ -219,8 +219,8 @@ function Dashboard() {
             {/* Loading State */}
             {isLoading && (
               <div className="text-center py-12">
-                <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                <p className="mt-2 text-gray-600">Loading debts...</p>
+                <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-fuchsia-400"></div>
+                <p className="mt-2 text-white/70">Loading debts...</p>
               </div>
             )}
 

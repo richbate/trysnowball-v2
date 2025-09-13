@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Responsive Glass Design Test</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .glass {
+            backdrop-filter: blur(12px);
+            background-color: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+            border-radius: 1rem;
+        }
+
+        .glass-card {
+            backdrop-filter: blur(12px);
+            background-color: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+            border-radius: 1rem;
+            padding: 1.5rem;
+        }
+
+        @media (min-width: 768px) {
+            .glass-card {
+                padding: 2rem;
+            }
+        }
+    </style>
+</head>
+<body class="min-h-screen bg-gradient-to-br from-purple-700 via-purple-800 to-purple-900 text-white p-4">
+
+    <!-- Header Test -->
+    <header class="glass backdrop-blur-sm bg-white/5 border border-white/10 shadow-md rounded-xl mb-8 p-4">
+        <div class="max-w-7xl mx-auto">
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <div>
+                    <h1 class="text-xl sm:text-2xl font-semibold text-white">TrySnowball</h1>
+                    <p class="text-sm text-white/70">Responsive Glass Design Test</p>
+                </div>
+                <button class="px-4 py-2 bg-fuchsia-600 hover:bg-fuchsia-700 rounded-xl font-semibold transition-colors w-full sm:w-auto">
+                    Test Button
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Grid Test -->
+    <div class="max-w-7xl mx-auto">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 mb-8">
+            <div class="glass-card">
+                <h3 class="text-lg font-semibold text-white mb-2">Card 1</h3>
+                <p class="text-white/80">This card tests responsive padding. On mobile it has less padding, on desktop it has more.</p>
+            </div>
+
+            <div class="glass-card">
+                <h3 class="text-lg font-semibold text-white mb-2">Card 2</h3>
+                <p class="text-white/80">Grid responsiveness: 1 column on mobile, 2 on tablet, 3 on desktop.</p>
+            </div>
+
+            <div class="glass-card">
+                <h3 class="text-lg font-semibold text-white mb-2">Card 3</h3>
+                <p class="text-white/80">Glass effects should maintain blur and transparency across all screen sizes.</p>
+            </div>
+        </div>
+
+        <!-- Navigation Test -->
+        <nav class="glass p-4 mb-8">
+            <div class="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-8">
+                <button class="py-2 px-1 border-b-2 border-fuchsia-500 text-fuchsia-300 font-medium text-sm">
+                    Active Tab
+                </button>
+                <button class="py-2 px-1 border-b-2 border-transparent text-white/70 hover:text-white font-medium text-sm">
+                    Tab 2
+                </button>
+                <button class="py-2 px-1 border-b-2 border-transparent text-white/70 hover:text-white font-medium text-sm">
+                    Tab 3
+                </button>
+            </div>
+        </nav>
+
+        <!-- Form Test -->
+        <div class="glass-card max-w-md mx-auto">
+            <h2 class="text-xl font-semibold text-white mb-4">Form Test</h2>
+            <form class="space-y-4">
+                <input type="email" placeholder="Email"
+                       class="w-full px-4 py-2 rounded-lg bg-white/10 border border-white/20 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-fuchsia-500" />
+                <button type="submit"
+                        class="w-full py-2 rounded-lg bg-fuchsia-600 hover:bg-fuchsia-700 font-semibold transition-colors">
+                    Submit
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // Add some dynamic testing info
+        function updateInfo() {
+            const info = document.createElement('div');
+            info.className = 'fixed bottom-4 right-4 glass-card text-xs';
+            info.innerHTML = `
+                <strong>Screen:</strong> ${window.innerWidth}x${window.innerHeight}<br>
+                <strong>Breakpoint:</strong> ${
+                    window.innerWidth >= 1024 ? 'lg (desktop)' :
+                    window.innerWidth >= 768 ? 'md (tablet)' :
+                    window.innerWidth >= 640 ? 'sm (mobile-large)' :
+                    'xs (mobile)'
+                }
+            `;
+            document.body.appendChild(info);
+        }
+
+        updateInfo();
+        window.addEventListener('resize', () => {
+            const existing = document.querySelector('.fixed.bottom-4');
+            if (existing) existing.remove();
+            updateInfo();
+        });
+    </script>
+</body>
+</html>

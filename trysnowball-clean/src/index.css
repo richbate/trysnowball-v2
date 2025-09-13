@@ -1,3 +1,30 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Purple Glassmorphism Design System */
+@layer components {
+  .glass {
+    @apply backdrop-blur-md bg-white/10 border border-white/20 shadow-lg rounded-2xl;
+  }
+
+  .glass-subtle {
+    @apply backdrop-blur-sm bg-white/5 border border-white/10 shadow-md rounded-xl;
+  }
+
+  .glass-strong {
+    @apply backdrop-blur-lg bg-white/15 border border-white/30 shadow-xl rounded-3xl;
+  }
+
+  .purple-gradient-bg {
+    @apply bg-gradient-to-br from-purple-700 via-purple-800 to-purple-900;
+  }
+
+  .glass-button {
+    @apply glass px-4 py-2 font-semibold transition-colors duration-200 hover:bg-white/20;
+  }
+
+  .glass-card {
+    @apply glass p-6 md:p-8;
+  }
+}

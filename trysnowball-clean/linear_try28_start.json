@@ -1,0 +1,7 @@
+{
+  "query": "mutation CreateComment($issueId: String!, $body: String!) { commentCreate(input: { issueId: $issueId, body: $body }) { success comment { id } } }",
+  "variables": {
+    "issueId": "TRY-28",
+    "body": "## 🚀 **Starting Implementation** - Purple Glassmorphism Design System\n\n### **Implementation Plan:**\n\n1. **Create glass utility class** in global CSS/Tailwind\n2. **Update existing components** to use purple gradient background\n3. **Apply glass effects** to cards, modals, and UI components\n4. **Ensure accessibility** with proper contrast ratios\n5. **Test responsive behavior** across device sizes\n\n### **Design Specifications to Implement:**\n- **Background**: `bg-gradient-to-br from-purple-700 via-purple-800 to-purple-900`\n- **Glass Effect**: `backdrop-blur-md bg-white/10 border border-white/20 shadow-lg rounded-2xl`\n- **Text**: `text-white` for headings, `text-white/80` for body\n- **Accent**: `fuchsia-600` for buttons and interactive elements\n\n**Status**: Starting implementation now..."
+  }
+}

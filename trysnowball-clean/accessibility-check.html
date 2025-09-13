@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Accessibility Check - Purple Glass Design</title>
+    <style>
+        .purple-gradient-bg {
+            background: linear-gradient(to bottom right, #7c3aed, #6b21a8, #581c87);
+        }
+
+        .glass {
+            backdrop-filter: blur(12px);
+            background-color: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+            border-radius: 1rem;
+        }
+
+        .test-container {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+        }
+
+        .test-card {
+            backdrop-filter: blur(12px);
+            background-color: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 1rem;
+            padding: 24px;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body class="purple-gradient-bg">
+    <div class="test-container">
+        <h1 style="color: white; font-size: 2rem; font-weight: bold;">Accessibility Test</h1>
+
+        <div class="test-card">
+            <h2 style="color: white; font-size: 1.5rem; margin-bottom: 1rem;">White Text on Glass</h2>
+            <p style="color: white;">
+                This is white text on a glass background. Testing readability and contrast ratios.
+                The quick brown fox jumps over the lazy dog. 1234567890.
+            </p>
+        </div>
+
+        <div class="test-card">
+            <h2 style="color: rgba(255, 255, 255, 0.8); font-size: 1.5rem; margin-bottom: 1rem;">White 80% Opacity Text</h2>
+            <p style="color: rgba(255, 255, 255, 0.8);">
+                This is white text at 80% opacity on a glass background.
+                The quick brown fox jumps over the lazy dog. 1234567890.
+            </p>
+        </div>
+
+        <div class="test-card">
+            <h2 style="color: rgba(255, 255, 255, 0.7); font-size: 1.5rem; margin-bottom: 1rem;">White 70% Opacity Text</h2>
+            <p style="color: rgba(255, 255, 255, 0.7);">
+                This is white text at 70% opacity on a glass background.
+                The quick brown fox jumps over the lazy dog. 1234567890.
+            </p>
+        </div>
+
+        <div class="test-card" style="background-color: rgba(244, 114, 182, 0.6);">
+            <h2 style="color: white; font-size: 1.5rem; margin-bottom: 1rem;">Fuchsia Accent Card</h2>
+            <button style="background-color: #c026d3; color: white; padding: 8px 16px; border: none; border-radius: 12px; font-weight: 600;">
+                Fuchsia Button
+            </button>
+        </div>
+
+        <div style="background-color: rgba(255, 255, 255, 0.1); padding: 20px; border-radius: 16px; margin: 10px 0;">
+            <h3 style="color: white; margin-bottom: 10px;">Contrast Test Results:</h3>
+            <ul style="color: white; line-height: 1.6;">
+                <li>✅ White text on purple gradient: High contrast, passes WCAG AA</li>
+                <li>✅ White 80% opacity: Good contrast, readable</li>
+                <li>⚠️ White 70% opacity: Lower contrast, check for small text</li>
+                <li>✅ Fuchsia accent color: High contrast with white text</li>
+            </ul>
+        </div>
+    </div>
+</body>
+</html>
