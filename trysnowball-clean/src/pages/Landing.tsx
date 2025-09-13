@@ -19,7 +19,7 @@ export default function Landing() {
 
   const handleCTAClick = (location: string) => {
     analytics.track('cta_clicked', {
-      text: 'Get Started Free',
+      text: 'Start Your Beta Access',
       location,
       page: 'Landing'
     });
@@ -53,7 +53,7 @@ export default function Landing() {
               onClick={() => handleCTAClick('hero')}
               className="inline-block glass-button bg-fuchsia-600 hover:bg-fuchsia-700 text-white text-lg px-8 py-4 rounded-xl font-semibold shadow-lg transform hover:scale-105 transition-all duration-200"
             >
-              Get Started Free
+              Start Your Beta Access
             </a>
           </div>
 
