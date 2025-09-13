@@ -1,0 +1,40 @@
+name = "trysnowball-clean-api"
+main = "src/index-secured.js"  # Updated to use secured version
+compatibility_date = "2023-12-01"
+
+# Production environment
+[env.production]
+vars = { 
+  ENVIRONMENT = "production",
+  JWT_ALGORITHM = "HS256"  # Can be changed to RS256 if using asymmetric keys
+}
+
+[[env.production.d1_databases]]
+binding = "DB"
+database_name = "trysnowball-clean-db"
+database_id = "8f1ab9e2-a257-46bd-91aa-14457e9aa75e"
+
+# Development environment
+[env.development]
+vars = { 
+  ENVIRONMENT = "development",
+  JWT_ALGORITHM = "HS256"
+}
+
+# Default D1 binding for local dev
+[[d1_databases]]
+binding = "DB"
+database_name = "trysnowball-clean-db"
+database_id = "8f1ab9e2-a257-46bd-91aa-14457e9aa75e"
+
+# Secrets (set via CLI or dashboard)
+# Run these commands to set secrets:
+# wrangler secret put ENCRYPTION_SECRET
+# wrangler secret put JWT_SECRET
+#
+# For production with RS256:
+# wrangler secret put JWT_PUBLIC_KEY
+#
+# Example values for local development (DO NOT USE IN PRODUCTION):
+# ENCRYPTION_SECRET = "your-32-character-encryption-key-here"
+# JWT_SECRET = "your-jwt-signing-secret-key-here"

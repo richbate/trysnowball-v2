@@ -1,0 +1,203 @@
+[
+  {
+    "name": "Single Debt - Multi-APR Buckets",
+    "input": {
+      "debts": [
+        {
+          "id": "d1",
+          "name": "Card A",
+          "amount": 3000,
+          "apr": 22.9,
+          "min_payment": 100,
+          "order_index": 1,
+          "buckets": [
+            { "id": "b1", "name": "Cash Advances", "balance": 500, "apr": 27.9, "payment_priority": 1 },
+            { "id": "b2", "name": "Purchases", "balance": 1000, "apr": 22.9, "payment_priority": 2 },
+            { "id": "b3", "name": "Balance Transfer", "balance": 1500, "apr": 0.0, "payment_priority": 3 }
+          ]
+        }
+      ],
+      "extra_per_month": 100
+    },
+    "expected": [
+      {
+        "month": 1,
+        "buckets": {
+          "b1": {
+            "interest": 11.63,
+            "payment": 111.63,
+            "principal": 100.00,
+            "balance": 400.00
+          },
+          "b2": {
+            "interest": 19.08,
+            "payment": 69.08,
+            "principal": 50.00,
+            "balance": 950.00
+          },
+          "b3": {
+            "interest": 0.00,
+            "payment": 19.29,
+            "principal": 19.29,
+            "balance": 1480.71
+          }
+        },
+        "totalInterest": 30.71,
+        "totalPrincipal": 169.29,
+        "totalPayment": 200.00,
+        "snowballApplied": 100.00
+      }
+    ]
+  },
+  
+  {
+    "name": "Two Debts - Snowball Rollover Across Debts",
+    "input": {
+      "debts": [
+        {
+          "id": "d1",
+          "name": "Small Debt",
+          "amount": 500,
+          "apr": 20.0,
+          "min_payment": 50,
+          "order_index": 1,
+          "buckets": [
+            { "id": "b1", "name": "Small Bucket", "balance": 500, "apr": 20.0, "payment_priority": 1 }
+          ]
+        },
+        {
+          "id": "d2", 
+          "name": "Large Debt",
+          "amount": 2000,
+          "apr": 15.0,
+          "min_payment": 100,
+          "order_index": 2,
+          "buckets": [
+            { "id": "b2", "name": "Large Bucket", "balance": 2000, "apr": 15.0, "payment_priority": 1 }
+          ]
+        }
+      ],
+      "extra_per_month": 200
+    },
+    "expected": [
+      {
+        "month": 2,
+        "debts": {
+          "d1": {
+            "balance": 12.64,
+            "isPaidOff": false
+          },
+          "d2": {
+            "balance": 1849.06
+          }
+        }
+      }
+    ]
+  },
+
+  {
+    "name": "Overpayment Clears Bucket Early",
+    "input": {
+      "debts": [
+        {
+          "id": "d1",
+          "name": "Fast Payoff",
+          "amount": 1000,
+          "apr": 20.0,
+          "min_payment": 50,
+          "order_index": 1,
+          "buckets": [
+            { "id": "b1", "name": "Single Bucket", "balance": 1000, "apr": 20.0, "payment_priority": 1 }
+          ]
+        }
+      ],
+      "extra_per_month": 500
+    },
+    "expected": [
+      {
+        "month": 2,
+        "debts": {
+          "d1": {
+            "principal": 466.67,
+            "balance": 0.00,
+            "isPaidOff": true
+          }
+        }
+      }
+    ]
+  },
+
+  {
+    "name": "Validation Failure - Invalid APR",
+    "input": {
+      "debts": [
+        {
+          "id": "d1",
+          "name": "Invalid Debt",
+          "amount": 1000,
+          "apr": 20.0,
+          "min_payment": 50,
+          "order_index": 1,
+          "buckets": [
+            { "id": "b1", "name": "Invalid Bucket", "balance": 1000, "apr": -5.0, "payment_priority": 1 }
+          ]
+        }
+      ],
+      "extra_per_month": 0
+    },
+    "expectedError": "Invalid APR"
+  },
+  
+  {
+    "name": "Validation Failure - Debt Growth (min < interest)",
+    "input": {
+      "debts": [
+        {
+          "id": "d1",
+          "name": "Growing Debt",
+          "amount": 1000,
+          "apr": 100.0,
+          "min_payment": 10,
+          "order_index": 1,
+          "buckets": [
+            { "id": "b1", "name": "High APR Bucket", "balance": 1000, "apr": 100.0, "payment_priority": 1 }
+          ]
+        }
+      ],
+      "extra_per_month": 0
+    },
+    "expectedError": "Payment below monthly interest"
+  },
+
+  {
+    "name": "Bucket Priority Order",
+    "input": {
+      "debts": [
+        {
+          "id": "d1",
+          "name": "Priority Test",
+          "amount": 1000,
+          "apr": 15.0,
+          "min_payment": 100,
+          "order_index": 1,
+          "buckets": [
+            { "id": "b1", "name": "Priority 3", "balance": 300, "apr": 10.0, "payment_priority": 3 },
+            { "id": "b2", "name": "Priority 1", "balance": 400, "apr": 20.0, "payment_priority": 1 },
+            { "id": "b3", "name": "Priority 2", "balance": 300, "apr": 15.0, "payment_priority": 2 }
+          ]
+        }
+      ],
+      "extra_per_month": 0
+    },
+    "expected": [
+      {
+        "month": 1,
+        "buckets": {
+          "b2": {
+            "principal": 87.08
+          }
+        }
+      }
+    ]
+  }
+]

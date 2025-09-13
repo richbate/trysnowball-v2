@@ -1,0 +1,18 @@
+{
+  "name": "trysnowball-cp5-workers",
+  "version": "1.0.0",
+  "description": "CP-5 API Workers for TrySnowball Goals & Challenges",
+  "main": "index.ts",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "test": "wrangler dev --test-scheduled",
+    "db:migrate": "wrangler d1 execute trysnowball --file=./migrations/001_create_goals.sql",
+    "db:local": "wrangler d1 execute trysnowball --local --file=./migrations/001_create_goals.sql"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20231025.0",
+    "wrangler": "^3.0.0",
+    "typescript": "^5.0.0"
+  }
+}

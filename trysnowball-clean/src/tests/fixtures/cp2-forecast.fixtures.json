@@ -1,0 +1,210 @@
+[
+  {
+    "name": "Single Debt - Basic Progression",
+    "input": {
+      "debts": [
+        { 
+          "id": "d1", 
+          "name": "Test Debt",
+          "amount": 1000, 
+          "apr": 20, 
+          "min_payment": 50, 
+          "order_index": 1 
+        }
+      ],
+      "extra_per_month": 0
+    },
+    "expected": [
+      {
+        "month": 1,
+        "debts": {
+          "d1": {
+            "interest": 16.67,
+            "principal": 33.33,
+            "balance": 966.67,
+            "payment": 50.00
+          }
+        },
+        "totalInterest": 16.67,
+        "totalPrincipal": 33.33,
+        "totalPayment": 50.00
+      },
+      {
+        "month": 2,
+        "debts": {
+          "d1": {
+            "interest": 16.11,
+            "principal": 33.89,
+            "balance": 932.78,
+            "payment": 50.00
+          }
+        },
+        "totalInterest": 16.11,
+        "totalPrincipal": 33.89,
+        "totalPayment": 50.00
+      }
+    ]
+  },
+
+  {
+    "name": "Two Debts - Snowball Rollover",
+    "input": {
+      "debts": [
+        { 
+          "id": "d1", 
+          "name": "Small Debt",
+          "amount": 500, 
+          "apr": 15, 
+          "min_payment": 25, 
+          "order_index": 1 
+        },
+        { 
+          "id": "d2", 
+          "name": "Large Debt",
+          "amount": 1000, 
+          "apr": 10, 
+          "min_payment": 50, 
+          "order_index": 2 
+        }
+      ],
+      "extra_per_month": 0
+    },
+    "expected": [
+      {
+        "month": 1,
+        "debts": {
+          "d1": { 
+            "interest": 6.25, 
+            "principal": 18.75, 
+            "balance": 481.25,
+            "payment": 25.00
+          },
+          "d2": { 
+            "interest": 8.33, 
+            "principal": 41.67, 
+            "balance": 958.33,
+            "payment": 50.00
+          }
+        },
+        "totalInterest": 14.58,
+        "totalPrincipal": 60.42,
+        "totalPayment": 75.00
+      },
+      {
+        "month": 21,
+        "debts": {
+          "d1": { 
+            "balance": 0.00,
+            "isPaidOff": true
+          },
+          "d2": { 
+            "minPaymentPlusRollover": 75.00,
+            "snowballRollover": 25.00
+          }
+        }
+      }
+    ]
+  },
+
+  {
+    "name": "Overpayment Clears Debt",
+    "input": {
+      "debts": [
+        { 
+          "id": "d1", 
+          "name": "Test Debt",
+          "amount": 1000, 
+          "apr": 20, 
+          "min_payment": 50, 
+          "order_index": 1 
+        }
+      ],
+      "extra_per_month": 500
+    },
+    "expected": [
+      {
+        "month": 1,
+        "debts": {
+          "d1": {
+            "interest": 16.67,
+            "principal": 533.33,
+            "balance": 466.67,
+            "payment": 550.00
+          }
+        },
+        "totalInterest": 16.67,
+        "totalPrincipal": 533.33,
+        "totalPayment": 550.00
+      },
+      {
+        "month": 2,
+        "debts": {
+          "d1": {
+            "interest": 7.78,
+            "principal": 458.89,
+            "balance": 0.00,
+            "payment": 466.67,
+            "isPaidOff": true
+          }
+        },
+        "totalInterest": 7.78,
+        "totalPrincipal": 458.89,
+        "totalPayment": 466.67
+      }
+    ]
+  },
+
+  {
+    "name": "Validation Failure - Negative APR",
+    "input": {
+      "debts": [
+        { 
+          "id": "d1", 
+          "name": "Invalid Debt",
+          "amount": 1000, 
+          "apr": -5, 
+          "min_payment": 50, 
+          "order_index": 1 
+        }
+      ],
+      "extra_per_month": 0
+    },
+    "expectedError": "Invalid APR: must be between 0 and 100"
+  },
+
+  {
+    "name": "Validation Failure - APR Over 100",
+    "input": {
+      "debts": [
+        { 
+          "id": "d1", 
+          "name": "Invalid Debt",
+          "amount": 1000, 
+          "apr": 150, 
+          "min_payment": 50, 
+          "order_index": 1 
+        }
+      ],
+      "extra_per_month": 0
+    },
+    "expectedError": "Invalid APR: must be between 0 and 100"
+  },
+
+  {
+    "name": "Validation Failure - Zero Min Payment",
+    "input": {
+      "debts": [
+        { 
+          "id": "d1", 
+          "name": "Invalid Debt",
+          "amount": 1000, 
+          "apr": 20, 
+          "min_payment": 0, 
+          "order_index": 1 
+        }
+      ],
+      "extra_per_month": 0
+    },
+    "expectedError": "Invalid minimum payment: must be greater than 0"
+  }
+]

@@ -1,0 +1,18 @@
+bucket_id,bucket_name,start_balance,apr,priority,monthly_interest_rate,raw_interest,rounded_interest,proportion,raw_min_share,rounded_min_share,interest_covered,principal_from_min,balance_after_min,extra_applied,total_principal,total_payment,final_balance,expected_payment,expected_principal,expected_balance
+b1,Cash Advances,500,27.9,1,0.023250,11.625000,11.62,0.166667,16.666667,16.67,11.62,5.0500000000000025,494.95,100,105.05,116.67,394.95,111.63,100,400
+b2,Purchases,1000,22.9,2,0.019083,19.083333,19.08,0.333333,33.333333,33.33,19.08,14.25,985.75,0,14.25,33.33,985.75,69.08,50,950
+b3,Balance Transfer,1500,0,3,0.000000,0.000000,0,0.500000,50.000000,50,0,50,1450,0,50,50,1450,19.29,19.29,1480.71
+
+=== Summary Comparison ===
+Metric,My_b1,My_b2,My_b3,Expected_b1,Expected_b2,Expected_b3,Total_Mine,Total_Expected
+Payment,116.67,33.33,50,111.63,69.08,19.29,200.00,200.00
+Principal,105.05,14.25,50,100,50,19.29,169.30,169.29
+Balance,394.95,985.75,1450,400,950,1480.71,2830.70,2830.71
+
+=== Key Differences ===
+- My proportional shares: 16.67, 33.33, 50.00
+- But fixture shows very different payment distribution
+- b2 gets 69.08 payment (vs my 33.33) - that's +35.75
+- b3 gets 19.29 payment (vs my 50.00) - that's -30.71
+- The difference (35.75 - 30.71 = 5.04) roughly matches b1's overage
+- This suggests the fixture uses a DIFFERENT algorithm than proportional allocation

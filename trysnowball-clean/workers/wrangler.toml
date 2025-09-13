@@ -1,0 +1,24 @@
+# CP-5 API Worker Configuration
+name = "trysnowball-cp5-api"
+main = "index.ts"
+compatibility_date = "2023-10-30"
+
+# D1 Database binding
+[[d1_databases]]
+binding = "DB"
+database_name = "trysnowball"
+database_id = "your-database-id-here"
+
+# Environment variables
+[vars]
+ENVIRONMENT = "development"
+
+# JWT Secret (set via wrangler secret)
+# wrangler secret put JWT_SECRET
+
+# CORS settings for development
+[env.development.vars]
+CORS_ORIGIN = "*"
+
+[env.production.vars]
+CORS_ORIGIN = "https://trysnowball.com"

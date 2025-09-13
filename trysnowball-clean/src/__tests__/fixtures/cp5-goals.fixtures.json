@@ -1,0 +1,277 @@
+{
+  "debt_clear_goal_success": {
+    "name": "Debt Clear Goal — Achieved",
+    "input": {
+      "user_id": "user_123",
+      "goal": {
+        "id": "goal_1",
+        "type": "DEBT_CLEAR",
+        "debt_id": "debt_cc",
+        "target_date": "2025-03-01",
+        "target_value": 0,
+        "current_value": 0,
+        "status": "ACTIVE"
+      },
+      "forecast": {
+        "debt_id": "debt_cc",
+        "cleared_date": "2025-02-01"
+      }
+    },
+    "expected": {
+      "status": "ACHIEVED",
+      "achieved_date": "2025-02-01",
+      "analytics_event": {
+        "event": "goal_achieved",
+        "properties": {
+          "goal_id": "goal_1",
+          "goal_type": "DEBT_CLEAR",
+          "achieved_date": "2025-02-01",
+          "days_to_achievement": 29,
+          "forecast_version": "v2.0"
+        }
+      }
+    }
+  },
+
+  "debt_clear_goal_failure": {
+    "name": "Debt Clear Goal — Failed",
+    "input": {
+      "user_id": "user_123", 
+      "goal": {
+        "id": "goal_1b",
+        "type": "DEBT_CLEAR",
+        "debt_id": "debt_cc",
+        "target_date": "2025-01-01",
+        "target_value": 0,
+        "current_value": 0,
+        "status": "ACTIVE"
+      },
+      "forecast": {
+        "debt_id": "debt_cc",
+        "cleared_date": "2025-03-01"
+      }
+    },
+    "expected": {
+      "status": "FAILED",
+      "failed_date": "2025-01-01",
+      "analytics_event": {
+        "event": "goal_failed",
+        "properties": {
+          "goal_id": "goal_1b",
+          "goal_type": "DEBT_CLEAR",
+          "target_value": 0,
+          "current_value": 0,
+          "failed_date": "2025-01-01",
+          "completion_percentage": 0,
+          "forecast_version": "v2.0"
+        }
+      }
+    }
+  },
+
+  "amount_paid_goal_progression": {
+    "name": "Amount Paid Goal — Progress",
+    "input": {
+      "user_id": "user_123",
+      "goal": {
+        "id": "goal_2",
+        "type": "AMOUNT_PAID",
+        "debt_id": "debt_loan",
+        "target_value": 500,
+        "current_value": 200,
+        "status": "ACTIVE"
+      },
+      "payment_made": 100
+    },
+    "expected": {
+      "current_value": 300,
+      "status": "ACTIVE",
+      "analytics_event": {
+        "event": "goal_progressed",
+        "properties": {
+          "goal_id": "goal_2",
+          "goal_type": "AMOUNT_PAID",
+          "current_value": 300.00,
+          "target_value": 500.00,
+          "progress_percentage": 60.0,
+          "forecast_version": "v2.0"
+        }
+      }
+    }
+  },
+
+  "amount_paid_goal_achievement": {
+    "name": "Amount Paid Goal — Achieved",
+    "input": {
+      "user_id": "user_123",
+      "goal": {
+        "id": "goal_2b",
+        "type": "AMOUNT_PAID",
+        "debt_id": "debt_loan",
+        "target_value": 500,
+        "current_value": 450,
+        "status": "ACTIVE"
+      },
+      "payment_made": 50
+    },
+    "expected": {
+      "current_value": 500,
+      "status": "ACHIEVED",
+      "analytics_event": {
+        "event": "goal_achieved",
+        "properties": {
+          "goal_id": "goal_2b",
+          "goal_type": "AMOUNT_PAID",
+          "target_value": 500.00,
+          "achieved_date": "2025-01-15",
+          "days_to_achievement": 30,
+          "forecast_version": "v2.0"
+        }
+      }
+    }
+  },
+
+  "goal_cancellation": {
+    "name": "Goal Cancellation",
+    "input": {
+      "user_id": "user_123",
+      "goal": {
+        "id": "goal_3",
+        "type": "TIMEBOUND",
+        "target_date": "2027-01-01",
+        "target_value": 0,
+        "current_value": 0,
+        "status": "ACTIVE"
+      },
+      "action": "cancel"
+    },
+    "expected": {
+      "status": "CANCELLED",
+      "analytics_event": {
+        "event": "goal_updated",
+        "properties": {
+          "goal_id": "goal_3",
+          "goal_type": "TIMEBOUND",
+          "old_status": "ACTIVE",
+          "new_status": "CANCELLED",
+          "forecast_version": "v2.0"
+        }
+      }
+    }
+  },
+
+  "goal_editing": {
+    "name": "Goal Editing",
+    "input": {
+      "user_id": "user_123",
+      "goal": {
+        "id": "goal_4",
+        "type": "INTEREST_SAVED",
+        "target_value": 200,
+        "current_value": 50,
+        "status": "ACTIVE"
+      },
+      "action": "edit",
+      "new_target_value": 300
+    },
+    "expected": {
+      "target_value": 300,
+      "status": "ACTIVE",
+      "analytics_event": {
+        "event": "goal_updated",
+        "properties": {
+          "goal_id": "goal_4",
+          "goal_type": "INTEREST_SAVED",
+          "old_status": "ACTIVE", 
+          "new_status": "ACTIVE",
+          "forecast_version": "v2.0"
+        }
+      }
+    }
+  },
+
+  "challenge_assignment": {
+    "name": "Challenge Assignment",
+    "input": {
+      "user_id": "user_123",
+      "challenge": {
+        "id": "challenge_1",
+        "type": "AMOUNT_PAID",
+        "target_value": 200,
+        "target_date": "2025-04-01",
+        "suggested_reason": "ahead_of_forecast"
+      }
+    },
+    "expected": {
+      "status": "ACTIVE",
+      "analytics_event": {
+        "event": "challenge_assigned",
+        "properties": {
+          "challenge_type": "AMOUNT_PAID",
+          "challenge_id": "challenge_1",
+          "target_value": 200.00,
+          "target_date": "2025-04-01",
+          "suggested_reason": "ahead_of_forecast",
+          "forecast_version": "v2.0"
+        }
+      }
+    }
+  },
+
+  "entitlement_block_max_active": {
+    "name": "Entitlement Block — Max Active Goals",
+    "input": {
+      "user_id": "user_123",
+      "user_tier": "free",
+      "active_goals_count": 1,
+      "attempted_goal": {
+        "type": "DEBT_CLEAR",
+        "debt_id": "debt_cc2",
+        "target_date": "2025-06-01"
+      }
+    },
+    "expected": {
+      "blocked": true,
+      "error": "ENTITLEMENT_LIMIT_EXCEEDED",
+      "analytics_event": {
+        "event": "entitlement_blocked",
+        "properties": {
+          "feature": "goals.max_active",
+          "user_tier": "free",
+          "attempted_value": 2,
+          "limit_value": 1,
+          "blocked_action": "goal_creation",
+          "forecast_version": "v2.0"
+        }
+      }
+    }
+  },
+
+  "entitlement_block_goal_type": {
+    "name": "Entitlement Block — Goal Type Not Allowed",
+    "input": {
+      "user_id": "user_123",
+      "user_tier": "free", 
+      "attempted_goal": {
+        "type": "AMOUNT_PAID",
+        "debt_id": "debt_loan",
+        "target_value": 500
+      }
+    },
+    "expected": {
+      "blocked": true,
+      "error": "ENTITLEMENT_LIMIT_EXCEEDED",
+      "analytics_event": {
+        "event": "entitlement_blocked",
+        "properties": {
+          "feature": "goals.allowed_types",
+          "user_tier": "free",
+          "attempted_value": "AMOUNT_PAID",
+          "limit_value": ["DEBT_CLEAR"],
+          "blocked_action": "goal_creation",
+          "forecast_version": "v2.0"
+        }
+      }
+    }
+  }
+}

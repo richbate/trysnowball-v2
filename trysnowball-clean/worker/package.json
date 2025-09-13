@@ -1,0 +1,17 @@
+{
+  "name": "trysnowball-clean-api",
+  "version": "1.0.0",
+  "description": "Clean UK Debt Management API - Zero conversions, bulletproof and boring",
+  "main": "src/index.js",
+  "scripts": {
+    "deploy": "wrangler deploy",
+    "dev": "wrangler dev",
+    "tail": "wrangler tail"
+  },
+  "keywords": ["cloudflare", "worker", "debt", "uk", "clean"],
+  "author": "TrySnowball",
+  "license": "MIT",
+  "devDependencies": {
+    "wrangler": "^3.0.0"
+  }
+}
