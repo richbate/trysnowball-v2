@@ -1,0 +1,7 @@
+{
+  "query": "mutation CreateComment($issueId: String!, $body: String!) { commentCreate(input: { issueId: $issueId, body: $body }) { success comment { id } } }",
+  "variables": {
+    "issueId": "TRY-31",
+    "body": "## 🚀 **Starting Implementation** - Create Staging Environment\n\n### **Context:**\n\nClean version needs staging environment for:\n- Testing before production deployment\n- Demo scenarios validation (TRY-35 dependency)\n- PostHog analytics testing\n- Payment flow testing\n- Stakeholder reviews\n\n### **Existing Infrastructure:**\n✅ **Cloudflare Pages already exists** for staging\n- Can leverage existing v1 staging setup\n- Domain and SSL already configured\n- CDN and performance optimization ready\n\n### **Implementation Plan:**\n\n1. **Environment Configuration**: Create staging-specific .env settings\n2. **Build Configuration**: Ensure staging builds work correctly\n3. **Deployment Pipeline**: Set up automated staging deployments\n4. **Domain Setup**: Configure staging subdomain or path\n5. **Analytics**: Staging PostHog configuration\n6. **Testing**: Verify all routes and functionality\n\n### **Required Staging Settings:**\n\n- PostHog: Same project key (can filter by environment)\n- Stripe: Test mode configuration\n- API URLs: Staging endpoints\n- Feature flags: Staging-specific flags\n\n### **Deliverables:**\n- Staging environment accessible via URL\n- Environment-specific configuration\n- Deployment documentation\n- Testing verification\n\n**Status**: Starting staging environment setup now..."
+  }
+}

@@ -10,6 +10,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import Landing from './pages/Landing';
 import Upgrade from './pages/Upgrade';
 import Success from './pages/Success';
+import EnvironmentBanner from './components/EnvironmentBanner';
 import DebtList from './components/DebtList';
 import DebtForm from './components/DebtForm';
 import ForecastPage from './components/ForecastPage';
@@ -278,6 +279,7 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <Router>
+        <EnvironmentBanner />
         <Routes>
           <Route path="/" element={<Landing />} />
           <Route path="/app" element={<Dashboard />} />
