@@ -8,6 +8,7 @@ import React, { useState } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import Landing from './pages/Landing';
+import Upgrade from './pages/Upgrade';
 import DebtList from './components/DebtList';
 import DebtForm from './components/DebtForm';
 import ForecastPage from './components/ForecastPage';
@@ -279,7 +280,7 @@ function App() {
         <Routes>
           <Route path="/" element={<Landing />} />
           <Route path="/app" element={<Dashboard />} />
-          <Route path="/upgrade" element={<div className="min-h-screen purple-gradient-bg text-white flex items-center justify-center"><div className="text-center"><h1 className="text-4xl font-bold mb-4">Upgrade Coming Soon</h1><p className="text-white/80">Beta registration opening soon!</p></div></div>} />
+          <Route path="/upgrade" element={<Upgrade />} />
           <Route path="/demo" element={<Dashboard />} />
         </Routes>
       </Router>
