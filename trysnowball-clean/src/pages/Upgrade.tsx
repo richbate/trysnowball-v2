@@ -4,6 +4,7 @@
  */
 
 import React from 'react';
+import PaymentButton from '../components/PaymentButton';
 
 export default function Upgrade() {
   return (
@@ -87,9 +88,11 @@ export default function Upgrade() {
               </div>
             </div>
 
-            <button className="bg-fuchsia-600 hover:bg-fuchsia-700 text-white text-lg px-8 py-4 rounded-xl font-semibold shadow-lg transform hover:scale-105 transition-all duration-200 w-full sm:w-auto mb-4">
+            <PaymentButton
+              className="bg-fuchsia-600 hover:bg-fuchsia-700 text-white text-lg px-8 py-4 rounded-xl font-semibold shadow-lg transform hover:scale-105 transition-all duration-200 w-full sm:w-auto mb-4"
+            >
               Start Your Beta Access
-            </button>
+            </PaymentButton>
 
             <div className="space-y-2 text-white/60 text-sm">
               <p>🔒 Secure payment with Stripe</p>
@@ -226,9 +229,11 @@ export default function Upgrade() {
 
         {/* Final CTA */}
         <div className="text-center mt-12">
-          <button className="bg-fuchsia-600 hover:bg-fuchsia-700 text-white text-xl px-10 py-5 rounded-xl font-bold shadow-lg transform hover:scale-105 transition-all duration-200 mb-4">
+          <PaymentButton
+            className="bg-fuchsia-600 hover:bg-fuchsia-700 text-white text-xl px-10 py-5 rounded-xl font-bold shadow-lg transform hover:scale-105 transition-all duration-200 mb-4"
+          >
             Join Beta - £10/year
-          </button>
+          </PaymentButton>
           <div className="space-y-1 text-white/60 text-sm">
             <p>Start your debt-free journey today</p>
             <p>Cancel anytime • 30-day guarantee • Secure payment</p>

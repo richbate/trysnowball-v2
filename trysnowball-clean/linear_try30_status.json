@@ -1,0 +1,7 @@
+{
+  "query": "mutation UpdateIssueState($issueId: String!, $stateId: String!) { issueUpdate(id: $issueId, input: { stateId: $stateId }) { success issue { id title state { name } } } }",
+  "variables": {
+    "issueId": "TRY-30",
+    "stateId": "in-review"
+  }
+}

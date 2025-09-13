@@ -1,0 +1,3 @@
+{
+  "query": "query GetNextIssues { issues(filter: { state: { name: { in: [\"Todo\", \"Backlog\"] } }, priority: { in: [1, 2] } }, first: 10, orderBy: priority) { nodes { id identifier title description priority state { name } labels { nodes { name } } } } }"
+}
