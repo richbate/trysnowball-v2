@@ -14,9 +14,9 @@ destination_dir = "build"
 [build.environment]
 NODE_VERSION = "18.17.0"
 REACT_APP_ENVIRONMENT = "staging"
-REACT_APP_API_BASE_URL = "https://staging.trysnowball.co.uk"
+REACT_APP_API_BASE_URL = "https://staging-api.trysnowball.co.uk"
 REACT_APP_STRIPE_MODE = "test"
-REACT_APP_POSTHOG_KEY = "phc_staging_key"
+REACT_APP_POSTHOG_PROJECT_KEY = "phc_staging_TiBCyhgzWEmeR7XdAFMpzAoqZXfeAvVDJwmqiP2Eo7X"
 GENERATE_SOURCEMAP = "false"
 
 # Staging environment (default)
@@ -28,7 +28,7 @@ compatibility_date = "2024-01-01"
 ENVIRONMENT = "staging"
 NODE_ENV = "production"
 REACT_APP_ENVIRONMENT = "staging"
-REACT_APP_API_BASE_URL = "https://staging.trysnowball.co.uk"
+REACT_APP_API_BASE_URL = "https://staging-api.trysnowball.co.uk"
 REACT_APP_STRIPE_MODE = "test"
 
 # Production environment
@@ -42,16 +42,16 @@ command = "npm run build:production"
 [env.production.build.environment]
 NODE_VERSION = "18.17.0"
 REACT_APP_ENVIRONMENT = "production"
-REACT_APP_API_BASE_URL = "https://trysnowball.co.uk"
+REACT_APP_API_BASE_URL = "https://api.trysnowball.co.uk"
 REACT_APP_STRIPE_MODE = "live"
-REACT_APP_POSTHOG_KEY = "phc_production_key"
+REACT_APP_POSTHOG_PROJECT_KEY = "phc_TiBCyhgzWEmeR7XdAFMpzAoqZXfeAvVDJwmqiP2Eo7X"
 GENERATE_SOURCEMAP = "false"
 
 [env.production.vars]
 ENVIRONMENT = "production"
 NODE_ENV = "production"
 REACT_APP_ENVIRONMENT = "production"
-REACT_APP_API_BASE_URL = "https://trysnowball.co.uk"
+REACT_APP_API_BASE_URL = "https://api.trysnowball.co.uk"
 REACT_APP_STRIPE_MODE = "live"
 
 # Routes (handled by Pages)

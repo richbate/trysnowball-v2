@@ -38,6 +38,7 @@ REACT_APP_API_BASE_URL=https://staging-api.trysnowball.co.uk
 REACT_APP_STRIPE_MODE=test
 REACT_APP_DEBUG_MODE=true
 REACT_APP_POSTHOG_ENVIRONMENT=staging
+REACT_APP_POSTHOG_PROJECT_KEY=phc_staging_TiBCyhgzWEmeR7XdAFMpzAoqZXfeAvVDJwmqiP2Eo7X
 ```
 
 #### Production (.env.production)
@@ -47,6 +48,7 @@ REACT_APP_API_BASE_URL=https://api.trysnowball.co.uk
 REACT_APP_STRIPE_MODE=live
 REACT_APP_DEBUG_MODE=false
 REACT_APP_POSTHOG_ENVIRONMENT=production
+REACT_APP_POSTHOG_PROJECT_KEY=phc_TiBCyhgzWEmeR7XdAFMpzAoqZXfeAvVDJwmqiP2Eo7X
 ```
 
 ## Cloudflare Dashboard Configuration
@@ -64,6 +66,8 @@ Root directory: /
 - `REACT_APP_ENVIRONMENT`: `staging`
 - `REACT_APP_API_BASE_URL`: `https://staging-api.trysnowball.co.uk`
 - `REACT_APP_STRIPE_MODE`: `test`
+- `REACT_APP_POSTHOG_PROJECT_KEY`: `phc_staging_TiBCyhgzWEmeR7XdAFMpzAoqZXfeAvVDJwmqiP2Eo7X`
+- `REACT_APP_POSTHOG_API_HOST`: `https://eu.i.posthog.com`
 - `GENERATE_SOURCEMAP`: `false`
 
 **Production**:
@@ -71,6 +75,8 @@ Root directory: /
 - `REACT_APP_ENVIRONMENT`: `production`
 - `REACT_APP_API_BASE_URL`: `https://api.trysnowball.co.uk`
 - `REACT_APP_STRIPE_MODE`: `live`
+- `REACT_APP_POSTHOG_PROJECT_KEY`: `phc_TiBCyhgzWEmeR7XdAFMpzAoqZXfeAvVDJwmqiP2Eo7X`
+- `REACT_APP_POSTHOG_API_HOST`: `https://eu.i.posthog.com`
 - `GENERATE_SOURCEMAP`: `false`
 
 ### Custom Domains

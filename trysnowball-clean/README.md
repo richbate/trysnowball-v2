@@ -1,46 +1,111 @@
-# Getting Started with Create React App
+# TrySnowball V2
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+Intelligent debt management and payoff acceleration for UK consumers.
 
-## Available Scripts
+## 📚 Documentation
 
-In the project directory, you can run:
+All project documentation is maintained in Linear Project Documents for better organization, discoverability, and maintenance:
 
-### `npm start`
+**[📖 View All Documentation →](https://linear.app/trysnowball/documents)**
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in the browser.
+### Quick Links
+- [🚀 Setup & Development](https://linear.app/trysnowball/document/setup-development)
+- [🏗️ System Architecture](https://linear.app/trysnowball/document/cp-0-system-overview)
+- [🧮 CP Calculation Engines](https://linear.app/trysnowball/document/cp-series-overview)
+- [🔧 API Documentation](https://linear.app/trysnowball/document/api-documentation)
+- [🚀 Deployment Guide](https://linear.app/trysnowball/document/cloudflare-pages-deployment)
+- [🧪 Testing Strategy](https://linear.app/trysnowball/document/testing-strategy)
 
-The page will reload if you make edits.\
-You will also see any lint errors in the console.
+## 🚀 Quick Start
 
-### `npm test`
+### Local Development
+```bash
+# Install dependencies
+npm install
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+# Start development server
+npm start
 
-### `npm run build`
+# Run tests
+npm test
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+# Build for production
+npm run build
+```
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+### Environment-Specific Builds
+```bash
+# Build for staging
+npm run build:staging
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+# Build for production
+npm run build:production
+```
 
-### `npm run eject`
+### Deployment
+```bash
+# Deploy to staging
+npm run deploy:pages:staging
 
-**Note: this is a one-way operation. Once you `eject`, you can’t go back!**
+# Deploy to production
+npm run deploy:pages:production
+```
 
-If you aren’t satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+## 🏗️ System Overview
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you’re on your own.
+TrySnowball V2 is built on a modular architecture with:
 
-You don’t have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn’t feel obligated to use this feature. However we understand that this tool wouldn’t be useful if you couldn’t customize it when you are ready for it.
+- **CP-1**: Clean Debt Model - Canonical debt structure and validation
+- **CP-3**: Multi-APR Bucket System - Per-debt interest calculations
+- **CP-4**: Forecast Engine V2 - Composite simulation engine
+- **CP-5**: Goals Engine - User-defined financial goals (upcoming)
 
-## Learn More
+For detailed technical information, see our [System Architecture](https://linear.app/trysnowball/document/cp-0-system-overview) documentation.
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+## 🤝 Contributing
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+- **Documentation**: All docs maintained in [Linear Project Documents](https://linear.app/trysnowball/documents)
+- **Issues**: Track work in [Linear Issues](https://linear.app/trysnowball/issues)
+- **Development**: See [Development Setup Guide](https://linear.app/trysnowball/document/setup-development)
+- **CP System**: Follow [CP Documentation Standards](https://linear.app/trysnowball/document/cp-series-overview)
+
+## 📊 Project Management
+
+This project uses Linear for comprehensive project management:
+- **Issues & Tasks**: [linear.app/trysnowball](https://linear.app/trysnowball)
+- **Documentation**: [Linear Project Documents](https://linear.app/trysnowball/documents)
+- **Progress Tracking**: All features and bugs tracked in Linear
+
+## 🛠️ Technology Stack
+
+- **Frontend**: React 19, TypeScript, TailwindCSS
+- **Charts**: Recharts for data visualization
+- **Analytics**: PostHog for user insights
+- **Deployment**: Cloudflare Pages
+- **Testing**: Jest, Cypress, Golden test scenarios
+
+## 📋 Available Scripts
+
+| Script | Description |
+|--------|-------------|
+| `npm start` | Development server on http://localhost:3000 |
+| `npm test` | Run test suite in watch mode |
+| `npm run build` | Production build to `/build` |
+| `npm run build:staging` | Staging build with staging env vars |
+| `npm run build:production` | Production build with production env vars |
+| `npm run deploy:pages:staging` | Deploy to staging environment |
+| `npm run deploy:pages:production` | Deploy to production environment |
+| `npm run test:golden` | Run golden test scenarios |
+| `npm run test:e2e` | Run end-to-end tests with Cypress |
+
+## 🔗 Key Resources
+
+- **Production**: [https://trysnowball.co.uk](https://trysnowball.co.uk)
+- **Staging**: [https://staging.trysnowball.co.uk](https://staging.trysnowball.co.uk)
+- **Documentation**: [Linear Project Documents](https://linear.app/trysnowball/documents)
+- **Issue Tracking**: [Linear Workspace](https://linear.app/trysnowball)
+- **Deployment Config**: See `CLOUDFLARE_PAGES_CONFIG.md`
+
+---
+
+For detailed information, please refer to our comprehensive documentation in Linear Project Documents.
