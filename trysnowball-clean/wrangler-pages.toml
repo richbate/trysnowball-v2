@@ -1,0 +1,116 @@
+# Cloudflare Pages Configuration for TrySnowball Clean v2
+# Project: trysnowball-v2
+# This configuration should match the Cloudflare Pages dashboard settings
+
+name = "trysnowball-v2"
+compatibility_date = "2024-01-01"
+pages_build_output_dir = "build"
+
+# Build configuration
+[build]
+command = "npm run build:staging"
+destination_dir = "build"
+
+[build.environment]
+NODE_VERSION = "18.17.0"
+REACT_APP_ENVIRONMENT = "staging"
+REACT_APP_API_BASE_URL = "https://staging.trysnowball.co.uk"
+REACT_APP_STRIPE_MODE = "test"
+REACT_APP_POSTHOG_KEY = "phc_staging_key"
+GENERATE_SOURCEMAP = "false"
+
+# Staging environment (default)
+[env.staging]
+name = "trysnowball-v2"
+compatibility_date = "2024-01-01"
+
+[env.staging.vars]
+ENVIRONMENT = "staging"
+NODE_ENV = "production"
+REACT_APP_ENVIRONMENT = "staging"
+REACT_APP_API_BASE_URL = "https://staging.trysnowball.co.uk"
+REACT_APP_STRIPE_MODE = "test"
+
+# Production environment
+[env.production]
+name = "trysnowball-v2-production"
+compatibility_date = "2024-01-01"
+
+[env.production.build]
+command = "npm run build:production"
+
+[env.production.build.environment]
+NODE_VERSION = "18.17.0"
+REACT_APP_ENVIRONMENT = "production"
+REACT_APP_API_BASE_URL = "https://trysnowball.co.uk"
+REACT_APP_STRIPE_MODE = "live"
+REACT_APP_POSTHOG_KEY = "phc_production_key"
+GENERATE_SOURCEMAP = "false"
+
+[env.production.vars]
+ENVIRONMENT = "production"
+NODE_ENV = "production"
+REACT_APP_ENVIRONMENT = "production"
+REACT_APP_API_BASE_URL = "https://trysnowball.co.uk"
+REACT_APP_STRIPE_MODE = "live"
+
+# Routes (handled by Pages)
+[[env.staging.routes]]
+pattern = "staging.trysnowball.co.uk/*"
+zone_name = "trysnowball.co.uk"
+
+[[env.production.routes]]
+pattern = "clean.trysnowball.co.uk/*"
+zone_name = "trysnowball.co.uk"
+
+# Custom domains configuration (set in CF dashboard)
+# staging.trysnowball.co.uk -> staging environment
+# clean.trysnowball.co.uk -> production environment (or replace main domain)
+
+# Browser cache settings
+[[env.staging.rules]]
+action = "set_cache_headers"
+path = "/static/*"
+headers = { "Cache-Control" = "public, max-age=31536000, immutable" }
+
+[[env.production.rules]]
+action = "set_cache_headers"
+path = "/static/*"
+headers = { "Cache-Control" = "public, max-age=31536000, immutable" }
+
+# Security settings for both environments
+[[env.staging.headers]]
+path = "/*"
+headers = {
+    "X-Frame-Options" = "DENY",
+    "X-Content-Type-Options" = "nosniff",
+    "X-XSS-Protection" = "1; mode=block",
+    "Strict-Transport-Security" = "max-age=31536000; includeSubDomains; preload",
+    "Referrer-Policy" = "strict-origin-when-cross-origin",
+    "Permissions-Policy" = "camera=(), microphone=(), geolocation=()"
+}
+
+[[env.production.headers]]
+path = "/*"
+headers = {
+    "X-Frame-Options" = "DENY",
+    "X-Content-Type-Options" = "nosniff",
+    "X-XSS-Protection" = "1; mode=block",
+    "Strict-Transport-Security" = "max-age=31536000; includeSubDomains; preload",
+    "Referrer-Policy" = "strict-origin-when-cross-origin",
+    "Permissions-Policy" = "camera=(), microphone=(), geolocation=()"
+}
+
+# SPA routing - send all non-asset requests to index.html
+[[env.staging.redirects]]
+from = "/*"
+to = "/index.html"
+status = 200
+force = false
+# Don't redirect actual files (CSS, JS, images, etc.)
+
+[[env.production.redirects]]
+from = "/*"
+to = "/index.html"
+status = 200
+force = false

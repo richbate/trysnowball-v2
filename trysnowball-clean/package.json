@@ -43,7 +43,9 @@
     "test:all": "npm run test:golden && npm run test:performance && npm run test:e2e",
     "eject": "react-scripts eject",
     "deploy:staging": "./scripts/deploy-staging.sh",
-    "deploy:production": "./scripts/deploy-production.sh"
+    "deploy:production": "./scripts/deploy-production.sh",
+    "deploy:pages:staging": "./scripts/deploy-pages.sh staging",
+    "deploy:pages:production": "./scripts/deploy-pages.sh production"
   },
   "eslintConfig": {
     "extends": [
