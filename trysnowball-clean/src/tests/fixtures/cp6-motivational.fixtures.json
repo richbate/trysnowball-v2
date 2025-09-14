@@ -1,0 +1,277 @@
+[
+  {
+    "name": "Duration Reframing - 18 Months Holiday Milestone",
+    "input": {
+      "forecast": {
+        "totalMonths": 18,
+        "debtFreeDate": "2026-07-01",
+        "startDate": "2025-01-01"
+      },
+      "userProfile": {
+        "preferences": { "format": "milestones" },
+        "timezone": "Europe/London"
+      }
+    },
+    "expected": {
+      "milestone": "Done before Christmas 2026",
+      "comparison": "Same time as a typical car loan",
+      "emotional": "Closer to freedom than you think",
+      "visualCue": "🎄",
+      "urgency": "low"
+    }
+  },
+  {
+    "name": "Duration Reframing - 6 Months Quick Win",
+    "input": {
+      "forecast": {
+        "totalMonths": 6,
+        "debtFreeDate": "2025-07-01",
+        "startDate": "2025-01-01"
+      },
+      "userProfile": {
+        "preferences": { "format": "seasons" }
+      }
+    },
+    "expected": {
+      "milestone": "Debt-free by summer holidays",
+      "comparison": "Shorter than a football season",
+      "emotional": "Victory is just around the corner",
+      "visualCue": "☀️",
+      "urgency": "high"
+    }
+  },
+  {
+    "name": "Duration Reframing - 36 Months Long Journey",
+    "input": {
+      "forecast": {
+        "totalMonths": 36,
+        "debtFreeDate": "2028-01-01",
+        "startDate": "2025-01-01"
+      }
+    },
+    "expected": {
+      "milestone": "Free by New Year 2028",
+      "comparison": "Same as a university degree",
+      "emotional": "Every journey starts with a single step",
+      "visualCue": "🎓",
+      "urgency": "medium"
+    }
+  },
+  {
+    "name": "Monthly Delta Calculation - Positive Improvement",
+    "input": {
+      "baseline": { "monthlyProgress": 380.25 },
+      "actual": { "monthlyProgress": 425.50 }
+    },
+    "expected": {
+      "amount": 45.25,
+      "percentage": 11.9,
+      "trend": "improving",
+      "visualIndicator": "↗️",
+      "message": "You're paying £45.25 more per month than expected!"
+    }
+  },
+  {
+    "name": "Monthly Delta Calculation - Negative Regression",
+    "input": {
+      "baseline": { "monthlyProgress": 500.00 },
+      "actual": { "monthlyProgress": 450.75 }
+    },
+    "expected": {
+      "amount": -49.25,
+      "percentage": -9.9,
+      "trend": "declining",
+      "visualIndicator": "↘️",
+      "message": "Payments are £49.25 lower than planned"
+    }
+  },
+  {
+    "name": "Monthly Delta Calculation - Zero Delta Edge Case",
+    "input": {
+      "baseline": { "monthlyProgress": 100.00 },
+      "actual": { "monthlyProgress": 100.00 }
+    },
+    "expected": {
+      "amount": 0.00,
+      "percentage": 0.0,
+      "trend": "stable",
+      "visualIndicator": "→",
+      "message": "Right on track with your plan",
+      "noNaNValues": true
+    }
+  },
+  {
+    "name": "Celebration Flow - First Debt Cleared",
+    "input": {
+      "userState": {
+        "totalDebtsCleared": 1,
+        "totalPaid": 2500.00,
+        "interestSaved": 150.00,
+        "monthsIntoJourney": 8
+      },
+      "clearedDebt": {
+        "name": "Store Card",
+        "originalAmount": 800.00,
+        "interestRate": 29.9
+      }
+    },
+    "expected": {
+      "celebrationTitle": "🎉 First victory achieved!",
+      "milestone": "Store Card is history",
+      "impact": "You've saved £150 in interest",
+      "encouragement": "This momentum will clear the rest faster",
+      "shareable": true,
+      "visualElements": ["confetti", "progress_bar", "trophy"]
+    }
+  },
+  {
+    "name": "Celebration Flow - 50% Milestone",
+    "input": {
+      "userState": {
+        "totalDebtsCleared": 2,
+        "totalPaid": 5000.00,
+        "percentageCleared": 50.0,
+        "monthsIntoJourney": 12
+      }
+    },
+    "expected": {
+      "celebrationTitle": "🏃‍♀️ Halfway to freedom!",
+      "milestone": "50% of your debt journey complete",
+      "impact": "£5,000 paid toward your future",
+      "encouragement": "The hardest part is behind you",
+      "shareable": true,
+      "visualElements": ["progress_circle", "milestone_flag"]
+    }
+  },
+  {
+    "name": "Celebration Flow - End of Tunnel (2 Months Left)",
+    "input": {
+      "forecast": {
+        "remainingMonths": 2,
+        "totalMonths": 24,
+        "monthsCompleted": 22
+      },
+      "triggerOnce": true
+    },
+    "expected": {
+      "celebrationTitle": "🔆 Light at the end of the tunnel!",
+      "milestone": "Only 2 months until debt freedom",
+      "impact": "22 months of progress behind you",
+      "encouragement": "The finish line is in sight",
+      "urgency": "final_push",
+      "triggerOnce": true,
+      "visualElements": ["tunnel_light", "countdown_timer"]
+    }
+  },
+  {
+    "name": "Past Wins Retrospective",
+    "input": {
+      "userState": {
+        "debtsCleared": [
+          { "name": "Credit Card", "clearedMonth": 6 },
+          { "name": "Overdraft", "clearedMonth": 12 }
+        ],
+        "totalPaid": 8500.00,
+        "interestSaved": 750.00,
+        "monthsActive": 15
+      }
+    },
+    "expected": {
+      "wins": [
+        "Cleared Credit Card in month 6",
+        "Eliminated Overdraft in month 12",
+        "Paid £8,500 toward freedom",
+        "Saved £750 in interest charges"
+      ],
+      "overallMessage": "Your consistency is paying off",
+      "motivationalNote": "Each cleared debt makes the next one easier",
+      "hasNaN": false,
+      "allPositiveValues": true
+    }
+  },
+  {
+    "name": "Interest Comparison Shock Value",
+    "input": {
+      "forecast": {
+        "totalInterestPaid": 450.00,
+        "interestSavedVsMinimum": 2100.00
+      },
+      "userProfile": {
+        "preferences": { "showShockValue": true }
+      }
+    },
+    "expected": {
+      "shockValue": "You avoided £2,100 in interest charges!",
+      "comparison": "That's enough for a holiday abroad",
+      "visualImpact": "💰",
+      "realWorldEquivalent": "2 months of rent",
+      "emotionalHook": "Money that stays in your pocket"
+    }
+  },
+  {
+    "name": "Edge Case - NaN Prevention in Delta Calculation",
+    "input": {
+      "baseline": { "monthlyProgress": 0 },
+      "actual": { "monthlyProgress": 0 }
+    },
+    "expected": {
+      "amount": 0.00,
+      "percentage": 0.0,
+      "trend": "stable",
+      "noNaNValues": true,
+      "validOutput": true
+    }
+  },
+  {
+    "name": "Edge Case - Infinite Values Prevention",
+    "input": {
+      "baseline": { "monthlyProgress": 0 },
+      "actual": { "monthlyProgress": 100 }
+    },
+    "expected": {
+      "percentage": "SIGNIFICANT_IMPROVEMENT",
+      "trend": "improving",
+      "noInfiniteValues": true,
+      "specialHandling": true
+    }
+  },
+  {
+    "name": "Emotional Messaging - High Stress Debt Load",
+    "input": {
+      "userState": {
+        "totalDebt": 15000.00,
+        "stressLevel": "high",
+        "debtToIncomeRatio": 0.8
+      },
+      "forecast": {
+        "totalMonths": 48
+      }
+    },
+    "expected": {
+      "tone": "empathetic",
+      "message": "Big challenges need steady progress",
+      "encouragement": "You're taking control of your future",
+      "avoidance": ["overwhelming", "impossible", "too long"],
+      "focus": "monthly_wins"
+    }
+  },
+  {
+    "name": "Emotional Messaging - Quick Victory Path",
+    "input": {
+      "userState": {
+        "totalDebt": 1200.00,
+        "stressLevel": "low"
+      },
+      "forecast": {
+        "totalMonths": 8
+      }
+    },
+    "expected": {
+      "tone": "energetic",
+      "message": "Victory is just around the corner!",
+      "encouragement": "You've got this handled",
+      "focus": "quick_win",
+      "urgency": "high"
+    }
+  }
+]

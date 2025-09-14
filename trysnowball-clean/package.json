@@ -28,6 +28,19 @@
     "build:staging": "env-cmd -f .env.staging npm run build",
     "build:production": "env-cmd -f .env.production npm run build",
     "test": "react-scripts test",
+    "test:golden": "npm test -- --testPathPattern=\"golden\" --verbose --coverage --watchAll=false",
+    "test:cp4": "npm test -- --testPathPattern=\"cp4-multi-apr-golden\" --verbose --coverage --watchAll=false",
+    "test:cp5": "npm test -- --testPathPattern=\"cp5-goals-golden\" --verbose --coverage --watchAll=false",
+    "test:cp6": "npm test -- --testPathPattern=\"cp6-motivational-golden\" --verbose --coverage --watchAll=false",
+    "test:performance": "node scripts/performance-benchmark.js",
+    "test:ci": "npm run test:golden && npm run test:performance",
+    "cypress:open": "cypress open",
+    "cypress:run": "cypress run",
+    "cypress:run:staging": "cypress run --env baseUrl=https://staging.trysnowball.co.uk",
+    "cypress:run:production": "cypress run --env baseUrl=https://trysnowball.co.uk",
+    "test:e2e": "start-server-and-test start http://localhost:3000 cypress:run",
+    "test:e2e:staging": "cypress run --env baseUrl=https://staging.trysnowball.co.uk",
+    "test:all": "npm run test:golden && npm run test:performance && npm run test:e2e",
     "eject": "react-scripts eject",
     "deploy:staging": "./scripts/deploy-staging.sh",
     "deploy:production": "./scripts/deploy-production.sh"
@@ -52,8 +65,11 @@
   },
   "devDependencies": {
     "autoprefixer": "^10.4.21",
+    "cypress": "^13.7.0",
+    "cypress-axe": "^1.5.0",
     "env-cmd": "^11.0.0",
     "postcss": "^8.5.6",
+    "start-server-and-test": "^2.0.3",
     "tailwindcss": "^3.4.17"
   }
 }

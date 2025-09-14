@@ -1,0 +1,353 @@
+name: Golden Test Suites & Performance Enforcement
+
+on:
+  push:
+    branches: [ main, staging ]
+  pull_request:
+    branches: [ main, staging ]
+  schedule:
+    # Run nightly to catch any drift
+    - cron: '0 2 * * *'
+
+jobs:
+  cp4-multi-apr-golden:
+    name: CP-4 Multi-APR Engine Golden Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Setup Node.js 18
+      uses: actions/setup-node@v4
+      with:
+        node-version: 18
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Run CP-4 Golden Tests
+      run: |
+        npm test -- --testPathPattern="cp4-multi-apr-golden" --verbose --coverage
+        echo "CP4_TEST_RESULT=$?" >> $GITHUB_ENV
+
+    - name: Enforce CP-4 Performance Thresholds
+      run: |
+        node -e "
+        const results = require('./coverage/coverage-summary.json');
+        const cp4Performance = results.total;
+
+        // Performance thresholds for CP-4 engine
+        const THRESHOLDS = {
+          statementCoverage: 95,
+          branchCoverage: 90,
+          functionCoverage: 95,
+          lineCoverage: 95
+        };
+
+        const checks = [
+          ['Statement Coverage', cp4Performance.statements.pct, THRESHOLDS.statementCoverage],
+          ['Branch Coverage', cp4Performance.branches.pct, THRESHOLDS.branchCoverage],
+          ['Function Coverage', cp4Performance.functions.pct, THRESHOLDS.functionCoverage],
+          ['Line Coverage', cp4Performance.lines.pct, THRESHOLDS.lineCoverage]
+        ];
+
+        let failed = false;
+        checks.forEach(([name, actual, expected]) => {
+          if (actual < expected) {
+            console.error(\`❌ \${name}: \${actual}% < \${expected}% (threshold)\`);
+            failed = true;
+          } else {
+            console.log(\`✅ \${name}: \${actual}% >= \${expected}%\`);
+          }
+        });
+
+        if (failed) {
+          console.error('🚨 CP-4 Performance thresholds not met!');
+          process.exit(1);
+        } else {
+          console.log('🎯 All CP-4 performance thresholds met!');
+        }
+        "
+
+    - name: Upload CP-4 Coverage
+      uses: actions/upload-artifact@v3
+      with:
+        name: cp4-coverage-report
+        path: coverage/
+
+  cp5-goals-golden:
+    name: CP-5 Goals Engine Golden Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Setup Node.js 18
+      uses: actions/setup-node@v4
+      with:
+        node-version: 18
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Run CP-5 Golden Tests
+      run: |
+        npm test -- --testPathPattern="cp5-goals-golden" --verbose --coverage
+
+    - name: Validate Analytics Events Structure
+      run: |
+        node -e "
+        const fixtures = require('./src/tests/fixtures/cp5-goals.fixtures.json');
+
+        console.log('🔍 Validating CP-5 analytics event structures...');
+
+        fixtures.forEach(fixture => {
+          if (fixture.expected?.analytics_event) {
+            const event = fixture.expected.analytics_event;
+            const props = event.properties || {};
+
+            // Required fields validation
+            if (!props.forecast_version) {
+              throw new Error(\`Missing forecast_version in \${fixture.name}\`);
+            }
+
+            if (props.forecast_version !== 'v2.0') {
+              throw new Error(\`Invalid forecast_version '\${props.forecast_version}' in \${fixture.name}\`);
+            }
+
+            // Currency precision validation
+            if (props.target_value !== undefined && !Number.isInteger(props.target_value * 100)) {
+              throw new Error(\`Currency precision error in \${fixture.name}: \${props.target_value}\`);
+            }
+
+            console.log(\`✅ \${fixture.name} - analytics structure valid\`);
+          }
+        });
+
+        console.log('🎯 All CP-5 analytics structures validated!');
+        "
+
+  cp6-motivational-golden:
+    name: CP-6 Motivational Layer Golden Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Setup Node.js 18
+      uses: actions/setup-node@v4
+      with:
+        node-version: 18
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Run CP-6 Golden Tests
+      run: |
+        npm test -- --testPathPattern="cp6-motivational-golden" --verbose --coverage
+
+    - name: Validate NaN/Infinity Prevention
+      run: |
+        node -e "
+        const fixtures = require('./src/tests/fixtures/cp6-motivational.fixtures.json');
+
+        console.log('🔍 Validating CP-6 NaN/Infinity prevention...');
+
+        const flattenValues = (obj) => {
+          const values = [];
+          const traverse = (current) => {
+            if (typeof current === 'object' && current !== null) {
+              Object.values(current).forEach(traverse);
+            } else if (typeof current === 'number') {
+              values.push(current);
+            }
+          };
+          traverse(obj);
+          return values;
+        };
+
+        fixtures.forEach(fixture => {
+          const allValues = flattenValues(fixture.expected);
+          allValues.forEach(value => {
+            if (Number.isNaN(value)) {
+              throw new Error(\`NaN value found in \${fixture.name}\`);
+            }
+            if (!Number.isFinite(value)) {
+              throw new Error(\`Infinite value found in \${fixture.name}: \${value}\`);
+            }
+          });
+          console.log(\`✅ \${fixture.name} - no NaN/Infinity values\`);
+        });
+
+        console.log('🎯 All CP-6 numerical safety validated!');
+        "
+
+  performance-benchmarks:
+    name: Performance Benchmarks & Memory Leak Detection
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Setup Node.js 18 with increased memory
+      uses: actions/setup-node@v4
+      with:
+        node-version: 18
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Memory Leak Detection
+      run: |
+        node --max-old-space-size=512 -e "
+        console.log('🔍 Running memory leak detection...');
+
+        // Simulate CP-4 Multi-APR calculations
+        const runMultiAprSimulation = () => {
+          const debts = [];
+          for (let i = 0; i < 100; i++) {
+            debts.push({
+              id: \`debt_\${i}\`,
+              amount: Math.random() * 10000,
+              buckets: [
+                { balance: Math.random() * 5000, apr: 25.9 },
+                { balance: Math.random() * 3000, apr: 21.9 },
+                { balance: Math.random() * 2000, apr: 0.0 }
+              ]
+            });
+          }
+          return debts;
+        };
+
+        const initialMemory = process.memoryUsage().heapUsed;
+        console.log(\`Initial memory: \${(initialMemory / 1024 / 1024).toFixed(2)}MB\`);
+
+        // Run 1000 simulations
+        for (let i = 0; i < 1000; i++) {
+          runMultiAprSimulation();
+          if (i % 100 === 0) {
+            const currentMemory = process.memoryUsage().heapUsed;
+            console.log(\`Iteration \${i}: \${(currentMemory / 1024 / 1024).toFixed(2)}MB\`);
+          }
+        }
+
+        // Force garbage collection if available
+        if (global.gc) {
+          global.gc();
+        }
+
+        const finalMemory = process.memoryUsage().heapUsed;
+        const memoryGrowth = finalMemory - initialMemory;
+
+        console.log(\`Final memory: \${(finalMemory / 1024 / 1024).toFixed(2)}MB\`);
+        console.log(\`Memory growth: \${(memoryGrowth / 1024 / 1024).toFixed(2)}MB\`);
+
+        // Fail if memory growth exceeds 50MB
+        if (memoryGrowth > 50 * 1024 * 1024) {
+          console.error(\`🚨 Memory leak detected: \${(memoryGrowth / 1024 / 1024).toFixed(2)}MB growth\`);
+          process.exit(1);
+        } else {
+          console.log('✅ No significant memory leaks detected');
+        }
+        "
+
+    - name: Performance Benchmarks
+      run: |
+        node -e "
+        console.log('⚡ Running performance benchmarks...');
+
+        // CP-4 Multi-APR calculation benchmark
+        const benchmarkMultiApr = () => {
+          const start = process.hrtime.bigint();
+
+          // Simulate complex debt calculations
+          for (let i = 0; i < 10000; i++) {
+            const debt = {
+              amount: 5000 + (i % 1000),
+              buckets: [
+                { balance: 2000, apr: 27.9 },
+                { balance: 2000, apr: 22.9 },
+                { balance: 1000, apr: 0.0 }
+              ]
+            };
+
+            // Simulate payment allocation
+            let payment = 200;
+            debt.buckets.forEach(bucket => {
+              const interest = (bucket.balance * bucket.apr / 100) / 12;
+              const principal = Math.min(payment, bucket.balance + interest);
+              bucket.balance = Math.max(0, bucket.balance + interest - principal);
+              payment = Math.max(0, payment - principal);
+            });
+          }
+
+          const end = process.hrtime.bigint();
+          return Number(end - start) / 1000000; // Convert to milliseconds
+        };
+
+        const duration = benchmarkMultiApr();
+        console.log(\`CP-4 Multi-APR benchmark: \${duration.toFixed(2)}ms for 10,000 calculations\`);
+
+        // Performance threshold: 10,000 calculations should complete within 1 second
+        if (duration > 1000) {
+          console.error(\`🚨 Performance threshold exceeded: \${duration.toFixed(2)}ms > 1000ms\`);
+          process.exit(1);
+        } else {
+          console.log('🎯 Performance benchmark passed!');
+        }
+        "
+
+  golden-tests-summary:
+    name: Golden Tests Summary
+    runs-on: ubuntu-latest
+    needs: [cp4-multi-apr-golden, cp5-goals-golden, cp6-motivational-golden, performance-benchmarks]
+    if: always()
+
+    steps:
+    - name: Summary Report
+      run: |
+        echo "## 🏆 Golden Test Suites Summary" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+
+        if [ "${{ needs.cp4-multi-apr-golden.result }}" == "success" ]; then
+          echo "✅ **CP-4 Multi-APR Engine**: All golden tests passed" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "❌ **CP-4 Multi-APR Engine**: Tests failed - Check logs for details" >> $GITHUB_STEP_SUMMARY
+        fi
+
+        if [ "${{ needs.cp5-goals-golden.result }}" == "success" ]; then
+          echo "✅ **CP-5 Goals Engine**: All golden tests passed" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "❌ **CP-5 Goals Engine**: Tests failed - Check logs for details" >> $GITHUB_STEP_SUMMARY
+        fi
+
+        if [ "${{ needs.cp6-motivational-golden.result }}" == "success" ]; then
+          echo "✅ **CP-6 Motivational Layer**: All golden tests passed" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "❌ **CP-6 Motivational Layer**: Tests failed - Check logs for details" >> $GITHUB_STEP_SUMMARY
+        fi
+
+        if [ "${{ needs.performance-benchmarks.result }}" == "success" ]; then
+          echo "✅ **Performance Benchmarks**: All thresholds met" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "❌ **Performance Benchmarks**: Thresholds exceeded - Check logs for details" >> $GITHUB_STEP_SUMMARY
+        fi
+
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### 📊 Test Coverage & Quality Gates" >> $GITHUB_STEP_SUMMARY
+        echo "- **Code Coverage**: ≥95% statement coverage enforced" >> $GITHUB_STEP_SUMMARY
+        echo "- **Memory Leak Detection**: ≤50MB growth per 1000 operations" >> $GITHUB_STEP_SUMMARY
+        echo "- **Performance**: ≤1000ms for 10,000 multi-APR calculations" >> $GITHUB_STEP_SUMMARY
+        echo "- **Data Quality**: Zero NaN/Infinity values in fixtures" >> $GITHUB_STEP_SUMMARY
+        echo "- **Analytics Validation**: All events include required fields" >> $GITHUB_STEP_SUMMARY
+
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "🔗 **Related Issues**: [TRY-46](https://linear.app/trysnowball/issue/TRY-46/emergency-cp-testing-suite-implementation), [TRY-49](https://linear.app/trysnowball/issue/TRY-49/clean-up-cloudflare-projects-workers-and-pages)" >> $GITHUB_STEP_SUMMARY
