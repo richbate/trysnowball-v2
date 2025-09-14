@@ -1,0 +1,28 @@
+# Cloudflare Pages Configuration for Staging Environment
+# staging.trysnowball.co.uk
+
+name = "trysnowball-clean-staging"
+compatibility_date = "2024-01-01"
+compatibility_flags = ["nodejs_compat"]
+
+[env.staging]
+name = "trysnowball-clean-staging"
+
+# Environment Variables for Staging
+[env.staging.vars]
+REACT_APP_ENVIRONMENT = "staging"
+NODE_ENV = "production"
+REACT_APP_API_BASE_URL = "https://staging-api.trysnowball.co.uk"
+REACT_APP_STRIPE_MODE = "test"
+REACT_APP_POSTHOG_ENVIRONMENT = "staging"
+REACT_APP_AUTH_DOMAIN = "staging.trysnowball.co.uk"
+REACT_APP_MAGIC_LINK_BASE_URL = "https://staging.trysnowball.co.uk"
+REACT_APP_DEBUG_MODE = "true"
+REACT_APP_STAGING_MODE = "true"
+REACT_APP_VERSION = "2.0.0-staging"
+
+# Build Configuration
+[build]
+command = "npm run build:staging"
+destination = "build"
+root_dir = "."

@@ -1,0 +1,28 @@
+# Cloudflare Pages Configuration for Production Environment  
+# trysnowball.co.uk
+
+name = "trysnowball-clean-production"
+compatibility_date = "2024-01-01"
+compatibility_flags = ["nodejs_compat"]
+
+[env.production]
+name = "trysnowball-clean-production"
+
+# Environment Variables for Production
+[env.production.vars]
+REACT_APP_ENVIRONMENT = "production"
+NODE_ENV = "production"
+REACT_APP_API_BASE_URL = "https://api.trysnowball.co.uk"
+REACT_APP_STRIPE_MODE = "live"
+REACT_APP_POSTHOG_ENVIRONMENT = "production"
+REACT_APP_AUTH_DOMAIN = "trysnowball.co.uk"
+REACT_APP_MAGIC_LINK_BASE_URL = "https://trysnowball.co.uk"
+REACT_APP_DEBUG_MODE = "false"
+REACT_APP_STAGING_MODE = "false"
+REACT_APP_VERSION = "2.0.0"
+
+# Build Configuration
+[build]
+command = "npm run build:production"
+destination = "build"
+root_dir = "."

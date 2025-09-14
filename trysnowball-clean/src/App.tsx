@@ -11,6 +11,7 @@ import Landing from './pages/Landing';
 import Upgrade from './pages/Upgrade';
 import Success from './pages/Success';
 import EnvironmentBanner from './components/EnvironmentBanner';
+import { StagingWrapper } from './components/StagingBanner';
 import DemoMode from './components/DemoMode';
 import DemoWatermark from './components/DemoWatermark';
 import DebtList from './components/DebtList';
@@ -332,14 +333,16 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <Router>
-        <EnvironmentBanner />
-        <Routes>
-          <Route path="/" element={<Landing />} />
-          <Route path="/app" element={<Dashboard />} />
-          <Route path="/upgrade" element={<Upgrade />} />
-          <Route path="/success" element={<Success />} />
-          <Route path="/demo" element={<Dashboard />} />
-        </Routes>
+        <StagingWrapper>
+          <EnvironmentBanner />
+          <Routes>
+            <Route path="/" element={<Landing />} />
+            <Route path="/app" element={<Dashboard />} />
+            <Route path="/upgrade" element={<Upgrade />} />
+            <Route path="/success" element={<Success />} />
+            <Route path="/demo" element={<Dashboard />} />
+          </Routes>
+        </StagingWrapper>
       </Router>
     </QueryClientProvider>
   );
