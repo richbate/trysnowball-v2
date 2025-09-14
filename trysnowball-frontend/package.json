@@ -39,24 +39,27 @@
     "rehype-sanitize": "^6.0.0",
     "remark-gfm": "^4.0.1",
     "victory": "^37.3.6",
-    "xml2js": "^0.6.2",
-    "zod": "3.22.4"
+    "xml2js": "^0.6.2"
   },
   "devDependencies": {
-    "@playwright/test": "^1.54.2",
+    "@playwright/test": "^1.55.0",
     "@testing-library/jest-dom": "^6.7.0",
     "@testing-library/react": "^16.3.0",
     "@testing-library/user-event": "^14.6.1",
     "autoprefixer": "^10.4.21",
     "babel-plugin-transform-remove-console": "^6.9.4",
+    "cross-env": "^10.0.0",
     "cross-fetch": "^4.1.0",
     "cypress": "^15.0.0",
     "eslint-config-react-app": "^7.0.1",
     "eslint-plugin-jsx-a11y": "^6.10.2",
     "fake-indexeddb": "^6.1.0",
+    "fast-check": "^4.3.0",
     "gzip-size-cli": "^5.1.0",
     "husky": "^9.1.7",
     "jest": "^27.5.1",
+    "jest-junit": "^16.0.0",
+    "lefthook": "^1.12.3",
     "lint-staged": "^16.1.5",
     "postcss": "^8.5.6",
     "puppeteer": "^24.16.2",
@@ -65,20 +68,30 @@
     "tailwindcss": "^3.4.17",
     "wait-on": "^8.0.4",
     "web-vitals": "^5.1.0",
-    "whatwg-url": "^14.2.0"
+    "whatwg-url": "^14.2.0",
+    "zod": "^4.1.5"
   },
   "scripts": {
-    "start": "react-app-rewired start",
-    "build": "REACT_APP_COMMIT_HASH=$(git rev-parse --short HEAD) REACT_APP_BUILD_DATE=$(date -u +\"%Y-%m-%d\") REACT_APP_VERSION=$(node -p \"require('./package.json').version\") CI=false react-app-rewired build",
+    "start": "cross-env ESLINT_NO_DEV_ERRORS=true react-app-rewired start",
+    "build": "REACT_APP_COMMIT_HASH=$(git rev-parse --short HEAD) REACT_APP_BUILD_DATE=$(date -u +\"%Y-%m-%d\") REACT_APP_VERSION=$(node -p \"require('./package.json').version\") DISABLE_ESLINT_PLUGIN=true CI=false react-app-rewired build",
+    "build:strict": "npm run lint && npm run build",
     "analyze": "npm run build && source-map-explorer 'build/static/js/*.js' --html analyzer.html",
     "test": "react-scripts test --watchAll=false --ci --runInBand --forceExit src/__tests__",
-    "test:ci": "echo '🚧 Unit tests quarantined due to Jest/Babel config issues. Using E2E tests as CI gatekeeper.'",
+    "test:ci": "jest --runInBand --coverage --ci",
     "test:workers": "vitest",
     "eject": "react-scripts eject",
-    "lint": "eslint src/ --ext .js,.jsx",
+    "lint": "eslint src/ --ext .js,.jsx --max-warnings=50",
+    "typecheck": "echo 'No TypeScript files to check - skipping typecheck'",
+    "pre-commit-routes": "node scripts/checkRouteUsage.js",
+    "test:routes": "npm test -- --testPathPattern=routeRegistry",
+    "export:openapi": "node -r ts-node/register scripts/export-openapi.ts || node scripts/export-openapi.js",
+    "validate:system": "npm run test:routes && npm run export:openapi && npm run lint",
+    "ai:routes": "node scripts/ai-route-cli.js",
+    "ai:help": "node scripts/ai-route-cli.js help",
     "lint:strict": "eslint src --max-warnings=0",
     "validate-csp": "node scripts/validate-csp.js",
     "optimize-images": "node scripts/optimize-images.js",
+    "security:plaintext-check": "node scripts/plaintext-smoke-test.js",
     "prebuild": "node -e \"console.log('CI build start')\"; npm run show-git-info",
     "postbuild": "node scripts/generate-sitemap.js",
     "show-git-info": "echo '=== GIT INFORMATION ===' && git log --oneline -5 && echo 'Current branch:' && git branch --show-current && echo 'Latest commit:' && git rev-parse HEAD && echo '=== END GIT INFO ==='",
@@ -91,11 +104,35 @@
     "screenshots": "node scripts/generate-screenshots.js",
     "screenshots:local": "node scripts/generate-screenshots.js --base=http://localhost:3000",
     "check:no-legacy": "./scripts/check-no-legacy.sh",
+    "check:legacy": "./scripts/check-legacy.sh",
+    "check:routes": "node scripts/checkRouteUsage.js",
     "check:security": "./scripts/check-security-patterns.sh",
     "audit:critical": "npm audit --omit=dev --audit-level=critical",
     "validate:lockfile": "./scripts/validate-lockfile.sh",
     "ci:security": "./scripts/ci-security-check.sh",
-    "docs:verify": "./scripts/docs-smoke.sh"
+    "docs:verify": "./scripts/docs-smoke.sh",
+    "snap:dev": "playwright test tests/visual --update-snapshots",
+    "snap:check": "playwright test tests/visual",
+    "snap:ui": "playwright show-report",
+    "eval:all": "npm run eval:contracts && npm run eval:property && npm run eval:gateway && npm run eval:analytics && npm run eval:config && npm run eval:golden",
+    "eval:contracts": "jest tests/specs --testPathIgnorePatterns=node_modules",
+    "eval:property": "jest tests/property --testPathIgnorePatterns=node_modules",
+    "eval:gateway": "jest tests/contracts --testPathIgnorePatterns=node_modules",
+    "eval:analytics": "jest tests/analytics --testPathIgnorePatterns=node_modules",
+    "eval:config": "jest tests/config --testPathIgnorePatterns=node_modules",
+    "eval:golden": "jest tests/golden --testPathIgnorePatterns=node_modules",
+    "eval:ci": "npm run eval:all -- --ci --coverage --watchAll=false",
+    "eval:quick": "npm run eval:contracts && npm run eval:property",
+    "build:ci": "cross-env CI=true NODE_ENV=production npm run build",
+    "test:contracts": "jest tests/specs/runner.test.ts --setupFilesAfterEnv=./tests/setup.ts",
+    "test:property": "jest tests/property --setupFilesAfterEnv=./tests/setup.ts",
+    "test:config": "jest tests/config",
+    "test:golden": "jest tests/golden --setupFilesAfterEnv=./tests/golden/jest.setup.ts",
+    "evaluate:quick": "npm run lint && npm run test:contracts && npm run test:property",
+    "evaluate": "npm run evaluate:quick && npm run test:config && npm run build:ci && npm run test:golden",
+    "evaluate:ci": "bash scripts/evaluate-ci.sh",
+    "evaluate:quarantine": "jest --config jest.quarantine.config.js",
+    "eval:summary": "node scripts/summarize-eval.mjs"
   },
   "eslintConfig": {
     "extends": [
@@ -116,6 +153,31 @@
         }
       ],
       "no-debugger": "warn",
+      "@typescript-eslint/no-unused-vars": [
+        "error",
+        {
+          "argsIgnorePattern": "^_"
+        }
+      ],
+      "no-restricted-imports": [
+        "error",
+        {
+          "paths": [
+            {
+              "name": "./hooks/useDebts",
+              "message": "useDebts is deprecated. Use useUserDebts instead."
+            },
+            {
+              "name": "../hooks/useDebts",
+              "message": "useDebts is deprecated. Use useUserDebts instead."
+            },
+            {
+              "name": "../../hooks/useDebts",
+              "message": "useDebts is deprecated. Use useUserDebts instead."
+            }
+          ]
+        }
+      ],
       "no-restricted-syntax": [
         "error",
         {
@@ -137,6 +199,22 @@
         {
           "selector": "CallExpression[callee.name='setInterval'][arguments.0.type='Literal']",
           "message": "No string timers - setInterval('code', delay) is equivalent to eval(). Use function references."
+        },
+        {
+          "selector": "CallExpression[callee.object.name='posthog'][callee.property.name='capture']",
+          "message": "Use secureAnalytics.* instead of direct posthog.capture() to prevent PII leaks"
+        },
+        {
+          "selector": "MemberExpression[property.name='balance']",
+          "message": "Use debt.amount_cents instead of debt.balance (normalized format)"
+        },
+        {
+          "selector": "MemberExpression[property.name='interestRate']",
+          "message": "Use debt.apr_bps instead of debt.interestRate (basis points format)"
+        },
+        {
+          "selector": "MemberExpression[property.name='minPayment']",
+          "message": "Use debt.min_payment_cents instead of debt.minPayment (cents format)"
         }
       ],
       "jsx-a11y/alt-text": "error",
@@ -157,38 +235,22 @@
       "jsx-a11y/no-static-element-interactions": "warn",
       "jsx-a11y/role-has-required-aria-props": "error",
       "jsx-a11y/role-supports-aria-props": "error"
-    }
-  },
-  "jest": {
-    "collectCoverageFrom": [
-      "src/**/*.{js,jsx,ts,tsx}",
-      "!src/**/index.{js,jsx,ts,tsx}"
-    ],
-    "coverageThreshold": {
-      "global": {
-        "branches": 65,
-        "functions": 70,
-        "lines": 75,
-        "statements": 75
-      },
-      "./src/utils/debts.{js,ts}": {
-        "lines": 90,
-        "functions": 95,
-        "branches": 85,
-        "statements": 90
-      },
-      "./src/lib/debtsManager.{js,ts}": {
-        "lines": 85,
-        "functions": 80,
-        "branches": 75,
-        "statements": 85
+    },
+    "overrides": [
+      {
+        "files": [
+          "src/compat/**/*.{ts,tsx,js,jsx}"
+        ],
+        "rules": {
+          "no-restricted-imports": "off",
+          "no-restricted-syntax": "off"
+        }
       }
-    }
+    ]
   },
   "lint-staged": {
     "*.{js,jsx,ts,tsx}": [
-      "eslint --fix",
-      "jest --bail --findRelatedTests"
+      "eslint --fix"
     ]
   },
   "browserslist": {

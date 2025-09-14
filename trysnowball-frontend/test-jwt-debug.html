@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>JWT Debug Test</title>
+</head>
+<body>
+    <h1>JWT Debug Test</h1>
+    <p>This will help debug the JWT token flow</p>
+    
+    <h2>Step 1: Request Magic Link</h2>
+    <input type="email" id="email" placeholder="Enter your email" value="test@example.com">
+    <button onclick="requestMagicLink()">Request Magic Link</button>
+    
+    <h2>Step 2: Simulate Magic Link Click</h2>
+    <p>After clicking the magic link, come back here and:</p>
+    <button onclick="checkCookies()">Check Current Cookies</button>
+    <button onclick="testAuth()">Test /auth/me</button>
+    
+    <pre id="output"></pre>
+
+    <script>
+        const log = (msg) => {
+            document.getElementById('output').textContent += msg + '\n';
+            console.log(msg);
+        };
+
+        async function requestMagicLink() {
+            const email = document.getElementById('email').value;
+            log(`Requesting magic link for: ${email}`);
+            
+            try {
+                const response = await fetch('/auth/request-link', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ email })
+                });
+                
+                const data = await response.json();
+                log(`Response: ${JSON.stringify(data, null, 2)}`);
+                log('Check your email and click the magic link, then come back here!');
+            } catch (error) {
+                log(`Error: ${error.message}`);
+            }
+        }
+
+        function checkCookies() {
+            log('Current cookies:');
+            const cookies = document.cookie.split('; ');
+            cookies.forEach(cookie => {
+                const [name, value] = cookie.split('=');
+                if (name === 'ts_session') {
+                    log(`🔑 Found ts_session cookie!`);
+                    log(`Value: ${value}`);
+                    
+                    // Try to decode JWT payload (base64 decode the middle part)
+                    try {
+                        const parts = value.split('.');
+                        if (parts.length === 3) {
+                            const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
+                            log(`Decoded payload: ${JSON.stringify(payload, null, 2)}`);
+                        }
+                    } catch (e) {
+                        log(`Could not decode JWT: ${e.message}`);
+                    }
+                } else {
+                    log(`${name}: ${value.substring(0, 50)}...`);
+                }
+            });
+        }
+
+        async function testAuth() {
+            log('Testing /auth/me with current cookies...');
+            try {
+                const response = await fetch('/auth/me', {
+                    credentials: 'include',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                });
+                
+                log(`Status: ${response.status}`);
+                const data = await response.json();
+                log(`Response: ${JSON.stringify(data, null, 2)}`);
+            } catch (error) {
+                log(`Error: ${error.message}`);
+            }
+        }
+    </script>
+</body>
+</html>

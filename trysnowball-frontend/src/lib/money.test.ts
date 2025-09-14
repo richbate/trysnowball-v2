@@ -1,0 +1,61 @@
+import { toCents, fromCents, percentToBps, bpsToPercent } from './money';
+
+describe('money conversions', () => {
+ describe('toCents', () => {
+  test('converts zero', () => {
+   expect(toCents(0)).toBe(0);
+  });
+
+  test('converts basic amounts', () => {
+   expect(toCents(12.34)).toBe(1234);
+   expect(toCents(1)).toBe(100);
+   expect(toCents(0.01)).toBe(1);
+  });
+
+  test('rounds to nearest penny', () => {
+   expect(toCents(12.345)).toBe(1235);
+   expect(toCents(12.344)).toBe(1234);
+  });
+ });
+
+ describe('fromCents', () => {
+  test('converts zero', () => {
+   expect(fromCents(0)).toBe(0);
+  });
+
+  test('converts basic amounts', () => {
+   expect(fromCents(1234)).toBe(12.34);
+   expect(fromCents(100)).toBe(1);
+   expect(fromCents(1)).toBe(0.01);
+  });
+ });
+
+ describe('percentToBps', () => {
+  test('converts zero', () => {
+   expect(percentToBps(0)).toBe(0);
+  });
+
+  test('converts typical rates', () => {
+   expect(percentToBps(19.9)).toBe(1990);
+   expect(percentToBps(5.5)).toBe(550);
+   expect(percentToBps(0.1)).toBe(10);
+  });
+
+  test('rounds to nearest basis point', () => {
+   expect(percentToBps(19.954)).toBe(1995);
+   expect(percentToBps(19.956)).toBe(1996);
+  });
+ });
+
+ describe('bpsToPercent', () => {
+  test('converts zero', () => {
+   expect(bpsToPercent(0)).toBe(0);
+  });
+
+  test('converts typical percentage', () => {
+   expect(bpsToPercent(1990)).toBe(19.9);
+   expect(bpsToPercent(550)).toBe(5.5);
+   expect(bpsToPercent(10)).toBe(0.1);
+  });
+ });
+});

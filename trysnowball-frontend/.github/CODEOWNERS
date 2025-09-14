@@ -1,0 +1,4 @@
+# Require Rich to approve core changes
+/src/**         @richbate
+/config/**      @richbate
+/.github/**     @richbate

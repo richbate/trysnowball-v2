@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Complete Auth Flow Debug</title>
+</head>
+<body>
+    <h1>Complete Auth Flow Debug</h1>
+    
+    <div>
+        <h2>Step 1: Clear Old Cookies</h2>
+        <button onclick="clearTestCookies()">Clear ts_session Cookie</button>
+        
+        <h2>Step 2: Request Magic Link</h2>
+        <input type="email" id="email" placeholder="Enter email" value="richbate@mac.com">
+        <button onclick="requestMagicLink()">Request Magic Link</button>
+        
+        <h2>Step 3: After Clicking Magic Link</h2>
+        <button onclick="fullDebug()">Full Debug Analysis</button>
+        
+        <h2>Step 4: Test Auth Endpoints</h2>
+        <button onclick="testAuthMe()">Test /auth/me</button>
+        <button onclick="testWithManualHeader()">Test with Authorization Header</button>
+    </div>
+    
+    <pre id="output" style="background: #f0f0f0; padding: 10px; margin-top: 20px;"></pre>
+
+    <script>
+        const log = (msg) => {
+            const output = document.getElementById('output');
+            output.textContent += new Date().toLocaleTimeString() + ': ' + msg + '\n';
+            console.log(msg);
+        };
+
+        function clearTestCookies() {
+            // Clear the test cookie we set earlier
+            document.cookie = "ts_session=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+            log('Cleared ts_session cookie');
+            log('Current cookies after clear: ' + document.cookie);
+        }
+
+        async function requestMagicLink() {
+            const email = document.getElementById('email').value;
+            log(`Requesting magic link for: ${email}`);
+            
+            try {
+                const response = await fetch('/auth/request-link', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email })
+                });
+                
+                const data = await response.json();
+                log(`Magic link response: ${JSON.stringify(data, null, 2)}`);
+                log('✅ Magic link sent! Click it in your email, then come back and click "Full Debug Analysis"');
+            } catch (error) {
+                log(`❌ Error requesting magic link: ${error.message}`);
+            }
+        }
+
+        function fullDebug() {
+            log('=== FULL DEBUG ANALYSIS ===');
+            
+            // 1. Check all cookies
+            log('1. COOKIES:');
+            const allCookies = document.cookie.split('; ');
+            let tsSessionFound = false;
+            
+            allCookies.forEach(cookie => {
+                const [name, value] = cookie.split('=');
+                if (name === 'ts_session') {
+                    tsSessionFound = true;
+                    log(`  🔑 ts_session: ${value}`);
+                    
+                    // Try to decode JWT
+                    try {
+                        const parts = value.split('.');
+                        if (parts.length === 3) {
+                            // Decode header and payload
+                            const header = JSON.parse(atob(parts[0].replace(/-/g, '+').replace(/_/g, '/')));
+                            const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
+                            
+                            log(`  📋 JWT Header: ${JSON.stringify(header, null, 2)}`);
+                            log(`  📋 JWT Payload: ${JSON.stringify(payload, null, 2)}`);
+                            
+                            // Check expiry
+                            const now = Math.floor(Date.now() / 1000);
+                            const expired = payload.exp < now;
+                            log(`  ⏰ Token expires: ${new Date(payload.exp * 1000).toLocaleString()}`);
+                            log(`  ⏰ Current time: ${new Date(now * 1000).toLocaleString()}`);
+                            log(`  ⏰ Token expired: ${expired ? '❌ YES' : '✅ NO'}`);
+                        }
+                    } catch (e) {
+                        log(`  ❌ Could not decode JWT: ${e.message}`);
+                    }
+                } else {
+                    log(`  ${name}: ${value.substring(0, 30)}...`);
+                }
+            });
+            
+            if (!tsSessionFound) {
+                log('  ❌ No ts_session cookie found!');
+            }
+            
+            // 2. Check current URL
+            log('2. CURRENT URL:');
+            log(`  ${window.location.href}`);
+            
+            // 3. Check localStorage
+            log('3. LOCALSTORAGE:');
+            try {
+                const tsJwt = localStorage.getItem('ts_jwt');
+                log(`  ts_jwt: ${tsJwt || 'NOT FOUND'}`);
+            } catch (e) {
+                log(`  ❌ Error reading localStorage: ${e.message}`);
+            }
+        }
+
+        async function testAuthMe() {
+            log('=== TESTING /auth/me ===');
+            try {
+                const response = await fetch('/auth/me', {
+                    credentials: 'include',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                });
+                
+                log(`Status: ${response.status} ${response.statusText}`);
+                
+                // Log response headers
+                log('Response headers:');
+                for (let [key, value] of response.headers.entries()) {
+                    log(`  ${key}: ${value}`);
+                }
+                
+                const data = await response.json();
+                log(`Response body: ${JSON.stringify(data, null, 2)}`);
+                
+            } catch (error) {
+                log(`❌ Error: ${error.message}`);
+            }
+        }
+
+        async function testWithManualHeader() {
+            log('=== TESTING WITH AUTHORIZATION HEADER ===');
+            
+            // Get ts_session cookie value
+            const cookies = document.cookie.split('; ');
+            let token = null;
+            
+            for (const cookie of cookies) {
+                const [name, value] = cookie.split('=');
+                if (name === 'ts_session') {
+                    token = value;
+                    break;
+                }
+            }
+            
+            if (!token) {
+                log('❌ No ts_session cookie found to test with');
+                return;
+            }
+            
+            log(`Using token from cookie: ${token.substring(0, 20)}...`);
+            
+            try {
+                const response = await fetch('/auth/me', {
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                });
+                
+                log(`Status: ${response.status} ${response.statusText}`);
+                const data = await response.json();
+                log(`Response: ${JSON.stringify(data, null, 2)}`);
+                
+            } catch (error) {
+                log(`❌ Error: ${error.message}`);
+            }
+        }
+    </script>
+</body>
+</html>

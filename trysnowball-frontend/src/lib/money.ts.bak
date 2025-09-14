@@ -1,0 +1,38 @@
+/**
+ * Money conversion utilities
+ * Centralizes £ <-> pence conversions
+ */
+
+export const toPence = (gbp: number | null | undefined): number => {
+  if (gbp == null || isNaN(Number(gbp))) return 0;
+  return Math.round(Number(gbp) * 100);
+};
+
+export const fromPence = (pence: number | null | undefined): number => {
+  if (pence == null || isNaN(Number(pence))) return 0;
+  return Number(pence) / 100;
+};
+
+/** @deprecated Basis points are deprecated. Use percentages directly. */
+export const percentToBps = (pct: number | null | undefined): number => {
+  if (pct == null || isNaN(Number(pct))) return 0;
+  return Math.round(Number(pct) * 100); // 19.9% -> 1990 bps
+};
+
+/** @deprecated Basis points are deprecated. Use percentages directly. */
+export const bpsToPercent = (bps: number | null | undefined): number => {
+  if (bps == null || isNaN(Number(bps))) return 0;
+  return Number(bps) / 100;
+};
+
+// Legacy aliases for basis points functions (deprecated)
+/** @deprecated Use percentages directly instead of basis points */
+export const toBps = percentToBps;
+/** @deprecated Use percentages directly instead of basis points */
+export const fromBps = bpsToPercent;
+
+// Legacy function names for backward compatibility (deprecated)
+/** @deprecated Use toPence instead */
+export const toCents = toPence;
+/** @deprecated Use fromPence instead */
+export const fromCents = fromPence;

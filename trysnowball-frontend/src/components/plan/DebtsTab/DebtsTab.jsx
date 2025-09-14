@@ -1,6 +1,5 @@
-import React, { useState, useMemo } from 'react';
-import { useDebts } from '../../../hooks/useDebts';
-import { formatCurrency } from '../../../utils/debtFormatting';
+import React, { useState, useMemo, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 
 // Import the sophisticated debt management components
 import DebtSummaryCards from '../../../components/debt/DebtSummaryCards';
@@ -9,218 +8,484 @@ import DebtFormModal from '../../../components/debt/DebtFormModal';
 import DebtHistoryViewer from '../../../components/DebtHistoryViewer';
 import SimpleToast from '../../../components/SimpleToast';
 import NoDebtsState from '../../../components/NoDebtsState';
+import Card from '../../../components/ui/Card';
+import Button from '../../../components/ui/Button';
+import RecordPaymentModal from '../../../components/RecordPaymentModal';
+import PaymentImpactFeedback from '../../../components/PaymentImpactFeedback';
+import { toCents, percentToBps, fromCents, bpsToPercent } from '../../../lib/money';
+import { safeFromCents, safeBpsToPercent } from '../../../utils/safeDebtNormalizer';
+import { capture } from '../../../utils/analytics';
+import { normalizeDebt } from '../../../utils/debtNormalize';
+import { getDebtSummary } from '../../../utils/debtTotalsStandard';
+import { localDebtStore } from '../../../data/localDebtStore';
+import { usePaymentPrefs } from '../../../hooks/usePaymentPrefs';
+import { calculateAutoOrder } from '../../../utils/debtOrdering';
+import { calculateCompoundPaymentImpact } from '../../../utils/paymentImpactCalculator';
 
-const DebtsTab = ({ loading }) => {
-  // Use CP-1 normalized data path
-  const { 
-    debts,
-    metrics = {},
-    metricsLoading = false,
-    addDebt, 
-    updateDebt, 
-    deleteDebt, 
-    loadDemoData,
-    clearAllData,
-    reorderDebts,
-    refresh
-  } = useDebts();
+export default function DebtsTab({ debts, addDebt, updateDebt, deleteDebt, recordPayment }) {
+ // DebtsTab now ONLY uses props - no hook call to prevent multi-store drift
+ if (!debts || !addDebt || !updateDebt || !deleteDebt) {
+  console.error('DebtsTab: Missing required props. All debt operations must be passed as props.');
+  return <div>Error: Missing debt management props</div>;
+ }
+ 
+ // Get payment preferences for auto-ordering strategy
+ const { prefs } = usePaymentPrefs();
+ 
+ // Use debts from props only - sort by order_index for drag-and-drop
+ const displayDebts = useMemo(() => {
+  if (!debts || debts.length === 0) return debts;
   
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [editingDebt, setEditingDebt] = useState(null);
-  const [historyDebt, setHistoryDebt] = useState(null);
-  const [toast, setToast] = useState(null);
-
-  // Use normalized debts from CP-1 hook (always array)
-  // debts is already normalized by toDebtArray() in useDebts
-
-  // Use metrics from CP-1 hook + calculate credit utilization with safe destructuring
-  const { totalDebt = 0, totalMinPayments = 0, creditUtilization } = useMemo(() => {
-    // Safe array access with fallback
-    const safeDebts = Array.isArray(debts) ? debts : [];
-    const safeMetrics = metrics || {};
-    
-    // Calculate credit utilization from normalized debts
-    const totalUsed = safeDebts.reduce((sum, debt) => sum + (debt?.balance || 0), 0);
-    const totalLimit = safeDebts.reduce((sum, debt) => sum + (debt?.limit || 0), 0);
-    const utilization = totalLimit > 0 ? (totalUsed / totalLimit) * 100 : 0;
-    
-    return {
-      totalDebt: safeMetrics.totalDebt || 0,
-      totalMinPayments: safeMetrics.totalMinPayments || 0,
-      creditUtilization: utilization
-    };
-  }, [debts, metrics]);
-
-  // Event handlers
-  const handleAddDebt = () => {
-    setEditingDebt(null);
-    setShowAddModal(true);
-  };
-
-  const handleEditDebt = (debt) => {
-    setEditingDebt(debt);
-    setShowAddModal(true);
-  };
-
-  const handleDeleteDebt = async (debtId) => {
-    if (window.confirm('Are you sure you want to delete this debt?')) {
-      try {
-        await deleteDebt(debtId);
-        showToast('Debt deleted successfully', 'success');
-      } catch (error) {
-        showToast('Failed to delete debt', 'error');
-      }
-    }
-  };
-
-  const handleInlineBalanceUpdate = async (debtId, newBalance) => {
-    try {
-      // Use CP-1 updateDebt method
-      await updateDebt(debtId, { balance: newBalance });
-      showToast('Balance updated successfully', 'success');
-    } catch (error) {
-      showToast('Failed to update balance', 'error');
-    }
-  };
-
-  const handleViewHistory = (debt) => {
-    setHistoryDebt(debt);
-  };
-
-  const handleReorderDebts = async (orderUpdates) => {
-    try {
-      await reorderDebts(orderUpdates);
-      showToast('Debt order updated', 'success');
-    } catch (error) {
-      showToast('Failed to reorder debts', 'error');
-    }
-  };
-
-  const handleSaveDebt = async (debtData) => {
-    try {
-      if (editingDebt) {
-        await updateDebt(editingDebt.id, debtData);
-        showToast('Debt updated successfully', 'success');
-      } else {
-        await addDebt(debtData);
-        showToast('Debt added successfully', 'success');
-      }
-      setShowAddModal(false);
-      setEditingDebt(null);
-    } catch (error) {
-      showToast(editingDebt ? 'Failed to update debt' : 'Failed to add debt', 'error');
-    }
-  };
-
-  const showToast = (message, type) => {
-    setToast({ message, type });
-    setTimeout(() => setToast(null), 3000);
-  };
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-slate-600">Loading your debts...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Empty state guard
-  if (!loading && Array.isArray(debts) && debts.length === 0) {
-    return (
-      <NoDebtsState
-        title="No debts yet"
-        subtitle="Add your first debt or try the demo dataset to see the full experience."
-        icon="💳"
-        showSecondaryActions={true}
-        onAdd={() => setShowAddModal(true)}
-        onTryDemo={async () => {
-          try {
-            await loadDemoData('uk');
-            refresh();
-          } catch (e) {
-            console.error('[Demo] load failed', e);
-            alert('Failed to load demo data. Please try again.');
-          }
-        }}
-      />
-    );
-  }
-
-  // Debug logging with safe access
-  console.log('🔍 DebtsTab Debug:', {
-    debtsLength: Array.isArray(debts) ? debts.length : 0,
-    debtsData: debts,
-    metrics: metrics || {},
-    totalDebt,
-    totalMinPayments,
-    creditUtilization,
-    loading,
-    metricsLoading
+  // Sort by order_index (ascending), with fallback for debts without order_index
+  return [...debts].sort((a, b) => {
+   const aOrder = Number.isFinite(a.order_index) ? a.order_index : 999;
+   const bOrder = Number.isFinite(b.order_index) ? b.order_index : 999;
+   return aOrder - bOrder;
   });
+ }, [debts]);
+ 
+ const [searchParams, setSearchParams] = useSearchParams();
+ const [showAddModal, setShowAddModal] = useState(false);
+ const [editingDebt, setEditingDebt] = useState(null);
+ const [historyDebt, setHistoryDebt] = useState(null);
+ const [showPaymentModal, setShowPaymentModal] = useState(false);
+ const [paymentDebt, setPaymentDebt] = useState(null);
+ const [toast, setToast] = useState(null);
+ const [showPaymentImpact, setShowPaymentImpact] = useState(false);
+ const [paymentImpactData, setPaymentImpactData] = useState(null);
 
+ // Listen for custom event to open modal
+ useEffect(() => {
+  const handleOpenModal = () => {
+   console.log('DebtsTab: received openAddDebtModal event');
+   setShowAddModal(true);
+  };
+
+  const handleOpenDebtForm = (e) => {
+   console.log('DebtsTab: received open-debt-form event', e.detail);
+   setShowAddModal(true);
+  };
+
+  window.addEventListener('openAddDebtModal', handleOpenModal);
+  window.addEventListener('open-debt-form', handleOpenDebtForm);
+  
+  // Also check URL params as backup
+  const urlParams = new URLSearchParams(window.location.search);
+  const addParam = searchParams.get('add') || urlParams.get('add');
+  console.log('DebtsTab: checking add parameter:', addParam);
+  
+  if (addParam === 'true') {
+   console.log('DebtsTab: opening add modal from URL');
+   setShowAddModal(true);
+   
+   // Clean up the URL
+   try {
+    const newParams = new URLSearchParams(searchParams);
+    newParams.delete('add');
+    setSearchParams(newParams);
+   } catch (error) {
+    console.log('DebtsTab: error cleaning URL:', error);
+    window.history.replaceState({}, '', window.location.pathname);
+   }
+  }
+
+  return () => {
+   window.removeEventListener('openAddDebtModal', handleOpenModal);
+   window.removeEventListener('open-debt-form', handleOpenDebtForm);
+  };
+ }, [searchParams, setSearchParams]);
+
+ // Calculate summary metrics - use standardized calculation
+ const { totalDebt, totalMinPayments, creditUtilization } = useMemo(() => {
+  return getDebtSummary(displayDebts);
+ }, [displayDebts]);
+
+ // Toast helper
+ const showToast = (message, type = 'success') => {
+  setToast({ message, type });
+  setTimeout(() => setToast(null), 3000);
+ };
+
+ // Event handlers
+ const handleOpenAdd = () => {
+  setEditingDebt(null);
+  setShowAddModal(true);
+ };
+
+ const handleEdit = (debt) => {
+  setEditingDebt(debt);
+  setShowAddModal(true);
+ };
+
+ const handleClose = () => {
+  setShowAddModal(false);
+  setEditingDebt(null);
+ };
+
+ const handleDeleteDebt = async (debtId) => {
+  if (window.confirm('Are you sure you want to delete this debt?')) {
+   try {
+    await deleteDebt(debtId);
+    showToast('Debt deleted successfully', 'success');
+   } catch (error) {
+    showToast('Failed to delete debt', 'error');
+   }
+  }
+ };
+
+ const handleInlineBalanceUpdate = async (debtId, newBalance) => {
+  console.log('DebtsTab: handleInlineBalanceUpdate called:', { debtId, newBalance, updateDebt: typeof updateDebt });
+  try {
+   const debt = displayDebts.find(d => d.id === debtId);
+   console.log('DebtsTab: Found debt for update:', debt);
+   if (debt) {
+    // newBalance is already in GBP, convert to pence
+    const updatedDebt = { ...debt, amount_pennies: toCents(newBalance) };
+    console.log('DebtsTab: Conversion check:', { 
+     newBalanceGBP: newBalance, 
+     convertedCents: toCents(newBalance),
+     originalCents: debt.amount_pennies 
+    });
+    console.log('DebtsTab: Updating debt with:', updatedDebt);
+    await updateDebt(debtId, updatedDebt);
+    showToast('Balance updated successfully', 'success');
+   } else {
+    console.error('DebtsTab: Debt not found for id:', debtId);
+   }
+  } catch (error) {
+   console.error('DebtsTab: Balance update failed:', error);
+   showToast('Failed to update balance', 'error');
+  }
+ };
+
+ const handleViewHistory = (debt) => {
+  setHistoryDebt(debt);
+ };
+
+ const handleReorderDebts = async (reorderedDebts) => {
+  try {
+   // Update each debt with its new order_index
+   const updatePromises = reorderedDebts.map((debt, index) => {
+    return updateDebt(debt.id, { 
+     ...debt, 
+     order_index: index 
+    });
+   });
+   
+   await Promise.all(updatePromises);
+   showToast('Debt order updated', 'success');
+   
+   // Track analytics
+   capture('debts_reordered', {
+    debt_count: reorderedDebts.length,
+    source: 'drag_drop'
+   });
+  } catch (error) {
+   console.error('Failed to reorder debts:', error);
+   showToast('Failed to reorder debts', 'error');
+  }
+ };
+
+ const handleRecordPayment = (debt) => {
+  setPaymentDebt(debt);
+  setShowPaymentModal(true);
+ };
+
+ const handlePaymentSave = async (paymentData) => {
+  if (!recordPayment) {
+   showToast('Payment recording not available', 'error');
+   return;
+  }
+
+  try {
+   // Calculate payment impact before recording
+   const paymentAmount = fromCents(paymentData.amount_pennies);
+   const impactData = calculateCompoundPaymentImpact(debts, paymentDebt, paymentAmount);
+
+   await recordPayment(paymentData);
+
+   // Close payment modal first
+   setShowPaymentModal(false);
+   setPaymentDebt(null);
+
+   // Show impact feedback if calculation succeeded
+   if (impactData && impactData.immediate) {
+    setPaymentImpactData({
+     impact: impactData.immediate,
+     forecastComparison: impactData.forecast
+    });
+    setShowPaymentImpact(true);
+   } else {
+    // Fallback to regular success toast
+    showToast('Payment recorded successfully!', 'success');
+   }
+  } catch (error) {
+   console.error('Failed to record payment:', error);
+   showToast('Failed to record payment. Please try again.', 'error');
+  }
+ };
+
+ const handlePaymentClose = () => {
+  setShowPaymentModal(false);
+  setPaymentDebt(null);
+ };
+
+ // Helper functions for safe normalization
+ const pennies = (n) => { const x = Number(n); return Number.isFinite(x) ? Math.round(x * 100) : 0; };
+ const bps = (n) => { const x = Number(n); return Number.isFinite(x) ? Math.round(x * 100) : 0; };
+ 
+ const safeDebt = (v) => {
+  return {
+   id: v.id || crypto.randomUUID(),
+   name: String(v.name || 'Untitled'),
+   amount_pennies: pennies(v.balance),
+   min_payment_pennies: pennies(v.minPayment),
+   apr: bps(v.interestRate),
+   debt_type: v.debt_type || 'credit_card',
+   issuer: v.issuer?.trim() || undefined,
+   limit_pennies: v.limit ? pennies(v.limit) : undefined,
+   order_index: Number.isFinite(+v.order) ? +v.order : undefined,
+  };
+ };
+
+ // Normalize and save
+ const handleSave = async (form) => {
+  console.log('DebtsTab: Saving debt:', form);
+  capture('debt_submit_attempted');
+  
+  try {
+   console.log('DebtsTab: Raw form data before normalize:', form);
+   let payload = normalizeDebt(form);
+   
+   // Auto-assign order_index based on strategy if not provided
+   if (!editingDebt && payload.order_index === undefined) {
+    payload.order_index = calculateAutoOrder(payload, displayDebts, prefs.strategy);
+    console.log('DebtsTab: Auto-assigned order_index:', payload.order_index, 'based on strategy:', prefs.strategy);
+   }
+   
+   console.log('DebtsTab: Normalized payload:', payload);
+   console.log('DebtsTab: Amount conversion check:', { 
+    formBalance: form.balance,   // Correct field name 
+    formBalanceType: typeof form.balance,
+    normalizedCents: payload.amount_pennies,
+    backToGBP: payload.amount_pennies / 100 
+   });
+   
+   if (editingDebt) {
+    await updateDebt(editingDebt.id, payload);
+   } else {
+    await addDebt(payload);
+   }
+   
+   console.log('DebtsTab: Debt saved successfully');
+   setShowAddModal(false);
+   setEditingDebt(null);
+   capture('debt_submit_succeeded');
+   setToast({ type: 'success', message: 'Debt saved successfully!' });
+  } catch (error) {
+   console.error('DebtsTab: Failed to save debt:', error);
+   capture('debt_submit_failed', { reason: error?.message || 'unknown' });
+   setToast({ type: 'error', message: 'Failed to save debt. Please try again.' });
+  }
+ };
+
+ const handleDelete = async (debt) => {
+  if (!window.confirm(`Delete "${debt.name}"?`)) return;
+  
+  try {
+   await deleteDebt(debt.id);
+   console.log('DebtsTab: Debt deleted successfully');
+  } catch (error) {
+   console.error('DebtsTab: Failed to delete debt:', error);
+   alert('Failed to delete debt. Please try again.');
+  }
+ };
+
+ // Dev backdoor
+ React.useEffect(() => {
+  if (process.env.NODE_ENV !== 'production') {
+   console.log('DebtsTab: Registering dev backdoors');
+   window.SB_openAddDebt = handleOpenAdd;
+   window.localDebtStore = localDebtStore; // Expose for console testing
+   
+   // Add test data function
+   window.SB_insertTestDebts = async () => {
+    const testDebts = [
+     {
+      id: crypto.randomUUID(),
+      name: 'MBNA Credit Card',
+      amount_pennies: 345000, // £3,450
+      min_payment_pennies: 8500, // £85
+      apr: 2199, // 21.99%
+      limit_pennies: 500000, // £5,000 limit
+      debt_type: 'credit_card',
+      created_at: new Date(Date.now() - 90*24*3600*1000).toISOString(),
+     },
+     {
+      id: crypto.randomUUID(),
+      name: 'Barclaycard',
+      amount_pennies: 185000, // £1,850
+      min_payment_pennies: 5500, // £55
+      apr: 1899, // 18.99%
+      limit_pennies: 300000, // £3,000 limit
+      debt_type: 'credit_card',
+      created_at: new Date(Date.now() - 60*24*3600*1000).toISOString(),
+     },
+     {
+      id: crypto.randomUUID(),
+      name: 'Personal Loan',
+      amount_pennies: 780000, // £7,800
+      min_payment_pennies: 23500, // £235
+      apr: 899, // 8.99%
+      debt_type: 'loan',
+      created_at: new Date(Date.now() - 180*24*3600*1000).toISOString(),
+     }
+    ];
+    
+    for (const debt of testDebts) {
+     await localDebtStore.upsertDebt(debt);
+     console.log(`✅ Added ${debt.name}: £${debt.amount_pennies/100}`);
+    }
+    console.log('🎉 Test portfolio created!');
+    location.reload();
+   };
+   
+   return () => {
+    delete window.SB_openAddDebt;
+    delete window.localDebtStore;
+    delete window.SB_insertTestDebts;
+   };
+  }
+ }, []);
+
+ if (!displayDebts || displayDebts.length === 0) {
   return (
-    <div className="space-y-6">
-      
-      {/* Summary Cards - only show if debts exist */}
-      {Array.isArray(debts) && debts.length > 0 && (
-        <DebtSummaryCards 
-          totalDebt={totalDebt} 
-          totalMinPayments={totalMinPayments} 
-          creditUtilization={creditUtilization}
-          loading={metricsLoading}
-        />
-      )}
+   <div className="max-w-3xl mx-auto px-4 py-10">
+    <Card className="p-6">
+     <h1 className="text-2xl font-bold">Let's add your first debt</h1>
+     <p className="text-gray-600 mt-1">You can add it manually or paste a table later.</p>
+     <div className="mt-6 flex gap-3">
+      <Button onClick={() => window.dispatchEvent(new CustomEvent('open-debt-form'))}>
+       Add my first debt
+      </Button>
+      <Button variant="secondary" to="/coach?import=1">Paste a table</Button>
+     </div>
+    </Card>
 
-      {/* Debt Table with Card Wrapper */}
-      <div className="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden">
-        <DebtTable 
-          debts={debts}
-          onEdit={handleEditDebt}
-          onDelete={handleDeleteDebt}
-          onBalanceUpdate={handleInlineBalanceUpdate}
-          onViewHistory={handleViewHistory}
-          loadDemoData={loadDemoData}
-          onReorder={handleReorderDebts}
-          onAddDebt={handleAddDebt}
-        />
-      </div>
+    {/* Add/Edit Debt Modal - also render in empty state */}
+    {showAddModal && (
+     <div data-testid="debt-form-modal">
+      <DebtFormModal
+       isOpen={showAddModal}
+       editingDebt={editingDebt}
+       onSave={handleSave}
+       onClose={handleClose}
+       loading={false}
+      />
+     </div>
+    )}
 
-      {/* Add/Edit Debt Modal */}
-      {showAddModal && (
-        <DebtFormModal
-          isOpen={showAddModal}
-          editingDebt={editingDebt}
-          onSave={handleSaveDebt}
-          onClose={() => {
-            setShowAddModal(false);
-            setEditingDebt(null);
-          }}
-          loading={false}
-        />
-      )}
-
-      {/* Debt History Viewer */}
-      {historyDebt && (
-        <DebtHistoryViewer 
-          debt={historyDebt}
-          onClose={() => setHistoryDebt(null)}
-        />
-      )}
-
-      {/* Toast Notifications */}
-      {toast && (
-        <SimpleToast
-          message={toast.message}
-          type={toast.type}
-          onClose={() => setToast(null)}
-        />
-      )}
-    </div>
+    {/* Toast Notifications - also render in empty state */}
+    {toast && (
+     <div data-testid="debt-toast">
+      <SimpleToast
+       message={toast.message}
+       type={toast.type}
+       onClose={() => setToast(null)}
+      />
+     </div>
+    )}
+   </div>
   );
-};
+ }
 
-export default DebtsTab;
+ return (
+  <div data-testid="debts-tab-content" className="space-y-6">
+   {/* Summary Cards */}
+   <div data-testid="debt-summary-section">
+    <DebtSummaryCards 
+     debts={displayDebts}
+     totalDebt={totalDebt}
+     totalMinPayments={totalMinPayments} 
+     creditUtilization={creditUtilization} 
+    />
+   </div>
+
+   {/* Debt Table */}
+   <div data-testid="debt-table-section">
+    <DebtTable 
+     debts={displayDebts}
+     onEdit={handleEdit}
+     onDelete={handleDeleteDebt}
+     onBalanceUpdate={handleInlineBalanceUpdate}
+     onViewHistory={handleViewHistory}
+     onReorder={handleReorderDebts}
+     onAddDebt={handleOpenAdd}
+     onRecordPayment={handleRecordPayment}
+    />
+   </div>
+
+   {/* Add/Edit Debt Modal */}
+   {showAddModal && (
+    <div data-testid="debt-form-modal">
+     <DebtFormModal
+      isOpen={showAddModal}
+      editingDebt={editingDebt}
+      onSave={handleSave}
+      onClose={handleClose}
+      loading={false}
+     />
+    </div>
+   )}
+
+   {/* Debt History Viewer */}
+   {historyDebt && (
+    <div data-testid="debt-history-viewer">
+     <DebtHistoryViewer 
+      debt={historyDebt}
+      onClose={() => setHistoryDebt(null)}
+     />
+    </div>
+   )}
+
+   {/* Record Payment Modal */}
+   {showPaymentModal && paymentDebt && (
+    <div data-testid="payment-modal">
+     <RecordPaymentModal
+      isOpen={showPaymentModal}
+      debt={paymentDebt}
+      onSave={handlePaymentSave}
+      onClose={handlePaymentClose}
+      loading={false}
+     />
+    </div>
+   )}
+
+   {/* Payment Impact Feedback - TRY-9 & TRY-10 */}
+   {showPaymentImpact && paymentImpactData && (
+    <div data-testid="payment-impact-feedback">
+     <PaymentImpactFeedback
+      impact={paymentImpactData.impact}
+      forecastComparison={paymentImpactData.forecastComparison}
+      onClose={() => {
+       setShowPaymentImpact(false);
+       setPaymentImpactData(null);
+       showToast('Payment recorded successfully!', 'success');
+      }}
+     />
+    </div>
+   )}
+
+   {/* Toast Notifications */}
+   {toast && (
+    <div data-testid="debt-toast">
+     <SimpleToast
+      message={toast.message}
+      type={toast.type}
+      onClose={() => setToast(null)}
+     />
+    </div>
+   )}
+  </div>
+ );
+}

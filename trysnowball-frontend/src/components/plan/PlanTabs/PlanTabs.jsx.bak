@@ -1,0 +1,1 @@
+export default function PlanTabs(){return <div>PlanTabs</div>}

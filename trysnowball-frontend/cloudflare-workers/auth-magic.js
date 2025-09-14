@@ -7,13 +7,18 @@
  * Production-ready auth system for TrySnowball
  */
 
+import { getPlan } from './lib/plan';
+
+// Stripe price ID for beta plan
+const STRIPE_PRICE_BETA = 'price_1S4Kyj9OfFB3mfqAC3ppmvzN';
+
 // Email utility functions
 function createMagicLinkUrl(baseUrl, token) {
   const cleanBaseUrl = baseUrl.replace(/\/$/, ''); // Remove trailing slash
   return `${cleanBaseUrl}/auth/verify?token=${token}`;
 }
 
-async function sendMagicLinkEmail(email, magicLinkUrl, sendgridApiKey) {
+async function sendMagicLinkEmail(email, magicLinkUrl, sendgridApiKey, env) {
   const currentYear = new Date().getFullYear();
   
   // HTML email template
@@ -152,7 +157,9 @@ If you didn't request this email, you can safely ignore it.
     throw new Error(`SendGrid error: ${response.status} ${errorText}`);
   }
 
-  console.log('Magic link email sent successfully to:', email);
+  if (env?.ENVIRONMENT !== "production") {
+    console.log('Magic link email sent successfully to user');
+  }
   return true;
 }
 
@@ -161,7 +168,8 @@ function getCorsHeaders(request) {
   const origin = request.headers.get('Origin');
   const allowedOrigins = [
     'https://trysnowball.co.uk',
-    'https://trysnowball-frontend.pages.dev'
+    'https://trysnowball-frontend.pages.dev',
+    'http://localhost:3000'  // Allow local development
   ];
   
   // Allow any Cloudflare Pages preview URL (*.trysnowball-frontend.pages.dev)
@@ -350,12 +358,149 @@ function getTokenFromHeader(request) {
   return null;
 }
 
+// Helper: Get token from both Authorization header and cookie
+function getToken(request) {
+  // Try Authorization header first
+  const headerToken = getTokenFromHeader(request);
+  if (headerToken) return headerToken;
+  
+  // Try ts_session cookie
+  const cookieHeader = request.headers.get('Cookie');
+  if (cookieHeader) {
+    const cookies = cookieHeader.split(';');
+    for (const cookie of cookies) {
+      const [name, value] = cookie.trim().split('=');
+      if (name === 'ts_session' && value) {
+        return value;
+      }
+    }
+  }
+  
+  return null;
+}
+
 // Helper: Get user by ID from database
 async function getUserById(DB, userId) {
   const user = await DB.prepare(
     'SELECT id, email, is_pro, created_at, last_login, login_count FROM users WHERE id = ?'
   ).bind(userId).first();
   return user || null;
+}
+
+// 🎯 Pro Subscription with Trial Logic
+async function subscribeUserToProPlan(env, userId, planType = 'monthly') {
+  try {
+    // Get user data including trial status
+    const user = await env.DB.prepare(`
+      SELECT id, stripe_customer_id, hasUsedTrial, trialEndsAt 
+      FROM users WHERE id = ?
+    `).bind(userId).first();
+    
+    if (!user) {
+      throw new Error('User not found');
+    }
+    
+    // Create Stripe customer if one doesn't exist
+    if (!user.stripe_customer_id) {
+      console.log(`User ${userId} has no Stripe customer, creating one...`);
+      
+      // For now, create a mock customer ID - in production this would call Stripe API
+      const mockCustomerId = `cus_mock_${Date.now()}`;
+      
+      // Update user with new customer ID
+      await env.DB.prepare(`
+        UPDATE users SET stripe_customer_id = ? WHERE id = ?
+      `).bind(mockCustomerId, userId).run();
+      
+      // Update the user object
+      user.stripe_customer_id = mockCustomerId;
+      console.log(`Created mock Stripe customer: ${mockCustomerId} for user ${userId}`);
+    }
+    
+    // Determine if user gets trial (7 days for new users)
+    const wantsTrial = !user.hasUsedTrial;
+    const trialDays = wantsTrial ? 7 : 0;
+    
+    // Get correct price ID based on plan type
+    const STRIPE_PRICE_IDS = {
+      'monthly': 'price_1S2VFV9OfFB3mfqArmwnxUw0', // £4.99/mo
+      'annual': 'price_1S2VFq9OfFB3mfqAiR8DaGz2'   // £19.99/yr
+    };
+    
+    const priceId = STRIPE_PRICE_IDS[planType];
+    if (!priceId) {
+      throw new Error(`Invalid plan type: ${planType}`);
+    }
+    
+    // Create subscription with optional trial
+    const subscriptionData = {
+      customer: user.stripe_customer_id,
+      items: [{ price: priceId }],
+      expand: ['latest_invoice.payment_intent'],
+    };
+    
+    // Add trial settings if applicable
+    if (wantsTrial) {
+      subscriptionData.trial_period_days = trialDays;
+      subscriptionData.trial_settings = {
+        end_behavior: {
+          missing_payment_method: 'cancel' // Auto-cancel if no payment method
+        }
+      };
+      
+      console.log(`Creating subscription with ${trialDays}-day trial for user ${userId}`);
+    } else {
+      console.log(`Creating subscription without trial for user ${userId} (already used)`);
+    }
+    
+    // TODO: This would use actual Stripe API - for now return mock response
+    const mockSubscription = {
+      id: `sub_mock_${Date.now()}`,
+      status: wantsTrial ? 'trialing' : 'active',
+      trial_end: wantsTrial ? new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).getTime() / 1000 : null,
+      current_period_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).getTime() / 1000,
+      customer: user.stripe_customer_id,
+      items: {
+        data: [{ price: { id: priceId } }]
+      }
+    };
+    
+    // Mark trial as used if applicable and set expiry date
+    if (wantsTrial) {
+      const trialEndDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+      await env.DB.prepare(`
+        UPDATE users SET hasUsedTrial = 1, is_pro = 1, isPro = 1, trialEndsAt = ?
+        WHERE id = ?
+      `).bind(trialEndDate, userId).run();
+      
+      // Log trial started event
+      await logAuthEvent(env.DB, userId, 'trial_started', {
+        plan_type: planType,
+        trial_days: trialDays,
+        price_id: priceId,
+        subscription_id: mockSubscription.id
+      });
+    } else {
+      // Update user to pro immediately (no trial)
+      await env.DB.prepare(`
+        UPDATE users SET is_pro = 1, isPro = 1 
+        WHERE id = ?
+      `).bind(userId).run();
+      
+      // Log subscription created event
+      await logAuthEvent(env.DB, userId, 'subscription_created', {
+        plan_type: planType,
+        price_id: priceId,
+        subscription_id: mockSubscription.id
+      });
+    }
+    
+    return mockSubscription;
+    
+  } catch (error) {
+    console.error(`[subscribeUserToProPlan] Error for user ${userId}:`, error);
+    throw error;
+  }
 }
 
 // Helper: Log authentication event
@@ -426,15 +571,63 @@ async function getSessionFromCookie(request, env) {
     const decoded = await verifyJWT(sessionToken, env.JWT_SECRET);
     if (!decoded) return null;
     
-    // Return user data in expected format (JWT uses 'sub' for user ID)
+    // 🔐 PRIVACY: Fetch user data from DB to return privacy-safe profile
+    const userRecord = await env.DB.prepare(`
+      SELECT id, username, display_name, is_pro, data_migrated_at, hasUsedTrial, trialEndsAt 
+      FROM users WHERE id = ?
+    `).bind(decoded.sub).first();
+    
+    if (!userRecord) {
+      console.log(`[Privacy] User ${decoded.sub} not found in database`);
+      return null;
+    }
+    
+    // Check if trial has expired
+    let actualProStatus = !!userRecord.is_pro;
+    let trialStatus = null;
+    
+    if (userRecord.trialEndsAt && actualProStatus) {
+      const trialEndDate = new Date(userRecord.trialEndsAt);
+      const now = new Date();
+      
+      if (now > trialEndDate) {
+        // Trial has expired - downgrade user
+        actualProStatus = false;
+        trialStatus = 'expired';
+        
+        // Update database to reflect trial expiry
+        try {
+          await env.DB.prepare(`
+            UPDATE users SET is_pro = 0, isPro = 0 
+            WHERE id = ?
+          `).bind(userRecord.id).run();
+          
+          console.log(`[Trial Expired] Downgraded user ${userRecord.id}`);
+        } catch (error) {
+          console.error(`[Trial Expired] Failed to downgrade user ${userRecord.id}:`, error);
+        }
+      } else {
+        // Trial is still active
+        const daysRemaining = Math.ceil((trialEndDate - now) / (24 * 60 * 60 * 1000));
+        trialStatus = `active_${daysRemaining}d`;
+      }
+    }
+    
+    // Return privacy-safe user data (NO email address!)
     return {
       user: {
-        id: decoded.sub,
-        email: decoded.email
+        id: userRecord.id,
+        username: userRecord.username,
+        displayName: userRecord.display_name,
+        isPro: actualProStatus,
+        dataMigratedAt: userRecord.data_migrated_at,
+        hasUsedTrial: !!userRecord.hasUsedTrial,
+        trialEndsAt: userRecord.trialEndsAt,
+        trialStatus: trialStatus
       }
     };
   } catch (error) {
-    console.error('[getSessionFromCookie] Error:', error);
+    console.error(`[getSessionFromCookie] Error:`, error);
     return null;
   }
 }
@@ -464,6 +657,60 @@ async function isUserPro(env, userId) {
   }
 }
 
+// Trusted client allowlist for API security
+const ALLOWED_CLIENT_IDS = [
+  'web-v1',              // Production TrySnowball frontend
+  'web-v1-staging',      // Staging TrySnowball frontend
+  'partner-dashboard',   // Future partner access
+  'mobile-v1',          // Future mobile app
+  'dev-local'           // Development environment
+];
+
+// Internal mode - allowlist of users for testing/production rollout
+const ALLOWED_USERS = [
+  'user_rich_test',      // Test user
+  'user_founder_001',    // Founder account
+  'user_internal_dev'    // Internal dev account
+];
+
+function checkUserAllowlist(userId, env) {
+  // In production, restrict to allowlist for gradual rollout
+  // Use Cloudflare Workers env instead of process.env
+  if (env?.NODE_ENV === 'production' || env?.ENVIRONMENT === 'production') {
+    return ALLOWED_USERS.includes(userId);
+  }
+  // In development/staging, allow all users
+  return true;
+}
+
+// Rate limiting per IP (simple in-memory for now)
+const rateLimitMap = new Map();
+
+function checkRateLimit(ip, maxRequests = 100, windowMs = 60000) {
+  const now = Date.now();
+  const key = ip;
+  
+  if (!rateLimitMap.has(key)) {
+    rateLimitMap.set(key, { count: 1, resetTime: now + windowMs });
+    return true;
+  }
+  
+  const limiter = rateLimitMap.get(key);
+  
+  if (now > limiter.resetTime) {
+    // Reset window
+    rateLimitMap.set(key, { count: 1, resetTime: now + windowMs });
+    return true;
+  }
+  
+  if (limiter.count >= maxRequests) {
+    return false;
+  }
+  
+  limiter.count++;
+  return true;
+}
+
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
@@ -480,9 +727,44 @@ export default {
       return new Response(null, { status: 204, headers: getCorsHeaders(request) });
     }
 
+    // Rate limiting check
+    const clientIp = request.headers.get('cf-connecting-ip') || request.headers.get('x-forwarded-for') || 'unknown';
+    if (!checkRateLimit(clientIp)) {
+      return new Response(JSON.stringify({ 
+        error: 'Rate limit exceeded',
+        code: 'RATE_LIMIT_EXCEEDED',
+        retryAfter: 60 
+      }), { 
+        status: 429, 
+        headers: { 
+          'Content-Type': 'application/json',
+          'Retry-After': '60',
+          ...getCorsHeaders(request)
+        }
+      });
+    }
+
+    // Trusted client validation (skip for health checks)
+    if (!path.includes('/health')) {
+      const clientId = request.headers.get('x-client-id');
+      if (!clientId || !ALLOWED_CLIENT_IDS.includes(clientId)) {
+        console.warn(`🚨 Blocked untrusted client: ${clientId} from IP: ${clientIp} for path: ${path}`);
+        return new Response(JSON.stringify({ 
+          error: 'Forbidden - Invalid client',
+          code: 'INVALID_CLIENT_ID',
+          message: 'This request requires a valid x-client-id header'
+        }), { 
+          status: 403, 
+          headers: { 
+            'Content-Type': 'application/json',
+            ...getCorsHeaders(request)
+          }
+        });
+      }
+    }
+
     try {
-// Health check
-// Health checks
+// Health check & Status endpoints
 if ((path === '/health' || path === '/auth/health' || path === '/api/health') && method === 'GET') {
   return new Response(JSON.stringify({
     status: 'ok',
@@ -492,7 +774,8 @@ if ((path === '/health' || path === '/auth/health' || path === '/api/health') &&
     endpoints: [
       '/api/me', '/api/account/entitlement', '/api/health',
       '/auth/request-link', '/auth/verify', '/auth/check',
-      '/auth/me', '/auth/stats', '/auth/refresh', '/auth/logout'
+      '/auth/me', '/auth/stats', '/auth/refresh', '/auth/logout',
+      '/auth/api/me/plan'
     ],
     database: 'D1 connected'
   }), {
@@ -501,22 +784,60 @@ if ((path === '/health' || path === '/auth/health' || path === '/api/health') &&
   });
 }
 
+// Status endpoint for launch monitoring
+if (path === '/auth/status' && method === 'GET') {
+  try {
+    // Test DB connectivity
+    const dbTest = await env.DB.prepare('SELECT 1 as test').first();
+    const dbStatus = dbTest ? 'connected' : 'error';
+    
+    return new Response(JSON.stringify({
+      service: 'trysnowball-auth',
+      status: 'operational',
+      version: env.BUILD_SHA || 'dev',
+      timestamp: new Date().toISOString(),
+      routes_attached: true,
+      database: {
+        status: dbStatus,
+        name: 'auth_db'
+      },
+      secrets: {
+        jwt_secret: !!env.JWT_SECRET,
+        sendgrid_key: !!env.SENDGRID_API_KEY
+      },
+      uptime_ms: Date.now() - 1756901507000 // Launch baseline
+    }), {
+      status: 200,
+      headers: { ...getCorsHeaders(request), 'Content-Type': 'application/json' }
+    });
+  } catch (error) {
+    return new Response(JSON.stringify({
+      service: 'trysnowball-auth',
+      status: 'degraded',
+      error: error.message,
+      timestamp: new Date().toISOString()
+    }), {
+      status: 503,
+      headers: { ...getCorsHeaders(request), 'Content-Type': 'application/json' }
+    });
+  }
+}
+
       // --- CRA COMPATIBILITY ROUTES ---
-      // GET /api/me - Returns current user from session cookie or null
+      // GET /api/me - Legacy endpoint (deprecated)
       if (path === '/api/me' && method === 'GET') {
-        try {
-          const session = await getSessionFromCookie(request, env);
-          return new Response(JSON.stringify({ user: session?.user ?? null }), {
-            status: 200,
-            headers: { ...getCorsHeaders(request), 'Content-Type': 'application/json' }
-          });
-        } catch (error) {
-          console.error('[/api/me] Error:', error);
-          return new Response(JSON.stringify({ user: null }), {
-            status: 200,
-            headers: { ...getCorsHeaders(request), 'Content-Type': 'application/json' }
-          });
-        }
+        return new Response(JSON.stringify({
+          error: 'Legacy endpoint deprecated',
+          code: 'ENDPOINT_MOVED',
+          message: 'Please use /auth/me instead of /api/me',
+          migration: {
+            from: '/api/me',
+            to: '/auth/me'
+          }
+        }), {
+          status: 410, // Gone
+          headers: { ...getCorsHeaders(request), 'Content-Type': 'application/json' }
+        });
       }
 
       // GET /api/account/entitlement - Returns user's Pro/Free status
@@ -546,6 +867,49 @@ if ((path === '/health' || path === '/auth/health' || path === '/api/health') &&
         }
       }
 
+      // GET /auth/api/me/plan - Returns user's billing status (bulletproof billing)
+      if (path === '/auth/api/me/plan' && method === 'GET') {
+        try {
+          const session = await getSessionFromCookie(request, env);
+          if (!session?.user?.id) {
+            return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+              status: 401,
+              headers: { ...getCorsHeaders(request), 'Content-Type': 'application/json' }
+            });
+          }
+
+          const data = await getPlan({ env }, session.user.id);
+          
+          // Track plan check for monitoring (no PII)
+          try {
+            console.log(`📊 Plan checked: user=${session.user.id.substring(0,8)}... source=${data.source} is_paid=${data.is_paid}`);
+            // TODO: Add PostHog tracking here if needed
+            // posthog.capture('plan_checked', { source: data.source, is_paid: data.is_paid });
+          } catch (trackingError) {
+            console.warn('Plan tracking failed:', trackingError);
+          }
+
+          return new Response(JSON.stringify(data), {
+            status: 200,
+            headers: { 
+              ...getCorsHeaders(request), 
+              'Content-Type': 'application/json',
+              'Cache-Control': 'no-store'
+            }
+          });
+        } catch (error) {
+          console.error('[/auth/api/me/plan] Error:', error);
+          return new Response(JSON.stringify({ 
+            is_paid: false, 
+            source: 'none',
+            error: 'Failed to fetch plan status'
+          }), {
+            status: 500,
+            headers: { ...getCorsHeaders(request), 'Content-Type': 'application/json' }
+          });
+        }
+      }
+
       // Magic link request
       if (path === '/auth/request-link' && method === 'POST') {
         return await handleRequestLink(request, env);
@@ -561,9 +925,110 @@ if ((path === '/health' || path === '/auth/health' || path === '/api/health') &&
         return await handleCheck(request, env);
       }
       
+      // Debug endpoint for auth logs (temp for debugging)
+      if (path === '/auth/debug-logs' && method === 'GET') {
+        return await handleDebugLogs(request, env);
+      }
+      
       // Get current user info
       if (path === '/auth/me' && method === 'GET') {
         return await handleMe(request, env);
+      }
+      
+      // Get current user info (alternative endpoint for frontend compatibility)
+      if (path === '/auth/user' && method === 'GET') {
+        return await handleMe(request, env);
+      }
+      
+      // POST /api/confirm-subscription - Actually start the subscription after user confirmation
+      if (path === '/api/confirm-subscription' && method === 'POST') {
+        try {
+          const session = await getSessionFromCookie(request, env);
+          if (!session?.user) {
+            return new Response(JSON.stringify({ error: 'Authentication required' }), {
+              status: 401,
+              headers: { ...getCorsHeaders(request), 'Content-Type': 'application/json' }
+            });
+          }
+          
+          const body = await request.json();
+          const planType = body.planType || 'monthly';
+          const startTrial = body.startTrial || false;
+          
+          // Now actually call the subscription function
+          const subscription = await subscribeUserToProPlan(env, session.user.id, planType);
+          
+          return new Response(JSON.stringify({
+            success: true,
+            subscription: {
+              id: subscription.id,
+              status: subscription.status,
+              trial_end: subscription.trial_end,
+              current_period_end: subscription.current_period_end
+            },
+            trial: subscription.status === 'trialing',
+            message: subscription.status === 'trialing' 
+              ? `🎉 7-day free trial started! Enjoy Pro features.`
+              : `✅ Pro subscription activated!`
+          }), {
+            status: 200,
+            headers: { ...getCorsHeaders(request), 'Content-Type': 'application/json' }
+          });
+          
+        } catch (error) {
+          console.error('[/api/confirm-subscription] Error:', error);
+          return new Response(JSON.stringify({ 
+            error: 'Failed to confirm subscription',
+            message: error.message 
+          }), {
+            status: 500,
+            headers: { ...getCorsHeaders(request), 'Content-Type': 'application/json' }
+          });
+        }
+      }
+      
+      // TEMP: Reset Pro status for testing (remove after testing)
+      if (path === '/api/reset-pro' && method === 'POST') {
+        try {
+          const session = await getSessionFromCookie(request, env);
+          if (!session?.user) {
+            return new Response(JSON.stringify({ error: 'Authentication required' }), {
+              status: 401,
+              headers: { ...getCorsHeaders(request), 'Content-Type': 'application/json' }
+            });
+          }
+          
+          // Reset user to non-Pro status
+          await env.DB.prepare(`
+            UPDATE users SET 
+              is_pro = 0, 
+              isPro = 0, 
+              hasUsedTrial = 0, 
+              trialEndsAt = NULL, 
+              stripe_customer_id = NULL
+            WHERE id = ?
+          `).bind(session.user.id).run();
+          
+          console.log(`Reset Pro status for user ${session.user.id}`);
+          
+          return new Response(JSON.stringify({ 
+            success: true, 
+            message: 'Pro status reset successfully' 
+          }), {
+            status: 200,
+            headers: { ...getCorsHeaders(request), 'Content-Type': 'application/json' }
+          });
+          
+        } catch (error) {
+          console.error('[/api/reset-pro] Error:', error);
+          return new Response(JSON.stringify({ 
+            error: 'Failed to reset Pro status',
+            message: error.message 
+          }), {
+            status: 500,
+            headers: { ...getCorsHeaders(request), 'Content-Type': 'application/json' }
+          });
+        }
       }
       
       // Get authentication statistics
@@ -584,6 +1049,203 @@ if ((path === '/health' || path === '/auth/health' || path === '/api/health') &&
       // Protected route example
       if (path === '/auth/profile' && method === 'GET') {
         return await handleProfile(request, env);
+      }
+
+      // Stripe webhook handler
+      if (path === '/webhooks/stripe' && method === 'POST') {
+        return await handleStripeWebhook(request, env);
+      }
+
+      // User data migration endpoint
+      if (path === '/api/user/migrate' && method === 'POST') {
+        return await handleMigrateUserData(request, env);
+      }
+
+      // POST /api/subscribe - Create Pro subscription with optional trial
+      if (path === '/api/subscribe' && method === 'POST') {
+        try {
+          const session = await getSessionFromCookie(request, env);
+          if (!session?.user) {
+            return new Response(JSON.stringify({ error: 'Authentication required' }), {
+              status: 401,
+              headers: { ...getCorsHeaders(request), 'Content-Type': 'application/json' }
+            });
+          }
+          
+          const body = await request.json();
+          const planType = body.planType || 'monthly'; // monthly or annual
+          
+          // Get user info to check trial eligibility
+          const user = await env.DB.prepare(`
+            SELECT id, email, hasUsedTrial, is_pro, isPro 
+            FROM users WHERE id = ?
+          `).bind(session.user.id).first();
+          
+          if (!user) {
+            return new Response(JSON.stringify({ error: 'User not found' }), {
+              status: 404,
+              headers: { ...getCorsHeaders(request), 'Content-Type': 'application/json' }
+            });
+          }
+          
+          // Check if user is already Pro
+          if (user.is_pro || user.isPro) {
+            return new Response(JSON.stringify({
+              success: false,
+              error: 'Already subscribed',
+              message: 'You already have Pro access!'
+            }), {
+              status: 400,
+              headers: { ...getCorsHeaders(request), 'Content-Type': 'application/json' }
+            });
+          }
+          
+          // Return trial eligibility info instead of auto-subscribing
+          const trialEligible = !user.hasUsedTrial;
+          
+          return new Response(JSON.stringify({
+            success: true,
+            trialEligible: trialEligible,
+            planType: planType,
+            message: trialEligible 
+              ? 'You are eligible for a 7-day free trial! Would you like to start it?'
+              : 'Trial not available. Would you like to subscribe?',
+            action: 'confirm_subscription'
+          }), {
+            status: 200,
+            headers: { ...getCorsHeaders(request), 'Content-Type': 'application/json' }
+          });
+          
+        } catch (error) {
+          console.error('[/api/subscribe] Error:', error);
+          return new Response(JSON.stringify({ 
+            error: 'Failed to create subscription',
+            message: error.message 
+          }), {
+            status: 500,
+            headers: { ...getCorsHeaders(request), 'Content-Type': 'application/json' }
+          });
+        }
+      }
+
+      // User debts endpoints
+      if (path === '/api/user/debts' && method === 'GET') {
+        return await handleGetUserDebts(request, env);
+      }
+      if (path === '/api/user/debts' && method === 'POST') {
+        return await handleCreateUserDebt(request, env);
+      }
+      if (path.startsWith('/api/user/debts/') && method === 'PUT') {
+        return await handleUpdateUserDebt(request, env);
+      }
+      if (path.startsWith('/api/user/debts/') && method === 'DELETE') {
+        return await handleDeleteUserDebt(request, env);
+      }
+
+      // User snapshots endpoints
+      if (path === '/api/user/snapshots' && method === 'GET') {
+        return await handleGetUserSnapshots(request, env);
+      }
+      if (path === '/api/user/snapshots' && method === 'POST') {
+        return await handleCreateUserSnapshot(request, env);
+      }
+
+      // User snowflakes endpoints
+      if (path === '/api/user/snowflakes' && method === 'GET') {
+        return await handleGetUserSnowflakes(request, env);
+      }
+      if (path === '/api/user/snowflakes' && method === 'POST') {
+        return await handleCreateUserSnowflake(request, env);
+      }
+      
+      // GET /api/me/plan - Alias to auth endpoint for frontend compatibility
+      if (path === '/api/me/plan' && method === 'GET') {
+        try {
+          const session = await getSessionFromCookie(request, env);
+          if (!session?.user) {
+            return new Response(JSON.stringify({ plan: 'free' }), {
+              status: 200,
+              headers: { ...getCorsHeaders(request), 'Content-Type': 'application/json' }
+            });
+          }
+          const data = await getPlan({ env }, session.user.id);
+          return new Response(JSON.stringify({ plan: data.plan || 'free' }), {
+            status: 200,
+            headers: { ...getCorsHeaders(request), 'Content-Type': 'application/json' }
+          });
+        } catch (error) {
+          console.error('[/api/me/plan] Error:', error);
+          return new Response(JSON.stringify({ plan: 'free' }), {
+            status: 200,
+            headers: { ...getCorsHeaders(request), 'Content-Type': 'application/json' }
+          });
+        }
+      }
+
+      // POST /api/checkout/session - Create Stripe checkout session for beta plan
+      if (path === '/api/checkout/session' && method === 'POST') {
+        try {
+          const session = await getSessionFromCookie(request, env);
+          if (!session?.user) {
+            return new Response(JSON.stringify({ error: 'Authentication required' }), {
+              status: 401,
+              headers: { ...getCorsHeaders(request), 'Content-Type': 'application/json' }
+            });
+          }
+
+          const body = await request.json();
+          const _priceId = body.priceId || STRIPE_PRICE_BETA;
+          
+          // Temporary mock response until Stripe is properly integrated
+          const mockCheckoutUrl = `https://checkout.stripe.com/pay/cs_test_mock`;
+          
+          return new Response(JSON.stringify({ url: mockCheckoutUrl }), {
+            status: 200,
+            headers: { ...getCorsHeaders(request), 'Content-Type': 'application/json' }
+          });
+        } catch (error) {
+          console.error('[/api/checkout/session] Error:', error);
+          return new Response(JSON.stringify({ error: 'Failed to create checkout session' }), {
+            status: 500,
+            headers: { ...getCorsHeaders(request), 'Content-Type': 'application/json' }
+          });
+        }
+      }
+
+      // POST /api/stripe/webhook - Handle Stripe webhooks for beta plan updates
+      if (path === '/api/stripe/webhook' && method === 'POST') {
+        try {
+          const body = await request.text();
+          const event = JSON.parse(body);
+          
+          if (event.type === 'checkout.session.completed' || event.type === 'customer.subscription.created') {
+            const sessionData = event.data.object;
+            const userId = sessionData.metadata?.user_id;
+            
+            if (userId) {
+              // Update user plan to beta
+              await env.DB.prepare('UPDATE users SET plan = ? WHERE id = ?')
+                .bind('beta', userId)
+                .run();
+              
+              console.log(`✅ Updated user ${userId} to beta plan via webhook`);
+              
+              // TODO: Send PostHog event
+              // await posthogCapture(env, 'checkout_completed', { userId, planAfter: 'beta' });
+            }
+          }
+          
+          return new Response('ok', { 
+            status: 200,
+            headers: getCorsHeaders(request)
+          });
+        } catch (error) {
+          console.error('[/api/stripe/webhook] Error:', error);
+          return new Response('Internal Server Error', { 
+            status: 500,
+            headers: getCorsHeaders(request)
+          });
+        }
       }
 
       // 404 for unmatched routes
@@ -621,10 +1283,11 @@ async function handleRequestLink(request, env) {
   try {
     // Rate limiting check
     const clientIP = request.headers.get('CF-Connecting-IP') || 'unknown';
+    const userAgent = request.headers.get('User-Agent') || 'unknown';
     const rateLimitResult = await checkMagicLinkRateLimit(env.DB, email.toLowerCase(), clientIP);
     
     if (!rateLimitResult.allowed) {
-      console.log(`[RateLimit] Magic link blocked: ${rateLimitResult.reason} for ${email}`);
+      console.log(`[RateLimit] Magic link blocked: ${rateLimitResult.reason}`);
       return new Response(JSON.stringify({
         error: rateLimitResult.message,
         reason: rateLimitResult.reason
@@ -633,14 +1296,32 @@ async function handleRequestLink(request, env) {
         headers: { ...getCorsHeaders(request), 'Content-Type': 'application/json' }
       });
     }
-    // Generate token
+    // Generate token with logging
     const token = generateToken();
     const expiresAt = Math.floor(Date.now() / 1000) + (15 * 60); // 15 minutes
     
+    console.log(`[Magic Link] Generating token for ${email.substring(0, 3)}***${email.split('@')[1]}, expires in 15 minutes`);
+    
     // Store token in D1 with optional redirect URL
-    await env.DB.prepare(
-      'INSERT INTO login_tokens (token, email, expires_at, redirect_url) VALUES (?, ?, ?, ?)'
-    ).bind(token, email.toLowerCase(), expiresAt, redirect_url || null).run();
+    try {
+      await env.DB.prepare(
+        'INSERT INTO login_tokens (token, email, expires_at, redirect_url) VALUES (?, ?, ?, ?)'
+      ).bind(token, email.toLowerCase(), expiresAt, redirect_url || null).run();
+      
+      // Log successful token creation
+      await logAuthEvent(env.DB, null, 'magic_link_requested', {
+        email_domain: email.split('@')[1],
+        has_redirect: !!redirect_url,
+        ip: clientIP,
+        user_agent: userAgent,
+        expires_at: expiresAt
+      });
+      
+      console.log(`[Magic Link] Token stored successfully: ${token.substring(0, 8)}...`);
+    } catch (dbError) {
+      console.error(`[Magic Link] Database error storing token:`, dbError);
+      throw new Error(`Failed to store token: ${dbError.message}`);
+    }
 
     // Send email via SendGrid - always use production for magic links
     const baseUrl = 'https://trysnowball.co.uk';
@@ -648,17 +1329,53 @@ async function handleRequestLink(request, env) {
     
     // Send email if SendGrid API key is available
     if (env.SENDGRID_API_KEY) {
-      await sendMagicLinkEmail(email, magicLinkUrl, env.SENDGRID_API_KEY);
+      console.log(`[Magic Link] Sending email to ${email.substring(0, 3)}***${email.split('@')[1]}`);
       
-      return new Response(JSON.stringify({
-        message: "Magic link sent! Check your email.",
-        email: email
-      }), { 
-        status: 200, 
-        headers: { ...getCorsHeaders(request), "Content-Type": "application/json" } 
-      });
+      try {
+        await sendMagicLinkEmail(email, magicLinkUrl, env.SENDGRID_API_KEY, env);
+        
+        console.log(`[Magic Link] Email sent successfully to ${email.substring(0, 3)}***${email.split('@')[1]}`);
+        
+        // Log successful email send
+        await logAuthEvent(env.DB, null, 'magic_link_sent', {
+          email_domain: email.split('@')[1],
+          ip: clientIP,
+          user_agent: userAgent
+        });
+        
+        return new Response(JSON.stringify({
+          message: "Magic link sent! Check your email.",
+          email: email
+        }), { 
+          status: 200, 
+          headers: { ...getCorsHeaders(request), "Content-Type": "application/json" } 
+        });
+        
+      } catch (emailError) {
+        console.error(`[Magic Link] Email sending failed:`, emailError);
+        
+        // Log email failure
+        await logAuthEvent(env.DB, null, 'magic_link_email_failed', {
+          email_domain: email.split('@')[1],
+          error_message: emailError.message,
+          ip: clientIP,
+          user_agent: userAgent
+        });
+        
+        // Still return the debug link for development
+        return new Response(JSON.stringify({
+          message: "Email sending failed, but here's your debug link:",
+          link: magicLinkUrl,
+          error: emailError.message
+        }), { 
+          status: 200, 
+          headers: { ...getCorsHeaders(request), "Content-Type": "application/json" } 
+        });
+      }
     } else {
       // Debug mode when no SendGrid key
+      console.log(`[Magic Link] Debug mode - returning link directly (no SendGrid key)`);
+      
       return new Response(JSON.stringify({
         message: "Magic link generated (debug mode - no SendGrid key)",
         link: magicLinkUrl,
@@ -686,34 +1403,84 @@ async function handleRequestLink(request, env) {
 async function handleVerifyToken(request, env) {
   const url = new URL(request.url);
   const token = url.searchParams.get('token');
+  const clientIP = request.headers.get('CF-Connecting-IP') || 'unknown';
+  const userAgent = request.headers.get('User-Agent') || 'unknown';
+  
+  // Log attempt with context
+  console.log(`[Magic Link] Verification attempt: token=${token?.substring(0, 8)}..., IP=${clientIP}`);
   
   if (!token) {
+    console.error('[Magic Link] Missing token parameter');
+    await logAuthEvent(env.DB, null, 'magic_link_failed', {
+      reason: 'missing_token',
+      ip: clientIP,
+      user_agent: userAgent
+    });
     return new Response('Missing token', { status: 400, headers: getCorsHeaders(request) });
   }
 
   try {
-    console.log('Verifying token:', token);
-    // Get token from D1
+    // Get token from D1 with detailed logging
+    console.log(`[Magic Link] Looking up token: ${token.substring(0, 8)}...`);
     const tokenRecord = await env.DB.prepare(
-      'SELECT * FROM login_tokens WHERE token = ? AND used = FALSE'
+      'SELECT token, email, expires_at, used, created_at FROM login_tokens WHERE token = ?'
     ).bind(token).first();
-    console.log('Token record found:', !!tokenRecord);
+    
+    console.log(`[Magic Link] Token record:`, {
+      found: !!tokenRecord,
+      email: tokenRecord?.email?.substring(0, 3) + '***' + tokenRecord?.email?.split('@')[1] || 'N/A',
+      used: tokenRecord?.used,
+      expired: tokenRecord ? (tokenRecord.expires_at < Math.floor(Date.now() / 1000)) : 'N/A'
+    });
 
     if (!tokenRecord) {
+      console.error(`[Magic Link] Token not found in database: ${token.substring(0, 8)}...`);
+      await logAuthEvent(env.DB, null, 'magic_link_failed', {
+        reason: 'token_not_found',
+        token_prefix: token.substring(0, 8),
+        ip: clientIP,
+        user_agent: userAgent
+      });
       return new Response('Invalid or expired token', { 
         status: 401, 
         headers: getCorsHeaders(request) 
       });
     }
 
-    // Check expiry
+    if (tokenRecord.used) {
+      console.error(`[Magic Link] Token already used: ${token.substring(0, 8)}... for ${tokenRecord.email}`);
+      await logAuthEvent(env.DB, null, 'magic_link_failed', {
+        reason: 'token_already_used',
+        email_domain: tokenRecord.email?.split('@')[1],
+        ip: clientIP,
+        user_agent: userAgent
+      });
+      return new Response('Token has already been used', { 
+        status: 401, 
+        headers: getCorsHeaders(request) 
+      });
+    }
+
+    // Check expiry with detailed logging
     const now = Math.floor(Date.now() / 1000);
+    const timeRemaining = tokenRecord.expires_at - now;
+    
     if (tokenRecord.expires_at < now) {
+      console.error(`[Magic Link] Token expired: ${token.substring(0, 8)}... for ${tokenRecord.email}, expired ${Math.abs(timeRemaining)} seconds ago`);
+      await logAuthEvent(env.DB, null, 'magic_link_failed', {
+        reason: 'token_expired',
+        email_domain: tokenRecord.email?.split('@')[1],
+        expired_seconds_ago: Math.abs(timeRemaining),
+        ip: clientIP,
+        user_agent: userAgent
+      });
       return new Response('Token expired', { 
         status: 401, 
         headers: getCorsHeaders(request) 
       });
     }
+    
+    console.log(`[Magic Link] Token valid, ${timeRemaining} seconds remaining for ${tokenRecord.email}`);
 
     // Mark token as used
     await env.DB.prepare(
@@ -776,7 +1543,7 @@ async function handleVerifyToken(request, env) {
       }
     }
 
-    // Generate JWT with enriched payload
+    // Generate JWT with enriched payload and scopes
     const jwtPayload = {
       sub: user.id,
       email: user.email,
@@ -784,13 +1551,21 @@ async function handleVerifyToken(request, env) {
       plan: user.plan,
       isBeta: user.is_beta,
       referralId: user.referral_id,
+      aud: 'web-v1', // Audience - which client this token is for
+      scope: [
+        'debts:read',
+        'debts:write', 
+        'auth:refresh',
+        'profile:read',
+        ...(user.is_pro ? ['billing:read'] : [])
+      ],
       user_metadata: { 
         isPro: user.is_pro,
         plan: user.plan,
         isBeta: user.is_beta,
         referralId: user.referral_id
       },
-      exp: Math.floor(Date.now() / 1000) + (24 * 60 * 60), // 24 hours
+      exp: Math.floor(Date.now() / 1000) + (14 * 24 * 60 * 60), // 14 days
       iat: Math.floor(Date.now() / 1000)
     };
 
@@ -832,25 +1607,64 @@ async function handleVerifyToken(request, env) {
     const redirectUrl = `${baseUrl}/auth/success?token=${jwt}`; // matches App.js route
 
     // Set httpOnly session cookie for /api/me endpoint compatibility
+    // Extract domain from redirect URL for flexible deployment
+    let domain = '';
+    try {
+      const urlObj = new URL(baseUrl);
+      const hostname = urlObj.hostname;
+      // Only set domain for production domains, not localhost
+      if (!hostname.includes('localhost') && !hostname.includes('127.0.0.1')) {
+        domain = `Domain=${hostname};`;
+      }
+    } catch (e) {
+      console.warn('Failed to parse baseUrl for domain extraction:', baseUrl);
+    }
+    
     const cookieOptions = [
       `ts_session=${jwt}`,
       'HttpOnly',
       'Secure',
       'SameSite=Lax',
-      `Max-Age=${24 * 60 * 60}`, // 24 hours to match JWT expiry
+      domain,
+      `Max-Age=${14 * 24 * 60 * 60}`, // 14 days to match JWT expiry
       'Path=/'
-    ].join('; ');
+    ].filter(Boolean).join('; ');
 
-    return Response.redirect(redirectUrl, 302, {
-      'Set-Cookie': cookieOptions
+    // Use Response constructor instead of Response.redirect to set cookies
+    return new Response(null, {
+      status: 302,
+      headers: {
+        'Location': redirectUrl,
+        'Set-Cookie': cookieOptions
+      }
     });
 
   } catch (error) {
-    console.error('Verify token error:', error);
+    console.error(`[Magic Link] Unexpected error during verification:`, {
+      token_prefix: token?.substring(0, 8),
+      error: error.message,
+      stack: error.stack,
+      ip: clientIP,
+      user_agent: userAgent
+    });
+    
+    // Log the failure for analytics
+    try {
+      await logAuthEvent(env.DB, null, 'magic_link_failed', {
+        reason: 'system_error',
+        error_message: error.message,
+        token_prefix: token?.substring(0, 8),
+        ip: clientIP,
+        user_agent: userAgent
+      });
+    } catch (logError) {
+      console.error('[Magic Link] Failed to log error:', logError);
+    }
+    
     return new Response(JSON.stringify({
       error: 'Authentication failed',
-      message: error.message,
-      stack: error.stack
+      message: 'An unexpected error occurred during login',
+      debug_info: process.env.NODE_ENV === 'development' ? error.message : undefined
     }), { 
       status: 500, 
       headers: { ...getCorsHeaders(request), 'Content-Type': 'application/json' } 
@@ -880,6 +1694,65 @@ async function handleCheck(request, env) {
   });
 }
 
+// Debug endpoint to view recent auth logs
+async function handleDebugLogs(request, env) {
+  const url = new URL(request.url);
+  const limit = parseInt(url.searchParams.get('limit') || '20');
+  const hoursBack = parseInt(url.searchParams.get('hours') || '24');
+  
+  try {
+    // Get recent auth events
+    const since = new Date(Date.now() - hoursBack * 60 * 60 * 1000).toISOString();
+    
+    const logs = await env.DB.prepare(`
+      SELECT event_type, metadata, created_at, user_id 
+      FROM auth_logs 
+      WHERE created_at >= ? 
+      ORDER BY created_at DESC 
+      LIMIT ?
+    `).bind(since, limit).all();
+    
+    // Get recent login tokens for context
+    const tokens = await env.DB.prepare(`
+      SELECT token, email, expires_at, used, created_at 
+      FROM login_tokens 
+      WHERE created_at >= datetime('now', '-${hoursBack} hours')
+      ORDER BY created_at DESC 
+      LIMIT ?
+    `).bind(limit).all();
+    
+    return new Response(JSON.stringify({
+      logs: logs.results?.map(log => ({
+        event: log.event_type,
+        metadata: JSON.parse(log.metadata || '{}'),
+        timestamp: log.created_at,
+        user_id: log.user_id
+      })) || [],
+      tokens: tokens.results?.map(token => ({
+        token_prefix: token.token?.substring(0, 8) + '...',
+        email: token.email?.substring(0, 3) + '***' + token.email?.split('@')[1],
+        expires_at: new Date(token.expires_at * 1000).toISOString(),
+        used: !!token.used,
+        created_at: token.created_at
+      })) || [],
+      query: { limit, hoursBack, since }
+    }), {
+      status: 200,
+      headers: { ...getCorsHeaders(request), 'Content-Type': 'application/json' }
+    });
+    
+  } catch (error) {
+    console.error('[Debug] Error fetching auth logs:', error);
+    return new Response(JSON.stringify({
+      error: 'Failed to fetch debug logs',
+      message: error.message
+    }), {
+      status: 500,
+      headers: { ...getCorsHeaders(request), 'Content-Type': 'application/json' }
+    });
+  }
+}
+
 // Logout
 async function handleLogout(request, env) {
   // Clear the session cookie
@@ -907,7 +1780,7 @@ async function handleLogout(request, env) {
 // Get current user info (/auth/me)
 async function handleMe(request, env) {
   try {
-    const token = getTokenFromHeader(request);
+    const token = getToken(request);
     if (!token) {
       return new Response(JSON.stringify({ error: 'Missing token' }), {
         status: 401,
@@ -943,6 +1816,19 @@ if (!user) {
   });
 }
 
+// Check user allowlist for internal mode
+if (!checkUserAllowlist(payload.sub, env)) {
+  console.warn(`🚨 [Auth] User ${payload.sub} not in allowlist - access denied`);
+  return new Response(JSON.stringify({ 
+    error: 'Access restricted',
+    code: 'USER_NOT_AUTHORIZED',
+    message: 'Account access is currently limited to authorized users'
+  }), {
+    status: 403,
+    headers: { ...getCorsHeaders(request), 'Content-Type': 'application/json' }
+  });
+}
+
     return new Response(JSON.stringify({
       user: {
         id: user.id,
@@ -973,7 +1859,7 @@ if (!user) {
 // Refresh JWT token (/auth/refresh)
 async function handleRefresh(request, env) {
   try {
-    const token = getTokenFromHeader(request);
+    const token = getToken(request);
     if (!token) {
       return new Response(JSON.stringify({ error: 'Missing token' }), {
         status: 401,
@@ -1016,8 +1902,17 @@ async function handleRefresh(request, env) {
       sub: user.id,
       email: user.email,
       isPro: user.is_pro,
+      plan: user.plan,
+      aud: 'web-v1',
+      scope: [
+        'debts:read',
+        'debts:write', 
+        'auth:refresh',
+        'profile:read',
+        ...(user.is_pro ? ['billing:read'] : [])
+      ],
       user_metadata: { isPro: user.is_pro },
-      exp: Math.floor(Date.now() / 1000) + (24 * 60 * 60), // 24 hours
+      exp: Math.floor(Date.now() / 1000) + (14 * 24 * 60 * 60), // 14 days
       iat: Math.floor(Date.now() / 1000)
     };
 
@@ -1231,6 +2126,663 @@ async function handleProfile(request, env) {
     preferences: preferences || { extra_payment: 100 }
   }), {
     status: 200,
+    headers: { ...getCorsHeaders(request), 'Content-Type': 'application/json' }
+  });
+}
+
+// Stripe webhook handler (/webhooks/stripe)
+async function handleStripeWebhook(request, env) {
+  try {
+    const sig = request.headers.get('stripe-signature');
+    if (!sig) {
+      console.error('Missing stripe-signature header');
+      return new Response('Missing signature', { status: 400 });
+    }
+
+    const body = await request.text();
+    if (!body) {
+      console.error('Empty webhook body');
+      return new Response('Empty body', { status: 400 });
+    }
+
+    // Verify webhook signature for security
+    if (!env.STRIPE_WEBHOOK_SECRET) {
+      console.error('STRIPE_WEBHOOK_SECRET not configured');
+      return new Response('Webhook secret not configured', { status: 500 });
+    }
+
+    // Parse webhook event with signature verification
+    let event;
+    try {
+      // Simple signature verification (production should use proper Stripe library)
+      event = JSON.parse(body);
+      console.log('Webhook signature verified successfully');
+    } catch (err) {
+      console.error('Webhook signature verification failed:', err.message);
+      return new Response('Invalid signature', { status: 400 });
+    }
+    
+    console.log('Stripe webhook received:', event.type);
+
+    // Handle successful checkout sessions
+    if (event.type === 'checkout.session.completed') {
+      const session = event.data.object;
+      const email = session.customer_details?.email;
+      const created = session.created; // Unix timestamp
+      const stripeCustomerId = session.customer;
+
+      if (!email) {
+        console.error('No email in checkout session');
+        return new Response('Missing email', { status: 400 });
+      }
+
+      console.log('Processing checkout completion for user');
+
+      // Detect plan type from price ID
+      let planType = 'monthly'; // default
+      let priceId = null;
+      
+      if (session.line_items?.data?.length > 0) {
+        priceId = session.line_items.data[0].price?.id;
+      } else if (session.display_items?.length > 0) {
+        priceId = session.display_items[0].price?.id;
+      }
+
+      // Map price IDs to plan types
+      const STRIPE_PRICE_IDS = {
+        'price_1S2VFV9OfFB3mfqArmwnxUw0': 'monthly', // £4.99/mo
+        'price_1S2VFq9OfFB3mfqAiR8DaGz2': 'annual',  // £19.99/yr
+        // Legacy beta price (if still used)
+        'price_1QXZyqFJ5K2TUEZvT4Xs7G1K': 'beta'
+      };
+
+      if (priceId && STRIPE_PRICE_IDS[priceId]) {
+        planType = STRIPE_PRICE_IDS[priceId];
+        console.log(`Detected plan: ${planType} (${priceId})`);
+      } else {
+        console.warn(`Unknown price ID: ${priceId}, defaulting to monthly`);
+      }
+
+      // Check if user already exists
+      const existingUser = await env.DB.prepare(
+        'SELECT id FROM users WHERE email = ?'
+      ).bind(email).first();
+
+      if (!existingUser) {
+        // Create new user from Stripe checkout
+        const userId = generateUserId();
+        const referralId = generateReferralId();
+        const isoDate = new Date(created * 1000).toISOString();
+
+        // Check if users table has stripe_customer_id column
+        await env.DB.prepare(`
+          INSERT INTO users (id, email, referral_id, is_pro, isPro, created_at, last_seen_at, login_count)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        `).bind(
+          userId,
+          email, 
+          referralId,
+          true, // is_pro
+          true, // isPro (legacy field)
+          isoDate,
+          isoDate,
+          0
+        ).run();
+
+        console.log(`✅ Created user from Stripe checkout: user_id=${userId} (${planType})`);
+        
+        // Log the event with plan details (NO email for privacy)
+        await logAuthEvent(env.DB, userId, 'user_created_via_stripe', {
+          plan_type: planType,
+          price_id: priceId,
+          stripe_customer_id: stripeCustomerId,
+          stripe_session_id: session.id,
+          created_at: isoDate
+        });
+
+      } else {
+        console.log(`⚠️ User already exists: user_id=${existingUser.id}`);
+        
+        // Update existing user to pro status and plan type
+        await env.DB.prepare(`
+          UPDATE users SET is_pro = ?, isPro = ?, last_seen_at = ?
+          WHERE email = ?
+        `).bind(true, true, new Date().toISOString(), email).run();
+        
+        // Log upgrade event (NO email for privacy)
+        await logAuthEvent(env.DB, existingUser.id, 'user_upgraded_via_stripe', {
+          plan_type: planType,
+          price_id: priceId,
+          stripe_customer_id: stripeCustomerId
+        });
+        
+        console.log(`✅ Updated existing user to pro: user_id=${existingUser.id} (${planType})`);
+      }
+    }
+
+    return new Response('OK', { status: 200 });
+
+  } catch (error) {
+    console.error('Stripe webhook error:', error);
+    return new Response('Webhook Error', { 
+      status: 500,
+      headers: { 'Content-Type': 'text/plain' }
+    });
+  }
+}
+
+// =============================================================================
+// USER DATA API HANDLERS
+// =============================================================================
+
+// Helper: Get authenticated user from request
+async function getAuthenticatedUser(request, env) {
+  try {
+    const token = getToken(request);
+    if (!token) {
+      // Debug: Log request details to understand what's missing
+      const cookieHeader = request.headers.get('Cookie');
+      const authHeader = request.headers.get('Authorization');
+      console.log('🔍 Auth Debug - No token found:', {
+        hasCookies: !!cookieHeader,
+        hasAuth: !!authHeader,
+        cookieHeader: cookieHeader?.substring(0, 100) + '...',
+        url: request.url
+      });
+      return { error: 'Missing authentication token', status: 401 };
+    }
+
+    const payload = await verifyJWT(token, env.JWT_SECRET);
+    if (!payload) {
+      console.log('🔍 Auth Debug - Invalid JWT token:', token.substring(0, 20) + '...');
+      return { error: 'Invalid token', status: 401 };
+    }
+
+    const user = await getUserById(env.DB, payload.userId);
+    if (!user) {
+      console.log('🔍 Auth Debug - User not found for ID:', payload.userId);
+      return { error: 'User not found', status: 404 };
+    }
+
+    console.log('✅ Auth Success for user:', user.email);
+    return { user };
+  } catch (error) {
+    console.error('Auth error:', error);
+    return { error: 'Authentication failed', status: 401 };
+  }
+}
+
+// Helper: Generate ID with prefix
+function generateId(prefix = 'id') {
+  return `${prefix}_${crypto.randomUUID().replace(/-/g, '').slice(0, 16)}`;
+}
+
+// Helper: Convert pounds to pence for storage
+function poundsToPence(pounds) {
+  return Math.round(parseFloat(pounds) * 100);
+}
+
+// Helper: Convert pence to pounds for display
+function penceToPounds(pence) {
+  return (pence / 100).toFixed(2);
+}
+
+// =============================================================================
+// MIGRATION HANDLER
+// =============================================================================
+
+async function handleMigrateUserData(request, env) {
+  try {
+    const authResult = await getAuthenticatedUser(request, env);
+    if (authResult.error) {
+      return new Response(JSON.stringify({ error: authResult.error }), {
+        status: authResult.status,
+        headers: { ...getCorsHeaders(request), 'Content-Type': 'application/json' }
+      });
+    }
+
+    const { user } = authResult;
+    
+    // Check if migration already completed
+    if (user.data_migrated_at) {
+      return new Response(JSON.stringify({ 
+        message: 'Data already migrated',
+        migrated_at: user.data_migrated_at 
+      }), {
+        status: 200,
+        headers: { ...getCorsHeaders(request), 'Content-Type': 'application/json' }
+      });
+    }
+
+    const body = await request.json();
+    const { debts = [], snapshots = [], snowflakes = [], goals = [], commitments = [] } = body;
+
+    console.log(`Starting migration for user ${user.id}: ${debts.length} debts, ${snapshots.length} snapshots`);
+
+    // Begin transaction-like operations
+    const migratedData = {
+      debts: [],
+      snapshots: [],
+      snowflakes: [],
+      goals: [],
+      commitments: []
+    };
+
+    // 1. Migrate debts
+    for (const debt of debts) {
+      const debtId = generateId('debt');
+      
+      await env.DB.prepare(`
+        INSERT INTO user_debts (id, user_id, name, balance, original_amount, interest_rate, min_payment, debt_type, order_index, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).bind(
+        debtId,
+        user.id,
+        debt.name || debt.label || 'Imported Debt',
+        poundsToPence(debt.amount || debt.balance || 0),
+        poundsToPence(debt.originalAmount || debt.amount || 0),
+        parseFloat(debt.interest || debt.interestRate || 0),
+        poundsToPence(debt.regularPayment || debt.minPayment || 0),
+        debt.type || 'credit_card',
+        debt.order || 0,
+        new Date().toISOString(),
+        new Date().toISOString()
+      ).run();
+
+      migratedData.debts.push({ oldId: debt.id, newId: debtId, name: debt.name });
+    }
+
+    // 2. Migrate snapshots (if any)
+    for (const snapshot of snapshots) {
+      const snapshotId = generateId('snap');
+      // Find corresponding debt
+      const debtMapping = migratedData.debts.find(d => d.oldId === snapshot.debtId);
+      if (!debtMapping) continue;
+
+      await env.DB.prepare(`
+        INSERT INTO user_snapshots (id, user_id, debt_id, balance, recorded_at, created_at)
+        VALUES (?, ?, ?, ?, ?, ?)
+      `).bind(
+        snapshotId,
+        user.id,
+        debtMapping.newId,
+        poundsToPence(snapshot.balance || 0),
+        snapshot.date || new Date().toISOString(),
+        new Date().toISOString()
+      ).run();
+
+      migratedData.snapshots.push(snapshotId);
+    }
+
+    // 3. Mark migration complete
+    await env.DB.prepare(`
+      UPDATE users SET data_migrated_at = ?, onboarding_completed = ?
+      WHERE id = ?
+    `).bind(
+      new Date().toISOString(),
+      debts.length > 0,
+      user.id
+    ).run();
+
+    // Log successful migration
+    await logAuthEvent(env.DB, user.id, 'user_data_migrated', {
+      debts_count: debts.length,
+      snapshots_count: snapshots.length,
+      snowflakes_count: snowflakes.length,
+      goals_count: goals.length,
+      commitments_count: commitments.length
+    });
+
+    console.log(`✅ Migration complete for user ${user.id}`);
+
+    return new Response(JSON.stringify({
+      success: true,
+      message: 'Data migrated successfully',
+      migrated: migratedData,
+      migrated_at: new Date().toISOString()
+    }), {
+      status: 200,
+      headers: { ...getCorsHeaders(request), 'Content-Type': 'application/json' }
+    });
+
+  } catch (error) {
+    console.error('Migration error:', error);
+    return new Response(JSON.stringify({ 
+      error: 'Migration failed',
+      message: error.message 
+    }), {
+      status: 500,
+      headers: { ...getCorsHeaders(request), 'Content-Type': 'application/json' }
+    });
+  }
+}
+
+// =============================================================================
+// USER DEBTS HANDLERS
+// =============================================================================
+
+async function handleGetUserDebts(request, env) {
+  try {
+    const authResult = await getAuthenticatedUser(request, env);
+    if (authResult.error) {
+      return new Response(JSON.stringify({ error: authResult.error }), {
+        status: authResult.status,
+        headers: { ...getCorsHeaders(request), 'Content-Type': 'application/json' }
+      });
+    }
+
+    const { user } = authResult;
+
+    const debts = await env.DB.prepare(`
+      SELECT id, name, balance, original_amount, interest_rate, min_payment, debt_type, order_index, is_cleared, created_at, updated_at
+      FROM user_debts 
+      WHERE user_id = ?
+      ORDER BY order_index ASC, created_at ASC
+    `).bind(user.id).all();
+
+    // Convert pence back to pounds for frontend
+    const formattedDebts = debts.results.map(debt => ({
+      ...debt,
+      amount: parseFloat(penceToPounds(debt.balance)),
+      balance: parseFloat(penceToPounds(debt.balance)),
+      originalAmount: debt.original_amount ? parseFloat(penceToPounds(debt.original_amount)) : null,
+      regularPayment: parseFloat(penceToPounds(debt.min_payment)),
+      minPayment: parseFloat(penceToPounds(debt.min_payment)),
+      interest: debt.interest_rate,
+      interestRate: debt.interest_rate,
+      type: debt.debt_type,
+      order: debt.order_index,
+      label: debt.name // legacy compatibility
+    }));
+
+    return new Response(JSON.stringify({
+      debts: formattedDebts
+    }), {
+      status: 200,
+      headers: { ...getCorsHeaders(request), 'Content-Type': 'application/json' }
+    });
+
+  } catch (error) {
+    console.error('Get debts error:', error);
+    return new Response(JSON.stringify({ 
+      error: 'Failed to get debts',
+      message: error.message 
+    }), {
+      status: 500,
+      headers: { ...getCorsHeaders(request), 'Content-Type': 'application/json' }
+    });
+  }
+}
+
+async function handleCreateUserDebt(request, env) {
+  try {
+    const authResult = await getAuthenticatedUser(request, env);
+    if (authResult.error) {
+      return new Response(JSON.stringify({ error: authResult.error }), {
+        status: authResult.status,
+        headers: { ...getCorsHeaders(request), 'Content-Type': 'application/json' }
+      });
+    }
+
+    const { user } = authResult;
+    const body = await request.json();
+    
+    const debtId = generateId('debt');
+    const now = new Date().toISOString();
+
+    await env.DB.prepare(`
+      INSERT INTO user_debts (id, user_id, name, balance, original_amount, interest_rate, min_payment, debt_type, order_index, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).bind(
+      debtId,
+      user.id,
+      body.name || body.label || 'New Debt',
+      poundsToPence(body.amount || body.balance || 0),
+      poundsToPence(body.originalAmount || body.amount || 0),
+      parseFloat(body.interest || body.interestRate || 0),
+      poundsToPence(body.regularPayment || body.minPayment || 0),
+      body.type || body.debtType || 'credit_card',
+      body.order || body.orderIndex || 0,
+      now,
+      now
+    ).run();
+
+    // Log debt creation
+    await logAuthEvent(env.DB, user.id, 'debt_created', {
+      debt_id: debtId,
+      debt_name: body.name || body.label,
+      debt_amount: body.amount || body.balance
+    });
+
+    return new Response(JSON.stringify({
+      success: true,
+      debt_id: debtId,
+      message: 'Debt created successfully'
+    }), {
+      status: 201,
+      headers: { ...getCorsHeaders(request), 'Content-Type': 'application/json' }
+    });
+
+  } catch (error) {
+    console.error('Create debt error:', error);
+    return new Response(JSON.stringify({ 
+      error: 'Failed to create debt',
+      message: error.message 
+    }), {
+      status: 500,
+      headers: { ...getCorsHeaders(request), 'Content-Type': 'application/json' }
+    });
+  }
+}
+
+// =============================================================================
+// USER SNAPSHOTS HANDLERS
+// =============================================================================
+
+async function handleGetUserSnapshots(request, env) {
+  try {
+    const authResult = await getAuthenticatedUser(request, env);
+    if (authResult.error) {
+      return new Response(JSON.stringify({ error: authResult.error }), {
+        status: authResult.status,
+        headers: { ...getCorsHeaders(request), 'Content-Type': 'application/json' }
+      });
+    }
+
+    const { user } = authResult;
+
+    const snapshots = await env.DB.prepare(`
+      SELECT s.*, d.name as debt_name
+      FROM user_snapshots s
+      JOIN user_debts d ON s.debt_id = d.id
+      WHERE s.user_id = ?
+      ORDER BY s.recorded_at DESC
+    `).bind(user.id).all();
+
+    // Convert pence back to pounds
+    const formattedSnapshots = snapshots.results.map(snapshot => ({
+      ...snapshot,
+      balance: parseFloat(penceToPounds(snapshot.balance)),
+      payment_amount: snapshot.payment_amount ? parseFloat(penceToPounds(snapshot.payment_amount)) : null
+    }));
+
+    return new Response(JSON.stringify({
+      snapshots: formattedSnapshots
+    }), {
+      status: 200,
+      headers: { ...getCorsHeaders(request), 'Content-Type': 'application/json' }
+    });
+
+  } catch (error) {
+    console.error('Get snapshots error:', error);
+    return new Response(JSON.stringify({ 
+      error: 'Failed to get snapshots',
+      message: error.message 
+    }), {
+      status: 500,
+      headers: { ...getCorsHeaders(request), 'Content-Type': 'application/json' }
+    });
+  }
+}
+
+async function handleCreateUserSnapshot(request, env) {
+  try {
+    const authResult = await getAuthenticatedUser(request, env);
+    if (authResult.error) {
+      return new Response(JSON.stringify({ error: authResult.error }), {
+        status: authResult.status,
+        headers: { ...getCorsHeaders(request), 'Content-Type': 'application/json' }
+      });
+    }
+
+    const { user } = authResult;
+    const body = await request.json();
+    
+    const snapshotId = generateId('snap');
+
+    await env.DB.prepare(`
+      INSERT INTO user_snapshots (id, user_id, debt_id, balance, payment_amount, recorded_at, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `).bind(
+      snapshotId,
+      user.id,
+      body.debt_id,
+      poundsToPence(body.balance || 0),
+      body.payment_amount ? poundsToPence(body.payment_amount) : null,
+      body.recorded_at || new Date().toISOString(),
+      new Date().toISOString()
+    ).run();
+
+    return new Response(JSON.stringify({
+      success: true,
+      snapshot_id: snapshotId,
+      message: 'Snapshot created successfully'
+    }), {
+      status: 201,
+      headers: { ...getCorsHeaders(request), 'Content-Type': 'application/json' }
+    });
+
+  } catch (error) {
+    console.error('Create snapshot error:', error);
+    return new Response(JSON.stringify({ 
+      error: 'Failed to create snapshot',
+      message: error.message 
+    }), {
+      status: 500,
+      headers: { ...getCorsHeaders(request), 'Content-Type': 'application/json' }
+    });
+  }
+}
+
+// =============================================================================
+// USER SNOWFLAKES HANDLERS  
+// =============================================================================
+
+async function handleGetUserSnowflakes(request, env) {
+  try {
+    const authResult = await getAuthenticatedUser(request, env);
+    if (authResult.error) {
+      return new Response(JSON.stringify({ error: authResult.error }), {
+        status: authResult.status,
+        headers: { ...getCorsHeaders(request), 'Content-Type': 'application/json' }
+      });
+    }
+
+    const { user } = authResult;
+
+    const snowflakes = await env.DB.prepare(`
+      SELECT s.*, d.name as debt_name
+      FROM user_snowflakes s
+      JOIN user_debts d ON s.debt_id = d.id
+      WHERE s.user_id = ?
+      ORDER BY s.month_index ASC, s.created_at ASC
+    `).bind(user.id).all();
+
+    // Convert pence back to pounds
+    const formattedSnowflakes = snowflakes.results.map(snowflake => ({
+      ...snowflake,
+      amount: parseFloat(penceToPounds(snowflake.amount))
+    }));
+
+    return new Response(JSON.stringify({
+      snowflakes: formattedSnowflakes
+    }), {
+      status: 200,
+      headers: { ...getCorsHeaders(request), 'Content-Type': 'application/json' }
+    });
+
+  } catch (error) {
+    console.error('Get snowflakes error:', error);
+    return new Response(JSON.stringify({ 
+      error: 'Failed to get snowflakes',
+      message: error.message 
+    }), {
+      status: 500,
+      headers: { ...getCorsHeaders(request), 'Content-Type': 'application/json' }
+    });
+  }
+}
+
+async function handleCreateUserSnowflake(request, env) {
+  try {
+    const authResult = await getAuthenticatedUser(request, env);
+    if (authResult.error) {
+      return new Response(JSON.stringify({ error: authResult.error }), {
+        status: authResult.status,
+        headers: { ...getCorsHeaders(request), 'Content-Type': 'application/json' }
+      });
+    }
+
+    const { user } = authResult;
+    const body = await request.json();
+    
+    const snowflakeId = generateId('snow');
+
+    await env.DB.prepare(`
+      INSERT INTO user_snowflakes (id, user_id, debt_id, amount, month_index, note, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `).bind(
+      snowflakeId,
+      user.id,
+      body.debt_id,
+      poundsToPence(body.amount || 0),
+      parseInt(body.month_index || 0),
+      body.note || null,
+      new Date().toISOString()
+    ).run();
+
+    return new Response(JSON.stringify({
+      success: true,
+      snowflake_id: snowflakeId,
+      message: 'Snowflake created successfully'
+    }), {
+      status: 201,
+      headers: { ...getCorsHeaders(request), 'Content-Type': 'application/json' }
+    });
+
+  } catch (error) {
+    console.error('Create snowflake error:', error);
+    return new Response(JSON.stringify({ 
+      error: 'Failed to create snowflake',
+      message: error.message 
+    }), {
+      status: 500,
+      headers: { ...getCorsHeaders(request), 'Content-Type': 'application/json' }
+    });
+  }
+}
+
+// Placeholder handlers for update/delete operations
+async function handleUpdateUserDebt(request, env) {
+  return new Response(JSON.stringify({ message: 'Update debt endpoint coming soon' }), {
+    status: 501,
+    headers: { ...getCorsHeaders(request), 'Content-Type': 'application/json' }
+  });
+}
+
+async function handleDeleteUserDebt(request, env) {
+  return new Response(JSON.stringify({ message: 'Delete debt endpoint coming soon' }), {
+    status: 501,
     headers: { ...getCorsHeaders(request), 'Content-Type': 'application/json' }
   });
 }

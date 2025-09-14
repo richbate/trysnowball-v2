@@ -1,0 +1,13 @@
+{
+  "timestamp": "2025-09-06T10:30:01.383Z",
+  "tests": {
+    "total": 0,
+    "passed": 0,
+    "failed": 0,
+    "skipped": 0,
+    "suites": []
+  },
+  "coverage": null,
+  "status": "passed",
+  "deployReady": true
+}

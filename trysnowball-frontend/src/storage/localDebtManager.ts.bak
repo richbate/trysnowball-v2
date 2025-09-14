@@ -1,0 +1,447 @@
+// src/storage/localDebtManager.ts
+// DEV-ONLY Local-first debt manager using IndexedDB (no network)
+// - Stores money in pence, APR in basis points
+// - Exposes pounds to the UI/tests
+// - Atomic payment apply: decrement debt + insert payment + refresh monthly snapshot
+// - Unique composite index prevents duplicate identical payments
+
+if (process.env.NODE_ENV === 'production') {
+ throw new Error('localDebtManager is dev-only - use localDebtStore.ts in production');
+}
+
+// -----------------------------
+// Types
+// -----------------------------
+type ID = string;
+
+type DebtRow = {
+ id: ID;
+ user_id: string;
+ name: string;
+ balance_cents: number;
+ apr: number;
+ min_payment_pennies: number;
+ order_index: number;
+ created_at: string;
+ updated_at: string;
+};
+
+type PaymentRow = {
+ id: ID;
+ user_id: string;
+ debt_id: ID;
+ amount_pennies: number;
+ principal_cents: number;
+ interest_cents: number;
+ occurred_at: string;
+ created_at: string;
+};
+
+type SnapshotRow = {
+ id: string; // `${user_id}|monthly|YYYY-MM-01`
+ user_id: string;
+ period: 'monthly';
+ as_of_date: string; // YYYY-MM-01
+ total_balance_cents: number;
+ created_at: string;
+};
+
+// -----------------------------
+// Config / utils
+// -----------------------------
+const DB_NAME = 'trysnowball';
+const DB_VERSION = 3; // bump when adding indexes/stores
+const USER_ID = 'dev_user'; // local-first tests use a stable dev user
+
+function nowISO() {
+ return new Date().toISOString();
+}
+
+function poundsToCents(v: number) {
+ return Math.round((v ?? 0) * 100);
+}
+
+function centsToPounds(v: number) {
+ return (v ?? 0) / 100;
+}
+
+function interestToBps(v: number) {
+ // 19.99% -> 1999 bps
+ return Math.round((v ?? 0) * 100);
+}
+
+function monthStart(iso?: string) {
+ const d = iso ? new Date(iso) : new Date();
+ const first = new Date(d.getFullYear(), d.getMonth(), 1);
+ return first.toISOString().slice(0, 10); // YYYY-MM-01
+}
+
+function snapshotId(userId: string, asOf: string) {
+ return `${userId}|monthly|${asOf}`;
+}
+
+// -----------------------------
+// IndexedDB open/create
+// -----------------------------
+async function openDB(): Promise<IDBDatabase> {
+ return await new Promise((resolve, reject) => {
+  const req = indexedDB.open(DB_NAME, DB_VERSION);
+
+  req.onupgradeneeded = () => {
+   const db = req.result;
+
+   // debts
+   const debts =
+    db.objectStoreNames.contains('debts')
+     ? req.transaction!.objectStore('debts')
+     : db.createObjectStore('debts', { keyPath: 'id' });
+   if (!debts.indexNames.contains('byUser')) debts.createIndex('byUser', 'user_id');
+
+   // payments
+   const pays =
+    db.objectStoreNames.contains('payments')
+     ? req.transaction!.objectStore('payments')
+     : db.createObjectStore('payments', { keyPath: 'id' });
+   if (!pays.indexNames.contains('byUserDate'))
+    pays.createIndex('byUserDate', ['user_id', 'occurred_at']);
+   // prevent duplicate identical entries (idempotency for retries)
+   if (!pays.indexNames.contains('uniqUserDebtDateAmt'))
+    pays.createIndex(
+     'uniqUserDebtDateAmt',
+     ['user_id', 'debt_id', 'occurred_at', 'amount_pennies'],
+     { unique: true }
+    );
+
+   // snapshots
+   const snaps =
+    db.objectStoreNames.contains('snapshots')
+     ? req.transaction!.objectStore('snapshots')
+     : db.createObjectStore('snapshots', { keyPath: 'id' });
+   if (!snaps.indexNames.contains('byUserPeriodDate'))
+    snaps.createIndex('byUserPeriodDate', ['user_id', 'period', 'as_of_date'], { unique: true });
+  };
+
+  req.onsuccess = () => resolve(req.result);
+  req.onerror = () => reject(req.error);
+ });
+}
+
+// Convenient tx helpers
+function tx(db: IDBDatabase, stores: string[], mode: IDBTransactionMode) {
+ return db.transaction(stores, mode);
+}
+
+function idbPromise<T = void>(fn: (resolve: (v: T) => void, reject: (e: any) => void) => void) {
+ return new Promise<T>((resolve, reject) => fn(resolve, reject));
+}
+
+// -----------------------------
+// Core repo ops
+// -----------------------------
+async function putDebt(row: DebtRow) {
+ const db = await openDB();
+ const t = tx(db, ['debts'], 'readwrite');
+ t.objectStore('debts').put(row);
+ return idbPromise<void>((res, rej) => {
+  t.oncomplete = () => res();
+  t.onerror = () => rej(t.error);
+ });
+}
+
+async function getDebtsForUser(userId: string): Promise<DebtRow[]> {
+ const db = await openDB();
+ const idx = tx(db, ['debts'], 'readonly').objectStore('debts').index('byUser');
+ return await idbPromise<DebtRow[]>((res, rej) => {
+  const out: DebtRow[] = [];
+  const req = idx.openCursor(IDBKeyRange.only(userId));
+  req.onsuccess = () => {
+   const cur = req.result;
+   if (!cur) return res(out);
+   out.push(cur.value as DebtRow);
+   cur.continue();
+  };
+  req.onerror = () => rej(req.error);
+ });
+}
+
+async function clearStore(name: string) {
+ const db = await openDB();
+ const t = tx(db, [name], 'readwrite');
+ t.objectStore(name).clear();
+ return idbPromise<void>((res, rej) => {
+  t.oncomplete = () => res();
+  t.onerror = () => rej(t.error);
+ });
+}
+
+async function updateOrder(userId: string, orderedIds: string[]) {
+ const db = await openDB();
+ const t = tx(db, ['debts'], 'readwrite');
+ const store = t.objectStore('debts');
+
+ await idbPromise<void>((res, rej) => {
+  let i = 0;
+  const step = () => {
+   if (i >= orderedIds.length) return;
+   const id = orderedIds[i];
+   const getReq = store.get(id);
+   getReq.onsuccess = () => {
+    const row = getReq.result as DebtRow | undefined;
+    if (row && row.user_id === userId) {
+     row.order_index = i + 1;
+     row.updated_at = nowISO();
+     store.put(row);
+    }
+    i++;
+    step();
+   };
+   getReq.onerror = () => {
+    i++;
+    step();
+   };
+  };
+  step();
+  t.oncomplete = () => res();
+  t.onerror = () => rej(t.error);
+ });
+}
+
+// -----------------------------
+// Payment (atomic) + snapshots
+// -----------------------------
+async function applyPaymentAtomic(params: {
+ user_id: string;
+ debt_id: string;
+ amount_pennies: number;
+ occurred_at?: string;
+}): Promise<string> {
+ const { user_id, debt_id } = params;
+ if (!user_id) throw new Error('applyPayment: user_id required');
+ if (!debt_id) throw new Error('applyPayment: debt_id required');
+ const amount_pennies = params.amount_pennies | 0;
+ if (amount_pennies <= 0) throw new Error('applyPayment: amount_pennies must be > 0');
+ const occurred_at = params.occurred_at || nowISO();
+ const paymentId = crypto.randomUUID();
+ const when = nowISO();
+
+ const db = await openDB();
+ await idbPromise<void>((resolve, reject) => {
+  const t = tx(db, ['debts', 'payments'], 'readwrite');
+  const debts = t.objectStore('debts');
+  const pays = t.objectStore('payments');
+
+  // 1) fetch debt
+  const getReq = debts.get(debt_id);
+  getReq.onsuccess = () => {
+   const debt = getReq.result as DebtRow | undefined;
+   if (!debt || debt.user_id !== user_id) {
+    t.abort();
+    return reject(new Error('Debt not found for user'));
+   }
+   // 2) decrement balance (clamped)
+   debt.amount_pennies_cents = Math.max(0, (debt.amount_pennies_cents | 0) - amount_pennies);
+   debt.updated_at = when;
+   debts.put(debt);
+
+   // 3) insert payment (duplicate-protected by index)
+   const p: PaymentRow = {
+    id: paymentId,
+    user_id,
+    debt_id,
+    amount_pennies,
+    principal_cents: amount_pennies,
+    interest_cents: 0,
+    occurred_at,
+    created_at: when,
+   };
+
+   // try add; if violates unique composite, swallow (idempotent)
+   const addReq = pays.add(p);
+   addReq.onerror = () => {
+    // If it's a uniqueness violation, ignore; else bubble up
+    // (Unfortunately IndexedDB doesn't standardize error codes; best-effort)
+    resolve();
+   };
+  };
+
+  t.oncomplete = () => resolve();
+  t.onerror = () => reject(t.error);
+ });
+
+ // 4) refresh snapshot for the month of the payment date
+ await upsertMonthlySnapshot(user_id, occurred_at);
+ return paymentId;
+}
+
+async function upsertMonthlySnapshot(userId: string, anchorISO?: string) {
+ const asOf = monthStart(anchorISO);
+ const id = snapshotId(userId, asOf);
+
+ const total = await getTotalBalanceInternal(userId); // cents
+ const db = await openDB();
+ const t = tx(db, ['snapshots'], 'readwrite');
+ t.objectStore('snapshots').put({
+  id,
+  user_id: userId,
+  period: 'monthly',
+  as_of_date: asOf,
+  total_balance_cents: total,
+  created_at: nowISO(),
+ } as SnapshotRow);
+ return idbPromise<void>((res, rej) => {
+  t.oncomplete = () => res();
+  t.onerror = () => rej(t.error);
+ });
+}
+
+// -----------------------------
+// Totals / selectors
+// -----------------------------
+async function getTotalBalanceInternal(userId: string): Promise<number> {
+ const rows = await getDebtsForUser(userId);
+ return rows.reduce((s, d) => s + (d.balance_cents | 0), 0);
+}
+
+async function getTotalMinPaymentsInternal(userId: string): Promise<number> {
+ const rows = await getDebtsForUser(userId);
+ return rows.reduce((s, d) => s + (d.min_payment_pennies | 0), 0);
+}
+
+async function getPaymentsInternal(userId: string): Promise<PaymentRow[]> {
+ const db = await openDB();
+ const idx = tx(db, ['payments'], 'readonly').objectStore('payments').index('byUserDate');
+ return await idbPromise<PaymentRow[]>((res, rej) => {
+  const out: PaymentRow[] = [];
+  const lower = [userId, '0000-00-00T00:00:00.000Z'];
+  const upper = [userId, '9999-12-31T23:59:59.999Z'];
+  const req = idx.openCursor(IDBKeyRange.bound(lower, upper));
+  req.onsuccess = () => {
+   const cur = req.result;
+   if (!cur) return res(out);
+   out.push(cur.value as PaymentRow);
+   cur.continue();
+  };
+  req.onerror = () => rej(req.error);
+ });
+}
+
+async function getSnapshotsInternal(userId: string): Promise<SnapshotRow[]> {
+ const db = await openDB();
+ const idx = tx(db, ['snapshots'], 'readonly').objectStore('snapshots').index('byUserPeriodDate');
+ return await idbPromise<SnapshotRow[]>((res, rej) => {
+  const out: SnapshotRow[] = [];
+  const lower = [userId, 'monthly', '0000-00-01'];
+  const upper = [userId, 'monthly', '9999-12-31'];
+  const req = idx.openCursor(IDBKeyRange.bound(lower, upper));
+  req.onsuccess = () => {
+   const cur = req.result;
+   if (!cur) return res(out);
+   out.push(cur.value as SnapshotRow);
+   cur.continue();
+  };
+  req.onerror = () => rej(req.error);
+ });
+}
+
+// -----------------------------
+// Public API (as used by LocalTest.jsx)
+// -----------------------------
+export const localDebtManager = {
+ // Clear everything (used by test setup)
+ async clearAllData() {
+  await clearStore('debts');
+  await clearStore('payments');
+  await clearStore('snapshots');
+ },
+
+ // Add a debt; returns its ID
+ async addDebt(input: {
+  name: string;
+  balance: number;   // pounds
+  interest: number;  // percent e.g. 19.99
+  minPayment: number; // pounds
+  order: number;
+ }): Promise<string> {
+  const id = crypto.randomUUID();
+  const row: DebtRow = {
+   id,
+   user_id: USER_ID,
+   name: input.name,
+   balance_cents: poundsToCents(input.balance),
+   apr: interestToBps(input.interest),
+   min_payment_pennies: poundsToCents(input.minPayment),
+   order_index: input.order ?? 1,
+   created_at: nowISO(),
+   updated_at: nowISO(),
+  };
+  await putDebt(row);
+  return id;
+ },
+
+ // Get debts mapped to UI/test shape
+ async getDebts(): Promise<
+  { id: string; name: string; balance: number; interest: number; minPayment: number; order: number }[]
+ > {
+  const rows = await getDebtsForUser(USER_ID);
+  rows.sort((a, b) => a.order_index - b.order_index || a.created_at.localeCompare(b.created_at));
+  return rows.map((d) => ({
+   id: d.id,
+   name: d.name,
+   balance: centsToPounds(d.balance_cents),
+   interest: d.apr / 100,
+   minPayment: centsToPounds(d.min_payment_pennies),
+   order: d.order_index,
+  }));
+ },
+
+ // Totals in pounds (as expected by tests)
+ async getTotalBalance(): Promise<number> {
+  const cents = await getTotalBalanceInternal(USER_ID);
+  return centsToPounds(cents);
+ },
+
+ async getTotalMinPayments(): Promise<number> {
+  const cents = await getTotalMinPaymentsInternal(USER_ID);
+  return centsToPounds(cents);
+ },
+
+ // Atomic record payment: returns payment ID
+ async recordPayment(debtId: string, amountPounds: number, occurredAtISO?: string): Promise<string> {
+  if (!debtId) throw new Error('recordPayment: debtId is required');
+  if (!(amountPounds > 0)) throw new Error('recordPayment: amount must be > 0');
+  const id = await applyPaymentAtomic({
+   user_id: USER_ID,
+   debt_id: debtId,
+   amount_pennies: poundsToCents(amountPounds),
+   occurred_at: occurredAtISO,
+  });
+  return id;
+ },
+
+ // Payment history for user (mapped to pounds for test expectations)
+ async getPaymentHistory(): Promise<{ id: string; debtId: string; amount: number; occurred_at: string }[]> {
+  const rows = await getPaymentsInternal(USER_ID);
+  return rows.map((p) => ({
+   id: p.id,
+   debtId: p.debt_id,
+   amount: centsToPounds(p.amount_pennies),
+   occurred_at: p.occurred_at,
+  }));
+ },
+
+ // Reorder debts: accepts array of IDs in the desired order
+ async reorderDebts(orderedIds: string[]) {
+  await updateOrder(USER_ID, orderedIds);
+ },
+
+ // Snapshots (current month by default)
+ async createMonthlySnapshot(anchorISO?: string) {
+  await upsertMonthlySnapshot(USER_ID, anchorISO);
+ },
+
+ async getProgressHistory(): Promise<{ date: string; total: number }[]> {
+  const snaps = await getSnapshotsInternal(USER_ID);
+  snaps.sort((a, b) => a.as_of_date.localeCompare(b.as_of_date));
+  return snaps.map((s) => ({ date: s.as_of_date, total: centsToPounds(s.total_balance_cents) }));
+ },
+};

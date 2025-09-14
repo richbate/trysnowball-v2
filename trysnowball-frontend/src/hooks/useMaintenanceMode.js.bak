@@ -1,0 +1,89 @@
+import { useState, useEffect } from 'react';
+import { FLAGS } from '../config/flags';
+
+/**
+ * Hook for maintenance mode that checks both static config and PostHog feature flags
+ * Priority order:
+ * 1. PostHog remote flag (if available)
+ * 2. Static config flag
+ * 3. Environment variable
+ */
+export const useMaintenanceMode = () => {
+ const [isMaintenanceMode, setIsMaintenanceMode] = useState(FLAGS.MAINTENANCE_MODE);
+ const [loading, setLoading] = useState(true);
+
+ useEffect(() => {
+  const checkMaintenanceMode = async () => {
+   try {
+    console.log('🔧 Checking maintenance mode...');
+    
+    // Check environment variable first (highest priority for emergency)
+    if (process.env.REACT_APP_MAINTENANCE_MODE === 'true') {
+     console.log('🔧 Maintenance mode enabled via environment variable');
+     setIsMaintenanceMode(true);
+     setLoading(false);
+     return;
+    }
+
+    // Check if PostHog is available
+    if (window.posthog && window.posthog.isFeatureEnabled) {
+     console.log('🔧 PostHog is available, checking feature flag...');
+     // Check PostHog feature flag
+     const posthogFlag = window.posthog.isFeatureEnabled('maintenance-mode');
+     console.log('🔧 PostHog maintenance-mode flag:', posthogFlag);
+     
+     if (posthogFlag !== undefined) {
+      console.log('🔧 Using PostHog flag value:', posthogFlag);
+      setIsMaintenanceMode(posthogFlag);
+      setLoading(false);
+      return;
+     }
+    } else {
+     console.log('🔧 PostHog not available yet');
+    }
+
+    // Fall back to static config
+    console.log('🔧 Falling back to static config:', FLAGS.MAINTENANCE_MODE);
+    setIsMaintenanceMode(FLAGS.MAINTENANCE_MODE);
+    setLoading(false);
+   } catch (error) {
+    console.error('Error checking maintenance mode:', error);
+    // Fall back to static config on error
+    setIsMaintenanceMode(FLAGS.MAINTENANCE_MODE);
+    setLoading(false);
+   }
+  };
+
+  // Check immediately
+  checkMaintenanceMode();
+
+  // Also listen for PostHog initialization
+  let checkCount = 0;
+  const checkInterval = setInterval(() => {
+   checkCount++;
+   console.log(`🔧 Checking for PostHog (attempt ${checkCount})...`);
+   
+   if (window.posthog && window.posthog.isFeatureEnabled) {
+    console.log('🔧 PostHog now available, rechecking maintenance mode');
+    checkMaintenanceMode();
+    clearInterval(checkInterval);
+   }
+  }, 1000);
+
+  // Clean up after 5 seconds max (reduced from 10s)
+  const timeout = setTimeout(() => {
+   console.log('🔧 PostHog unavailable, using static config');
+   clearInterval(checkInterval);
+   setLoading(false);
+  }, 5000);
+
+  return () => {
+   clearInterval(checkInterval);
+   clearTimeout(timeout);
+  };
+ }, []);
+
+ return { isMaintenanceMode, loading };
+};
+
+export default useMaintenanceMode;

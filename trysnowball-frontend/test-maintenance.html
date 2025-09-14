@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Maintenance Mode</title>
+</head>
+<body>
+    <h1>PostHog & Maintenance Mode Test</h1>
+    
+    <button onclick="testPostHog()">Test PostHog Connection</button>
+    <button onclick="enableMaintenanceMode()">Enable Maintenance Mode (PostHog)</button>
+    <button onclick="checkMaintenanceFlag()">Check Maintenance Flag</button>
+    <button onclick="forceMaintenanceMode()">🔧 FORCE Maintenance Mode</button>
+    <button onclick="clearMaintenanceMode()">🔧 DISABLE Maintenance Mode</button>
+    
+    <div id="output" style="margin-top: 20px; padding: 10px; background: #f5f5f5; white-space: pre-wrap;"></div>
+
+    <script>
+        let output = document.getElementById('output');
+        
+        function log(message) {
+            output.textContent += new Date().toLocaleTimeString() + ': ' + message + '\n';
+        }
+        
+        function testPostHog() {
+            log('Testing PostHog connection...');
+            
+            if (window.posthog) {
+                log('✅ PostHog is available');
+                log('PostHog config: ' + JSON.stringify(window.posthog.config, null, 2));
+                
+                // Test capture
+                window.posthog.capture('maintenance_test', {
+                    test: true,
+                    timestamp: Date.now()
+                });
+                log('📊 Test event captured');
+                
+            } else {
+                log('❌ PostHog not available');
+            }
+        }
+        
+        function enableMaintenanceMode() {
+            log('Setting maintenance-mode feature flag...');
+            
+            if (window.posthog && window.posthog.featureFlags) {
+                // Note: You need to set this in PostHog dashboard
+                log('⚠️  Feature flags must be set in PostHog dashboard');
+                log('Go to: https://app.posthog.com/feature_flags');
+                log('Create flag: maintenance-mode');
+                log('Set to: true for your user');
+            } else {
+                log('❌ PostHog feature flags not available');
+            }
+        }
+        
+        function checkMaintenanceFlag() {
+            log('Checking maintenance-mode flag...');
+            
+            if (window.posthog && window.posthog.isFeatureEnabled) {
+                const flag = window.posthog.isFeatureEnabled('maintenance-mode');
+                log('maintenance-mode flag: ' + flag);
+                
+                if (flag === true) {
+                    log('🔧 Maintenance mode should be active!');
+                } else if (flag === false) {
+                    log('✅ Maintenance mode is disabled');
+                } else {
+                    log('❓ Flag not set or not loaded yet');
+                }
+                
+            } else {
+                log('❌ PostHog not available for feature flags');
+            }
+        }
+        
+        function forceMaintenanceMode() {
+            log('🔧 FORCING maintenance mode ON...');
+            
+            if (window._forceMaintenanceMode) {
+                window._forceMaintenanceMode(true);
+                log('✅ Maintenance mode FORCED ON');
+                log('🔄 Page should redirect to maintenance page now!');
+            } else {
+                log('❌ Debug function not available (not in development mode?)');
+            }
+        }
+        
+        function clearMaintenanceMode() {
+            log('🔧 FORCING maintenance mode OFF...');
+            
+            if (window._forceMaintenanceMode) {
+                window._forceMaintenanceMode(false);
+                log('✅ Maintenance mode FORCED OFF');
+                log('🔄 Page should show normal app now!');
+            } else {
+                log('❌ Debug function not available (not in development mode?)');
+            }
+        }
+        
+        // Auto-run tests
+        setTimeout(() => {
+            log('=== AUTO TESTS ===');
+            testPostHog();
+            checkMaintenanceFlag();
+        }, 1000);
+    </script>
+</body>
+</html>

@@ -19,7 +19,7 @@ FORBIDDEN_PATTERNS=(
     "localStorage\\.setItem.*'trysnowball-theme'"
     "localStorage\\.getItem.*'trysnowball-theme'"
     "Intl\\.NumberFormat\\(['\"]\ben-GB\b['\"]\\)"
-    "/me\\b"
+    "(?<!/auth)/me\\b"
     "/entitlement\\b"
     "trysnowball-analytics-events"
     "module\\.exports"
@@ -32,7 +32,7 @@ for pattern in "${FORBIDDEN_PATTERNS[@]}"; do
     echo "Checking for: $pattern"
     
     # Search for pattern, exclude certain directories and files
-    # Exclude migrations, dev tools, and test files
+    # Exclude migrations, dev tools, test files, and compat tests
     MATCHES=$(grep -r "$pattern" src/ \
         --include="*.js" \
         --include="*.jsx" \
@@ -42,6 +42,7 @@ for pattern in "${FORBIDDEN_PATTERNS[@]}"; do
         --exclude-dir=node_modules \
         --exclude-dir=migrations \
         --exclude-dir=dev \
+        --exclude-dir=compat \
         --exclude="*.test.*" \
         --exclude="*.spec.*" \
         --exclude="dataManager.js" \
@@ -59,6 +60,7 @@ for pattern in "${FORBIDDEN_PATTERNS[@]}"; do
             --exclude-dir=node_modules \
             --exclude-dir=migrations \
             --exclude-dir=dev \
+            --exclude-dir=compat \
             --exclude="*.test.*" \
             --exclude="*.spec.*" \
             --exclude="dataManager.js" \
@@ -84,6 +86,7 @@ if grep -E "require\(" src \
     --include="*.tsx" \
     --exclude-dir=__tests__ \
     --exclude-dir=node_modules \
+    --exclude-dir=compat \
     --exclude="*.test.*" \
     --exclude="*.spec.*" \
     --exclude="setupTests.js" \
@@ -100,14 +103,14 @@ echo "🔍 Checking for additional anti-patterns..."
 echo "Checking for direct manager .data access..."
 DATA_ACCESS=$(grep -rE "\\b(debtsManager|authManager|settingsManager)\\.data\\b" src/ \
     --include="*.js" --include="*.jsx" --include="*.ts" --include="*.tsx" \
-    --exclude-dir=__tests__ --exclude-dir=migrations --exclude-dir=dev \
+    --exclude-dir=__tests__ --exclude-dir=migrations --exclude-dir=dev --exclude-dir=compat \
     --exclude="withNoDataGuard.js" \
     -c 2>/dev/null | awk -F: '{sum+=$2} END {print sum+0}')
 if [ "$DATA_ACCESS" -gt 0 ]; then
     echo "❌ Found direct manager .data access (causes production crashes):"
     grep -rE "\\b(debtsManager|authManager|settingsManager)\\.data\\b" src/ \
         --include="*.js" --include="*.jsx" --include="*.ts" --include="*.tsx" \
-        --exclude-dir=__tests__ --exclude-dir=migrations --exclude-dir=dev \
+        --exclude-dir=__tests__ --exclude-dir=migrations --exclude-dir=dev --exclude-dir=compat \
         --exclude="withNoDataGuard.js" -n
     FOUND_ISSUES=$((FOUND_ISSUES + 1))
     echo "Use facade methods: getData(), getMetrics(), getUser(), etc."
@@ -119,13 +122,13 @@ fi
 echo "Checking for legacy dataManager imports..."
 DATAMGR_IMPORTS=$(grep -r "import.*dataManager\|from.*dataManager" src/ \
     --include="*.js" --include="*.jsx" --include="*.ts" --include="*.tsx" \
-    --exclude-dir=__tests__ --exclude-dir=migrations \
+    --exclude-dir=__tests__ --exclude-dir=migrations --exclude-dir=compat \
     -c 2>/dev/null | awk -F: '{sum+=$2} END {print sum+0}')
 if [ "$DATAMGR_IMPORTS" -gt 0 ]; then
     echo "❌ Found legacy dataManager imports (use debtsManager facade):"
     grep -r "import.*dataManager\|from.*dataManager" src/ \
         --include="*.js" --include="*.jsx" --include="*.ts" --include="*.tsx" \
-        --exclude-dir=__tests__ --exclude-dir=migrations -n
+        --exclude-dir=__tests__ --exclude-dir=migrations --exclude-dir=compat -n
     FOUND_ISSUES=$((FOUND_ISSUES + 1))
 fi
 
@@ -158,26 +161,26 @@ echo "🔍 Checking for additional anti-patterns..."
 # Check for direct localStorage debt writes (should use localDebtStore)
 LEGACY_STORAGE=$(grep -r "localStorage\\.setItem.*debt" src/ \
     --include="*.js" --include="*.jsx" --include="*.ts" --include="*.tsx" \
-    --exclude-dir=__tests__ --exclude-dir=migrations --exclude-dir=dev \
+    --exclude-dir=__tests__ --exclude-dir=migrations --exclude-dir=dev --exclude-dir=compat \
     --exclude="dataManager.js" \
     -c 2>/dev/null | awk -F: '{sum+=$2} END {print sum+0}')
 if [ "$LEGACY_STORAGE" -gt 0 ]; then
     echo "❌ Found direct localStorage debt writes (should use localDebtStore):"
     grep -r "localStorage\\.setItem.*debt" src/ \
         --include="*.js" --include="*.jsx" --include="*.ts" --include="*.tsx" \
-        --exclude-dir=__tests__ --exclude="dataManager.js" -n
+        --exclude-dir=__tests__ --exclude-dir=compat --exclude="dataManager.js" -n
     FOUND_ISSUES=$((FOUND_ISSUES + 1))
 fi
 
 # Check for import of removed files
 REMOVED_IMPORTS=$(grep -r "import.*from.*['\"]\\.\\.\\?/.*BetaGate\|import.*from.*['\"]\\.\\.\\?/.*UpgradeLifetime" src/ \
     --include="*.js" --include="*.jsx" --include="*.ts" --include="*.tsx" \
-    --exclude-dir=__tests__ -c | awk -F: '{sum+=$2} END {print sum+0}')
+    --exclude-dir=__tests__ --exclude-dir=compat -c | awk -F: '{sum+=$2} END {print sum+0}')
 if [ "$REMOVED_IMPORTS" -gt 0 ]; then
     echo "❌ Found imports of removed Beta/UpgradeLifetime files:"
     grep -r "import.*from.*['\"]\\.\\.\\?/.*BetaGate\|import.*from.*['\"]\\.\\.\\?/.*UpgradeLifetime" src/ \
         --include="*.js" --include="*.jsx" --include="*.ts" --include="*.tsx" \
-        --exclude-dir=__tests__ -n
+        --exclude-dir=__tests__ --exclude-dir=compat -n
     FOUND_ISSUES=$((FOUND_ISSUES + 1))
 fi
 

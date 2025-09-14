@@ -2,6 +2,29 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Global theme application */
+@layer base {
+  html {
+    @apply bg-gradient-to-br from-primary via-accent to-primary transition-colors;
+  }
+  
+  body {
+    @apply bg-gradient-to-br from-primary via-accent to-primary text-text font-sans m-0 p-0;
+  }
+  
+  /* Hide number input spinners across all browsers */
+  input[type="number"]::-webkit-inner-spin-button,
+  input[type="number"]::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  
+  input[type="number"] {
+    -moz-appearance: textfield;
+    appearance: textfield;
+  }
+}
+
 /* Modal visibility guarantees (z-index / portal) */
 #modal-root, [role="dialog"], .DialogContent, .modal, [data-test="add-debt-modal"] {
   z-index: 99999 !important;
@@ -39,304 +62,150 @@
   }
 }
 
-/* Dark theme skeleton */
-[data-theme="dark"] .skeleton {
-  background: linear-gradient(90deg, #374151 0%, #4b5563 50%, #374151 100%);
-  background-size: 200% 100%;
-}
-
 /* Form System CSS Variables */
 :root {
-  /* Form Field Colors */
-  --form-field-bg: theme('colors.white');
-  --form-field-border: theme('colors.gray.300');
-  --form-field-border-hover: theme('colors.gray.400');
-  --form-field-border-focus: theme('colors.blue.500');
-  --form-field-text: theme('colors.gray.900');
-  --form-field-placeholder: theme('colors.gray.500');
+  /* Form Field Colors using semantic tokens */
+  --form-field-bg: theme('colors.surface');
+  --form-field-border: theme('colors.border');
+  --form-field-border-hover: theme('colors.muted');
+  --form-field-border-focus: theme('colors.primary');
+  --form-field-text: theme('colors.text');
+  --form-field-placeholder: theme('colors.muted');
   
   /* Form Field Disabled States */
-  --form-field-bg-disabled: theme('colors.gray.50');
-  --form-field-border-disabled: theme('colors.gray.200');
-  --form-field-text-disabled: theme('colors.gray.400');
+  --form-field-bg-disabled: theme('colors.bg');
+  --form-field-border-disabled: theme('colors.border');
+  --form-field-text-disabled: theme('colors.muted');
   
   /* Form Field Error States */
-  --form-field-border-error: theme('colors.red.500');
-  --form-field-bg-error: theme('colors.red.50');
-  --form-field-text-error: theme('colors.red.700');
+  --form-field-border-error: theme('colors.danger');
+  --form-field-bg-error: theme('colors.surface');
+  --form-field-text-error: theme('colors.danger');
   
   /* Form Labels and Hints */
-  --form-label-text: theme('colors.gray.900');
-  --form-label-text-required: theme('colors.red.500');
-  --form-hint-text: theme('colors.gray.600');
-  --form-error-text: theme('colors.red.600');
+  --form-label-text: theme('colors.text');
+  --form-label-text-required: theme('colors.danger');
+  --form-hint-text: theme('colors.muted');
+  --form-error-text: theme('colors.danger');
   
   /* Form Fieldset */
-  --form-fieldset-border: theme('colors.gray.200');
-  --form-legend-text: theme('colors.gray.900');
-  --form-legend-bg: theme('colors.white');
+  --form-fieldset-border: theme('colors.border');
+  --form-legend-text: theme('colors.text');
+  --form-legend-bg: theme('colors.surface');
 }
 
-[data-theme="dark"] {
-  /* Form Field Colors - Dark Mode */
-  --form-field-bg: theme('colors.gray.800');
-  --form-field-border: theme('colors.gray.600');
-  --form-field-border-hover: theme('colors.gray.500');
-  --form-field-border-focus: theme('colors.blue.400');
-  --form-field-text: theme('colors.gray.100');
-  --form-field-placeholder: theme('colors.gray.400');
-  
-  /* Form Field Disabled States - Dark Mode */
-  --form-field-bg-disabled: theme('colors.gray.900');
-  --form-field-border-disabled: theme('colors.gray.700');
-  --form-field-text-disabled: theme('colors.gray.500');
-  
-  /* Form Field Error States - Dark Mode */
-  --form-field-border-error: theme('colors.red.400');
-  --form-field-bg-error: rgba(239, 68, 68, 0.1);
-  --form-field-text-error: theme('colors.red.300');
-  
-  /* Form Labels and Hints - Dark Mode */
-  --form-label-text: theme('colors.gray.100');
-  --form-label-text-required: theme('colors.red.400');
-  --form-hint-text: theme('colors.gray.400');
-  --form-error-text: theme('colors.red.400');
-  
-  /* Form Fieldset - Dark Mode */
-  --form-fieldset-border: theme('colors.gray.600');
-  --form-legend-text: theme('colors.gray.100');
-  --form-legend-bg: theme('colors.gray.800');
-}
-
-/* Global dark mode styles for better persistence across pages */
-@layer base {
-  html {
-    @apply bg-gray-50 dark:bg-gray-900 transition-colors;
+/* Animation for account prompt */
+@keyframes slide-up {
+  from {
+    transform: translateY(100%);
+    opacity: 0;
   }
-  
-  body {
-    @apply bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 transition-colors;
+  to {
+    transform: translateY(0);
+    opacity: 1;
   }
 }
 
-/* Override specific component backgrounds to respect dark mode automatically */
-@layer components {
-  /* Override common light backgrounds */
-  .dark .bg-white {
-    @apply !bg-gray-800;
-  }
-  
-  .dark .bg-gray-50 {
-    @apply !bg-gray-900;
-  }
-  
-  .dark .bg-gray-100 {
-    @apply !bg-gray-800;
-  }
-  
-  .dark .bg-gray-200 {
-    @apply !bg-gray-700;
-  }
-  
-  /* Override common text colors */
-  .dark .text-gray-900 {
-    @apply !text-gray-100;
-  }
-  
-  .dark .text-gray-800 {
-    @apply !text-gray-200;
-  }
-  
-  .dark .text-gray-700 {
-    @apply !text-gray-300;
-  }
-  
-  .dark .text-gray-600 {
-    @apply !text-gray-400;
-  }
-  
-  /* Override common border colors */
-  .dark .border-gray-200 {
-    @apply !border-gray-700;
-  }
-  
-  .dark .border-gray-300 {
-    @apply !border-gray-600;
-  }
-  
-  /* Override specific background colors for content boxes */
-  .dark .bg-red-50 {
-    @apply !bg-red-900 !bg-opacity-20;
-  }
-  
-  .dark .bg-blue-50 {
-    @apply !bg-blue-900 !bg-opacity-20;
-  }
-  
-  .dark .bg-green-50 {
-    @apply !bg-green-900 !bg-opacity-20;
-  }
-  
-  .dark .bg-yellow-50 {
-    @apply !bg-yellow-900 !bg-opacity-20;
-  }
-  
-  /* Override text colors for colored backgrounds */
-  .dark .text-red-900 {
-    @apply !text-red-100;
-  }
-  
-  .dark .text-red-800 {
-    @apply !text-red-200;
-  }
-  
-  .dark .text-blue-900 {
-    @apply !text-blue-100;
-  }
-  
-  .dark .text-green-900 {
-    @apply !text-green-100;
-  }
-  
-  .dark .text-yellow-900 {
-    @apply !text-yellow-100;
-  }
-  
-  /* Fix input text colors for dark mode readability */
-  .dark input {
-    @apply !text-white;
-  }
-  
-  .dark input::placeholder {
-    @apply !text-gray-400;
-  }
-  
-  .dark textarea {
-    @apply !text-white;
-  }
-  
-  .dark textarea::placeholder {
-    @apply !text-gray-400;
-  }
-  
-  /* Override specific gradient backgrounds */
-  .dark .bg-gradient-to-br.from-blue-50.to-indigo-100 {
-    background: linear-gradient(to bottom right, rgb(17 24 39), rgb(31 41 55)) !important;
-  }
-  
-  /* Animation for account prompt */
-  @keyframes slide-up {
-    from {
-      transform: translateY(100%);
-      opacity: 0;
-    }
-    to {
-      transform: translateY(0);
-      opacity: 1;
-    }
-  }
-  
-  .animate-slide-up {
-    animation: slide-up 0.3s ease-out;
-  }
+.animate-slide-up {
+  animation: slide-up 0.3s ease-out;
+}
 
-  /* Enhanced Article Formatting */
-  .article-content {
-    @apply text-gray-800 dark:text-gray-200 leading-relaxed;
-  }
+/* Enhanced Article Formatting */
+.article-content {
+  @apply text-text leading-relaxed;
+}
 
-  .article-content p {
-    @apply mb-6 text-lg leading-8;
-  }
+.article-content p {
+  @apply mb-6 text-lg leading-8;
+}
 
-  .article-content h1 {
-    @apply text-3xl font-bold text-gray-900 dark:text-gray-100 mt-8 mb-4 leading-tight;
-  }
+.article-content h1 {
+  @apply text-3xl font-bold text-text mt-8 mb-4 leading-tight;
+}
 
-  .article-content h2 {
-    @apply text-2xl font-bold text-gray-900 dark:text-gray-100 mt-8 mb-4 leading-tight;
-  }
+.article-content h2 {
+  @apply text-2xl font-bold text-text mt-8 mb-4 leading-tight;
+}
 
-  .article-content h3 {
-    @apply text-xl font-semibold text-gray-900 dark:text-gray-100 mt-6 mb-3 leading-tight;
-  }
+.article-content h3 {
+  @apply text-xl font-semibold text-text mt-6 mb-3 leading-tight;
+}
 
-  .article-content h4 {
-    @apply text-lg font-semibold text-gray-900 dark:text-gray-100 mt-6 mb-3;
-  }
+.article-content h4 {
+  @apply text-lg font-semibold text-text mt-6 mb-3;
+}
 
-  .article-content strong {
-    @apply font-semibold text-gray-900 dark:text-gray-100;
-  }
+.article-content strong {
+  @apply font-semibold text-text;
+}
 
-  .article-content em {
-    @apply italic text-gray-700 dark:text-gray-300;
-  }
+.article-content em {
+  @apply italic text-muted;
+}
 
-  .article-content a {
-    @apply text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 underline transition-colors;
-  }
+.article-content a {
+  @apply text-primary hover:text-accent underline transition-colors;
+}
 
-  .article-content ul {
-    @apply mb-6 pl-6 space-y-2;
-  }
+.article-content ul {
+  @apply mb-6 pl-6 space-y-2;
+}
 
-  .article-content ol {
-    @apply mb-6 pl-6 space-y-2;
-  }
+.article-content ol {
+  @apply mb-6 pl-6 space-y-2;
+}
 
-  .article-content li {
-    @apply text-lg leading-7 relative;
-  }
+.article-content li {
+  @apply text-lg leading-7 relative;
+}
 
-  .article-content ul li {
-    @apply list-disc;
-  }
+.article-content ul li {
+  @apply list-disc;
+}
 
-  .article-content ol li {
-    @apply list-decimal;
-  }
+.article-content ol li {
+  @apply list-decimal;
+}
 
-  .article-content li p {
-    @apply mb-2 text-lg leading-7;
-  }
+.article-content li p {
+  @apply mb-2 text-lg leading-7;
+}
 
-  .article-content blockquote {
-    @apply border-l-4 border-blue-500 dark:border-blue-400 pl-6 py-4 mb-6 bg-blue-50 dark:bg-blue-900 dark:bg-opacity-20 italic text-gray-700 dark:text-gray-300 rounded-r-lg;
-  }
+.article-content blockquote {
+  @apply border-l-4 border-primary pl-6 py-4 mb-6 bg-surface italic text-muted rounded-r-lg shadow-card;
+}
 
-  .article-content blockquote p {
-    @apply mb-2 text-lg font-medium;
-  }
+.article-content blockquote p {
+  @apply mb-2 text-lg font-medium;
+}
 
-  .article-content code {
-    @apply bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200 px-2 py-1 rounded text-sm font-mono;
-  }
+.article-content code {
+  @apply bg-surface text-text px-2 py-1 rounded text-sm font-mono border border-border;
+}
 
-  .article-content pre {
-    @apply bg-gray-100 dark:bg-gray-800 p-4 rounded-lg mb-6 overflow-x-auto;
-  }
+.article-content pre {
+  @apply bg-surface p-4 rounded-lg mb-6 overflow-x-auto border border-border;
+}
 
-  .article-content pre code {
-    @apply bg-transparent p-0;
-  }
+.article-content pre code {
+  @apply bg-transparent p-0 border-0;
+}
 
-  .article-content img {
-    @apply rounded-lg shadow-sm mx-auto my-6 max-w-full h-auto;
-  }
+.article-content img {
+  @apply rounded-lg shadow-card mx-auto my-6 max-w-full h-auto;
+}
 
-  .article-content hr {
-    @apply border-gray-300 dark:border-gray-600 my-8;
-  }
+.article-content hr {
+  @apply border-border my-8;
+}
 
-  /* Special styling for financial content */
-  .article-content .money-amount {
-    @apply font-semibold text-green-600 dark:text-green-400;
-  }
+/* Special styling for financial content */
+.article-content .money-amount {
+  @apply font-semibold text-success;
+}
 
-  /* Better spacing for nested lists */
-  .article-content li ul,
-  .article-content li ol {
-    @apply mt-2 mb-2;
-  }
+/* Better spacing for nested lists */
+.article-content li ul,
+.article-content li ol {
+  @apply mt-2 mb-2;
 }

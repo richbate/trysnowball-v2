@@ -43,7 +43,7 @@ REACT_APP_STRIPE_PRICE_ID=price_test_YOUR_MONTHLY_TEST_PRICE
 ```
 
 ### 3. Frontend Deployment
-Configure your frontend deployment (Cloudflare Pages/Netlify) to:
+Configure your frontend deployment (Cloudflare Pages) to:
 - Deploy `main` branch to production (`trysnowball.co.uk`)  
 - Deploy `staging` branch to staging (`staging.trysnowball.co.uk`)
 - Use `.env.staging` for staging builds

@@ -28,8 +28,9 @@ id = "ba51298de08941dd9e69254812748a4a"
 [env.production]
 name = "trysnowball-checkout-prod"
 routes = [
-  "trysnowball.co.uk/api/*",
-  "trysnowball.co.uk/auth/*"
+  "trysnowball.co.uk/api/checkout/*",
+  "trysnowball.co.uk/api/stripe/*",
+  "trysnowball.co.uk/api/ai/*"
 ]
 
 [[env.production.d1_databases]]

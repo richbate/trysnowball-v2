@@ -1,0 +1,21 @@
+#!/usr/bin/env sh
+
+# Pre-commit hook: Route Usage Validation
+# Ensures all API routes use RouteRegistry before allowing commits
+
+echo "🔍 Validating route usage..."
+
+# Run route validation
+node scripts/checkRouteUsage.js
+
+# Exit with the same code as the validation script
+exit_code=$?
+
+if [ $exit_code -eq 0 ]; then
+  echo "✅ Route validation passed!"
+else  
+  echo "❌ Route validation failed. Please fix the violations above."
+  echo "💡 Quick fix: Use RouteHelpers.getRoute() instead of hardcoded routes"
+fi
+
+exit $exit_code

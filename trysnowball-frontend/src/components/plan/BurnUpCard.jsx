@@ -10,10 +10,10 @@ import { buildDebtBurnUp, projectDebtBurnUp, formatChartDate, formatChartCurrenc
 import { localDebtStore } from '../../data/localDebtStore';
 import { secureAnalytics } from '../../utils/secureAnalytics';
 
-export default function BurnUpCard({ 
- debt, 
- extraPoundsForThisDebt = 0, 
- title = "Debt Payoff Progress" 
+export default function BurnUpCard({
+ debt,
+ extraPoundsForThisDebt = 0,
+ title = "Debt Elimination Timeline"
 }) {
  const [paymentHistory, setPaymentHistory] = React.useState([]);
  const [loading, setLoading] = React.useState(true);
@@ -97,13 +97,17 @@ export default function BurnUpCard({
   );
  }
 
- // Prepare chart data with remaining debt calculation
+ // Get actual APR for this debt for accurate interest calculation
+ const debtAPR = (debt.apr || debt.interest || debt.rate || 15) / 100; // Convert to decimal
+
+ // Prepare chart data focused on debt elimination timeline
  const actualData = burnUpModel.points.map((point, index) => ({
   ...point,
   formattedDate: formatChartDate(point.date),
   type: 'actual',
   isPayment: index > 0, // First point is start, rest are payments
-  remainingDebt: Math.max(0, burnUpModel.goalPounds - point.paid) // Calculate remaining debt
+  remainingDebt: Math.max(0, burnUpModel.goalPounds - point.paid), // Debt elimination progress
+  interestPaid: point.paid * debtAPR // Use actual debt APR for interest portion
  }));
 
  const projectedData = (projection?.projectedPoints || []).map(point => ({
@@ -111,7 +115,8 @@ export default function BurnUpCard({
   formattedDate: formatChartDate(point.date),
   type: 'projected',
   isPayment: true,
-  remainingDebt: Math.max(0, burnUpModel.goalPounds - point.paid) // Calculate remaining debt
+  remainingDebt: Math.max(0, burnUpModel.goalPounds - point.paid), // Debt elimination progress
+  interestPaid: point.paid * debtAPR // Use actual debt APR for interest portion
  }));
 
  // Combine for continuous line
@@ -131,20 +136,20 @@ export default function BurnUpCard({
 
  const currentMonth = getCurrentMonthName();
 
- // Custom tooltip with remaining debt
+ // Simplified tooltip focused on debt elimination
  const CustomTooltip = ({ active, payload, label }) => {
   if (active && payload && payload.length) {
    const data = payload[0].payload;
    return (
     <div className="bg-white p-3 border rounded-lg shadow-lg">
      <p className="font-medium">{formatChartDate(data.date)}</p>
-     <p className="text-green-600">
-      <span className="font-medium">Total Paid: </span>
-      {formatChartCurrency(data.paid)}
-     </p>
      <p className="text-red-600">
       <span className="font-medium">Remaining Debt: </span>
       {formatChartCurrency(data.remainingDebt)}
+     </p>
+     <p className="text-yellow-600">
+      <span className="font-medium">Interest Paid: </span>
+      {formatChartCurrency(data.interestPaid)}
      </p>
      {data.type === 'projected' && (
       <p className="text-sm text-gray-500">Projected</p>
@@ -191,28 +196,28 @@ export default function BurnUpCard({
        label={{ value: "Goal", position: "topRight", fontSize: 11 }}
       />
       
-      {/* Actual payments line (step after) */}
+      {/* Interest paid line (actual) - increasing line */}
       <Line
-       dataKey="paid"
-       stroke="#2563EB"
+       dataKey="interestPaid"
+       stroke="#F59E0B"
        strokeWidth={3}
        type="stepAfter"
-       dot={{ fill: '#2563EB', strokeWidth: 2, r: 4 }}
-       activeDot={{ r: 6, fill: '#2563EB' }}
+       dot={{ fill: '#F59E0B', strokeWidth: 2, r: 4 }}
+       activeDot={{ r: 6, fill: '#F59E0B' }}
        isAnimationActive={false}
        connectNulls={false}
        data={actualData}
       />
-      
-      {/* Projected payments line (dashed) */}
+
+      {/* Interest paid projection (dashed) */}
       {projectedData.length > 0 && (
        <Line
-        dataKey="paid"
-        stroke="#60A5FA"
+        dataKey="interestPaid"
+        stroke="#FCD34D"
         strokeWidth={2}
         strokeDasharray="5 5"
         type="stepAfter"
-        dot={{ fill: '#60A5FA', strokeWidth: 1, r: 3 }}
+        dot={{ fill: '#FCD34D', strokeWidth: 1, r: 3 }}
         isAnimationActive={false}
         connectNulls={false}
         data={projectedData}
@@ -278,6 +283,15 @@ export default function BurnUpCard({
      </div>
     </div>
    )}
+
+   {/* Total Repayment Summary */}
+   <div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+    <div className="text-sm text-blue-800">
+     <span className="font-medium">💰 Total Repayment:</span> Over {projection?.projectedEndDate ?
+      Math.ceil((new Date(projection.projectedEndDate) - new Date()) / (1000 * 60 * 60 * 24 * 30.44)) : '—'
+     } months, you'll repay {formatChartCurrency(goalAmount - paidAmount)} remaining + {formatChartCurrency(goalAmount * debtAPR)} estimated interest = {formatChartCurrency((goalAmount - paidAmount) + (goalAmount * debtAPR))} total
+    </div>
+   </div>
 
    {paymentHistory.length === 0 && (
     <div className="mt-4 p-3 bg-gray-50 rounded-lg">
