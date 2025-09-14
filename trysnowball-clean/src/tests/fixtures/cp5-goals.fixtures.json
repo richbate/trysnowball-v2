@@ -1,0 +1,390 @@
+[
+  {
+    "name": "Amount Paid Goal - £500 Target",
+    "input": {
+      "goal": {
+        "id": "goal_amount_500",
+        "type": "AMOUNT_PAID",
+        "targetValue": 500.00,
+        "forecastDebtId": "test_debt_1",
+        "createdAt": "2025-01-01T00:00:00Z"
+      },
+      "forecast": {
+        "debts": [{
+          "id": "test_debt_1",
+          "name": "Test Debt",
+          "amount": 2000.00
+        }],
+        "monthlySnapshots": [
+          { "month": 1, "amountPaid": 100.00, "totalBalance": 1900.00 },
+          { "month": 2, "amountPaid": 200.00, "totalBalance": 1800.00 },
+          { "month": 3, "amountPaid": 300.00, "totalBalance": 1700.00 },
+          { "month": 4, "amountPaid": 400.00, "totalBalance": 1600.00 },
+          { "month": 5, "amountPaid": 500.00, "totalBalance": 1500.00 }
+        ]
+      }
+    },
+    "expected": {
+      "achieved": true,
+      "achievementMonth": 5,
+      "achievementDate": "2025-06-01",
+      "progress": {
+        "current": 500.00,
+        "target": 500.00,
+        "percentage": 100.0
+      }
+    }
+  },
+  {
+    "name": "Percentage Goal - 25% Target",
+    "input": {
+      "goal": {
+        "id": "goal_percent_25",
+        "type": "PERCENTAGE_CLEARED",
+        "targetValue": 25.0,
+        "forecastDebtId": "test_debt_2",
+        "createdAt": "2025-01-01T00:00:00Z"
+      },
+      "forecast": {
+        "debts": [{
+          "id": "test_debt_2",
+          "name": "Percentage Test Debt",
+          "amount": 1000.00
+        }],
+        "monthlySnapshots": [
+          { "month": 1, "totalBalance": 900.00, "percentageCleared": 10.0 },
+          { "month": 2, "totalBalance": 800.00, "percentageCleared": 20.0 },
+          { "month": 3, "totalBalance": 750.00, "percentageCleared": 25.0 },
+          { "month": 4, "totalBalance": 700.00, "percentageCleared": 30.0 }
+        ]
+      }
+    },
+    "expected": {
+      "achieved": true,
+      "achievementMonth": 3,
+      "achievementDate": "2025-04-01",
+      "progress": {
+        "current": 25.0,
+        "target": 25.0,
+        "percentage": 100.0
+      }
+    }
+  },
+  {
+    "name": "Debt Clear Goal - Complete Payoff",
+    "input": {
+      "goal": {
+        "id": "goal_debt_clear",
+        "type": "DEBT_CLEAR",
+        "targetValue": 0.0,
+        "forecastDebtId": "test_debt_3",
+        "createdAt": "2025-01-01T00:00:00Z"
+      },
+      "forecast": {
+        "debts": [{
+          "id": "test_debt_3",
+          "name": "Clear Test Debt",
+          "amount": 500.00
+        }],
+        "monthlySnapshots": [
+          { "month": 1, "totalBalance": 400.00, "isPaidOff": false },
+          { "month": 2, "totalBalance": 300.00, "isPaidOff": false },
+          { "month": 3, "totalBalance": 200.00, "isPaidOff": false },
+          { "month": 4, "totalBalance": 100.00, "isPaidOff": false },
+          { "month": 5, "totalBalance": 0.00, "isPaidOff": true }
+        ]
+      }
+    },
+    "expected": {
+      "achieved": true,
+      "achievementMonth": 5,
+      "achievementDate": "2025-06-01",
+      "progress": {
+        "current": 100.0,
+        "target": 100.0,
+        "percentage": 100.0
+      }
+    }
+  },
+  {
+    "name": "Months Until Free Goal - 12 Month Target",
+    "input": {
+      "goal": {
+        "id": "goal_months_12",
+        "type": "MONTHS_UNTIL_FREE",
+        "targetValue": 12.0,
+        "forecastDebtId": null,
+        "createdAt": "2025-01-01T00:00:00Z"
+      },
+      "forecast": {
+        "debts": [
+          { "id": "debt_1", "name": "Debt 1", "amount": 1000.00 },
+          { "id": "debt_2", "name": "Debt 2", "amount": 500.00 }
+        ],
+        "totalMonths": 10,
+        "debtFreeDate": "2025-11-01"
+      }
+    },
+    "expected": {
+      "achieved": true,
+      "achievementMonth": 10,
+      "achievementDate": "2025-11-01",
+      "progress": {
+        "current": 10.0,
+        "target": 12.0,
+        "percentage": 100.0
+      }
+    }
+  },
+  {
+    "name": "Interest Saved Goal - £200 Target",
+    "input": {
+      "goal": {
+        "id": "goal_interest_saved",
+        "type": "INTEREST_SAVED",
+        "targetValue": 200.0,
+        "forecastDebtId": null,
+        "createdAt": "2025-01-01T00:00:00Z"
+      },
+      "forecast": {
+        "totalInterestPaid": 150.0,
+        "interestSavedVsMinimum": 250.0
+      }
+    },
+    "expected": {
+      "achieved": true,
+      "achievementMonth": null,
+      "progress": {
+        "current": 250.0,
+        "target": 200.0,
+        "percentage": 100.0
+      }
+    }
+  },
+  {
+    "name": "Multi-Debt Goal Tracking",
+    "input": {
+      "goals": [
+        {
+          "id": "goal_debt_1_clear",
+          "type": "DEBT_CLEAR",
+          "targetValue": 0.0,
+          "forecastDebtId": "debt_1",
+          "createdAt": "2025-01-01T00:00:00Z"
+        },
+        {
+          "id": "goal_debt_2_half",
+          "type": "PERCENTAGE_CLEARED",
+          "targetValue": 50.0,
+          "forecastDebtId": "debt_2",
+          "createdAt": "2025-01-01T00:00:00Z"
+        }
+      ],
+      "forecast": {
+        "debts": [
+          { "id": "debt_1", "name": "First Debt", "amount": 800.00 },
+          { "id": "debt_2", "name": "Second Debt", "amount": 1200.00 }
+        ],
+        "monthlySnapshots": [
+          {
+            "month": 1,
+            "debts": {
+              "debt_1": { "balance": 700.00, "isPaidOff": false },
+              "debt_2": { "balance": 1100.00, "percentageCleared": 8.33 }
+            }
+          },
+          {
+            "month": 2,
+            "debts": {
+              "debt_1": { "balance": 600.00, "isPaidOff": false },
+              "debt_2": { "balance": 1000.00, "percentageCleared": 16.67 }
+            }
+          },
+          {
+            "month": 3,
+            "debts": {
+              "debt_1": { "balance": 500.00, "isPaidOff": false },
+              "debt_2": { "balance": 900.00, "percentageCleared": 25.0 }
+            }
+          },
+          {
+            "month": 4,
+            "debts": {
+              "debt_1": { "balance": 0.00, "isPaidOff": true },
+              "debt_2": { "balance": 800.00, "percentageCleared": 33.33 }
+            }
+          },
+          {
+            "month": 5,
+            "debts": {
+              "debt_1": { "balance": 0.00, "isPaidOff": true },
+              "debt_2": { "balance": 600.00, "percentageCleared": 50.0 }
+            }
+          }
+        ]
+      }
+    },
+    "expected": {
+      "goals": [
+        {
+          "id": "goal_debt_1_clear",
+          "achieved": true,
+          "achievementMonth": 4,
+          "achievementDate": "2025-05-01"
+        },
+        {
+          "id": "goal_debt_2_half",
+          "achieved": true,
+          "achievementMonth": 5,
+          "achievementDate": "2025-06-01"
+        }
+      ]
+    }
+  },
+  {
+    "name": "Goal Progress Tracking - Partial Achievement",
+    "input": {
+      "goal": {
+        "id": "goal_progress_test",
+        "type": "AMOUNT_PAID",
+        "targetValue": 1000.0,
+        "forecastDebtId": "debt_progress",
+        "createdAt": "2025-01-01T00:00:00Z"
+      },
+      "forecast": {
+        "debts": [{
+          "id": "debt_progress",
+          "name": "Progress Test Debt",
+          "amount": 2000.00
+        }],
+        "monthlySnapshots": [
+          { "month": 1, "amountPaid": 150.00 },
+          { "month": 2, "amountPaid": 300.00 },
+          { "month": 3, "amountPaid": 450.00 },
+          { "month": 4, "amountPaid": 600.00 },
+          { "month": 5, "amountPaid": 750.00 }
+        ]
+      }
+    },
+    "expected": {
+      "achieved": false,
+      "progress": {
+        "current": 750.0,
+        "target": 1000.0,
+        "percentage": 75.0
+      },
+      "monthlyProgress": [
+        { "month": 1, "percentage": 15.0 },
+        { "month": 2, "percentage": 30.0 },
+        { "month": 3, "percentage": 45.0 },
+        { "month": 4, "percentage": 60.0 },
+        { "month": 5, "percentage": 75.0 }
+      ]
+    }
+  },
+  {
+    "name": "Goal Analytics Events Test",
+    "input": {
+      "goal": {
+        "id": "analytics_goal",
+        "type": "DEBT_CLEAR",
+        "targetValue": 0.0,
+        "forecastDebtId": "analytics_debt",
+        "createdAt": "2025-01-01T00:00:00Z"
+      },
+      "forecast": {
+        "debts": [{
+          "id": "analytics_debt",
+          "name": "Analytics Test Debt",
+          "amount": 600.00
+        }],
+        "monthlySnapshots": [
+          { "month": 1, "totalBalance": 500.00 },
+          { "month": 2, "totalBalance": 400.00 },
+          { "month": 3, "totalBalance": 0.00, "isPaidOff": true }
+        ]
+      }
+    },
+    "expected": {
+      "achieved": true,
+      "achievementMonth": 3,
+      "analyticsEvents": [
+        {
+          "event": "goal_created",
+          "properties": {
+            "goal_id": "analytics_goal",
+            "goal_type": "DEBT_CLEAR",
+            "target_value": 0.0,
+            "debt_id": "analytics_debt"
+          }
+        },
+        {
+          "event": "goal_achieved",
+          "properties": {
+            "goal_id": "analytics_goal",
+            "goal_type": "DEBT_CLEAR",
+            "days_to_achievement": 90,
+            "target_value": 0.0,
+            "debt_id": "analytics_debt"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "name": "Edge Case - Goal Target Already Achieved",
+    "input": {
+      "goal": {
+        "id": "already_achieved",
+        "type": "AMOUNT_PAID",
+        "targetValue": 100.0,
+        "forecastDebtId": "already_paid_debt",
+        "createdAt": "2025-01-01T00:00:00Z"
+      },
+      "forecast": {
+        "debts": [{
+          "id": "already_paid_debt",
+          "name": "Already Paid Debt",
+          "amount": 1000.00
+        }],
+        "monthlySnapshots": [
+          { "month": 1, "amountPaid": 200.00 }
+        ]
+      }
+    },
+    "expected": {
+      "achieved": true,
+      "achievementMonth": 1,
+      "progress": {
+        "current": 200.0,
+        "target": 100.0,
+        "percentage": 100.0
+      }
+    }
+  },
+  {
+    "name": "Edge Case - Impossible Goal",
+    "input": {
+      "goal": {
+        "id": "impossible_goal",
+        "type": "MONTHS_UNTIL_FREE",
+        "targetValue": 1.0,
+        "forecastDebtId": null,
+        "createdAt": "2025-01-01T00:00:00Z"
+      },
+      "forecast": {
+        "totalMonths": 24,
+        "debtFreeDate": "2027-01-01"
+      }
+    },
+    "expected": {
+      "achieved": false,
+      "progress": {
+        "current": 24.0,
+        "target": 1.0,
+        "percentage": 0.0
+      },
+      "isImpossible": true
+    }
+  }
+]

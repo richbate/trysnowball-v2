@@ -1,0 +1,398 @@
+[
+  {
+    "name": "Multi-APR Credit Card with Compound Interest - Golden Scenario",
+    "description": "Barclaycard Platinum with cash advances, purchases, and 0% balance transfer",
+    "input": {
+      "debts": [{
+        "id": "barclaycard_platinum",
+        "name": "Barclaycard Platinum",
+        "amount": 3000.00,
+        "min_payment": 90.00,
+        "order_index": 1,
+        "buckets": [
+          {
+            "id": "cash_advances",
+            "name": "Cash Advances",
+            "balance": 500.00,
+            "apr": 27.9,
+            "payment_priority": 1
+          },
+          {
+            "id": "purchases",
+            "name": "Purchases",
+            "balance": 2000.00,
+            "apr": 22.9,
+            "payment_priority": 2
+          },
+          {
+            "id": "balance_transfer",
+            "name": "Balance Transfer",
+            "balance": 500.00,
+            "apr": 0.0,
+            "payment_priority": 3
+          }
+        ]
+      }],
+      "extraPerMonth": 150.00,
+      "startDate": "2025-01-01"
+    },
+    "expected": {
+      "totalMonths": 18,
+      "totalInterest": 456.78,
+      "debtFreeDate": "2026-07-01",
+      "monthlyBreakdown": [
+        {
+          "month": 1,
+          "buckets": {
+            "cash_advances": {
+              "startingBalance": 500.00,
+              "interestCharged": 11.63,
+              "principalPaid": 78.37,
+              "snowballApplied": 150.00,
+              "endingBalance": 283.26,
+              "isPaidOff": false
+            },
+            "purchases": {
+              "startingBalance": 2000.00,
+              "interestCharged": 38.17,
+              "principalPaid": 11.83,
+              "snowballApplied": 0.00,
+              "endingBalance": 2026.34,
+              "isPaidOff": false
+            },
+            "balance_transfer": {
+              "startingBalance": 500.00,
+              "interestCharged": 0.00,
+              "principalPaid": 0.00,
+              "snowballApplied": 0.00,
+              "endingBalance": 500.00,
+              "isPaidOff": false
+            }
+          },
+          "totalBalance": 2809.60,
+          "totalInterest": 49.80,
+          "totalPrincipal": 240.20
+        },
+        {
+          "month": 2,
+          "buckets": {
+            "cash_advances": {
+              "startingBalance": 283.26,
+              "interestCharged": 6.59,
+              "principalPaid": 83.41,
+              "snowballApplied": 150.00,
+              "endingBalance": 56.44,
+              "isPaidOff": false
+            },
+            "purchases": {
+              "startingBalance": 2026.34,
+              "interestCharged": 38.67,
+              "principalPaid": 11.33,
+              "snowballApplied": 0.00,
+              "endingBalance": 2053.68,
+              "isPaidOff": false
+            },
+            "balance_transfer": {
+              "startingBalance": 500.00,
+              "interestCharged": 0.00,
+              "principalPaid": 0.00,
+              "snowballApplied": 0.00,
+              "endingBalance": 500.00,
+              "isPaidOff": false
+            }
+          },
+          "totalBalance": 2610.12,
+          "totalInterest": 45.26,
+          "totalPrincipal": 244.74
+        },
+        {
+          "month": 3,
+          "buckets": {
+            "cash_advances": {
+              "startingBalance": 56.44,
+              "interestCharged": 1.31,
+              "principalPaid": 57.75,
+              "snowballApplied": 150.00,
+              "endingBalance": 0.00,
+              "isPaidOff": true
+            },
+            "purchases": {
+              "startingBalance": 2053.68,
+              "interestCharged": 39.20,
+              "principalPaid": 102.49,
+              "snowballApplied": 91.69,
+              "endingBalance": 1990.39,
+              "isPaidOff": false
+            },
+            "balance_transfer": {
+              "startingBalance": 500.00,
+              "interestCharged": 0.00,
+              "principalPaid": 0.00,
+              "snowballApplied": 0.00,
+              "endingBalance": 500.00,
+              "isPaidOff": false
+            }
+          },
+          "totalBalance": 2490.39,
+          "totalInterest": 40.51,
+          "totalPrincipal": 199.49
+        }
+      ],
+      "bucketClearanceMonths": {
+        "cash_advances": 3,
+        "purchases": 15,
+        "balance_transfer": 18
+      },
+      "milestoneDates": [
+        {
+          "bucketName": "Cash Advances",
+          "monthCleared": 3,
+          "dateCleared": "April 2025"
+        },
+        {
+          "bucketName": "Purchases",
+          "monthCleared": 15,
+          "dateCleared": "April 2026"
+        },
+        {
+          "bucketName": "Balance Transfer",
+          "monthCleared": 18,
+          "dateCleared": "July 2026"
+        }
+      ]
+    }
+  },
+  {
+    "name": "Edge Case - Payment Lower Than Interest (Debt Growth)",
+    "description": "Credit card where minimum payment is less than monthly interest",
+    "input": {
+      "debts": [{
+        "id": "growing_debt",
+        "name": "High Interest Card",
+        "amount": 5000.00,
+        "min_payment": 50.00,
+        "order_index": 1,
+        "buckets": [
+          {
+            "id": "high_apr",
+            "name": "High APR Balance",
+            "balance": 5000.00,
+            "apr": 29.9,
+            "payment_priority": 1
+          }
+        ]
+      }],
+      "extraPerMonth": 0.00,
+      "startDate": "2025-01-01"
+    },
+    "expected": {
+      "totalMonths": 600,
+      "debtGrows": true,
+      "monthlyBreakdown": [
+        {
+          "month": 1,
+          "buckets": {
+            "high_apr": {
+              "startingBalance": 5000.00,
+              "interestCharged": 124.58,
+              "principalPaid": 0.00,
+              "snowballApplied": 0.00,
+              "endingBalance": 5074.58,
+              "isPaidOff": false
+            }
+          },
+          "totalBalance": 5074.58,
+          "totalInterest": 124.58,
+          "totalPrincipal": -74.58
+        },
+        {
+          "month": 12,
+          "buckets": {
+            "high_apr": {
+              "startingBalance": 5974.38,
+              "interestCharged": 148.71,
+              "principalPaid": 0.00,
+              "snowballApplied": 0.00,
+              "endingBalance": 6073.09,
+              "isPaidOff": false
+            }
+          }
+        }
+      ]
+    }
+  },
+  {
+    "name": "Complex Multi-APR with Overpayment Scenario",
+    "description": "Multiple buckets where extra payment clears multiple buckets in one month",
+    "input": {
+      "debts": [{
+        "id": "multi_bucket_clear",
+        "name": "Multiple Small Buckets",
+        "amount": 600.00,
+        "min_payment": 60.00,
+        "order_index": 1,
+        "buckets": [
+          {
+            "id": "bucket_1",
+            "name": "Bucket 1",
+            "balance": 100.00,
+            "apr": 25.0,
+            "payment_priority": 1
+          },
+          {
+            "id": "bucket_2",
+            "name": "Bucket 2",
+            "balance": 200.00,
+            "apr": 20.0,
+            "payment_priority": 2
+          },
+          {
+            "id": "bucket_3",
+            "name": "Bucket 3",
+            "balance": 300.00,
+            "apr": 15.0,
+            "payment_priority": 3
+          }
+        ]
+      }],
+      "extraPerMonth": 500.00,
+      "startDate": "2025-01-01"
+    },
+    "expected": {
+      "totalMonths": 2,
+      "monthlyBreakdown": [
+        {
+          "month": 1,
+          "buckets": {
+            "bucket_1": {
+              "startingBalance": 100.00,
+              "interestCharged": 2.08,
+              "principalPaid": 102.08,
+              "snowballApplied": 500.00,
+              "endingBalance": 0.00,
+              "isPaidOff": true
+            },
+            "bucket_2": {
+              "startingBalance": 200.00,
+              "interestCharged": 3.33,
+              "principalPaid": 203.33,
+              "snowballApplied": 397.92,
+              "endingBalance": 0.00,
+              "isPaidOff": true
+            },
+            "bucket_3": {
+              "startingBalance": 300.00,
+              "interestCharged": 3.75,
+              "principalPaid": 102.75,
+              "snowballApplied": 99.00,
+              "endingBalance": 201.00,
+              "isPaidOff": false
+            }
+          }
+        },
+        {
+          "month": 2,
+          "buckets": {
+            "bucket_1": { "isPaidOff": true, "endingBalance": 0.00 },
+            "bucket_2": { "isPaidOff": true, "endingBalance": 0.00 },
+            "bucket_3": {
+              "startingBalance": 201.00,
+              "interestCharged": 2.51,
+              "principalPaid": 203.51,
+              "snowballApplied": 500.00,
+              "endingBalance": 0.00,
+              "isPaidOff": true
+            }
+          }
+        }
+      ]
+    }
+  },
+  {
+    "name": "FCA Compliance - Minimum Payment Allocation",
+    "description": "Tests compliance with UK FCA guidelines for payment allocation",
+    "input": {
+      "debts": [{
+        "id": "fca_compliance",
+        "name": "FCA Test Card",
+        "amount": 2000.00,
+        "min_payment": 80.00,
+        "order_index": 1,
+        "buckets": [
+          {
+            "id": "cash_advance",
+            "name": "Cash Advance",
+            "balance": 500.00,
+            "apr": 27.9,
+            "payment_priority": 1
+          },
+          {
+            "id": "purchase",
+            "name": "Purchase",
+            "balance": 1000.00,
+            "apr": 21.9,
+            "payment_priority": 2
+          },
+          {
+            "id": "promotional",
+            "name": "0% Promotional",
+            "balance": 500.00,
+            "apr": 0.0,
+            "payment_priority": 3
+          }
+        ]
+      }],
+      "extraPerMonth": 0.00,
+      "startDate": "2025-01-01"
+    },
+    "expected": {
+      "fcaCompliant": true,
+      "paymentAllocation": {
+        "month1": {
+          "cash_advance": 20.00,
+          "purchase": 40.00,
+          "promotional": 20.00
+        }
+      },
+      "notes": "Payment allocated proportionally by balance, with excess going to highest APR first"
+    }
+  },
+  {
+    "name": "Floating Point Precision Test",
+    "description": "Edge case testing for floating point arithmetic errors",
+    "input": {
+      "debts": [{
+        "id": "precision_test",
+        "name": "Precision Test",
+        "amount": 333.33,
+        "min_payment": 11.11,
+        "order_index": 1,
+        "buckets": [
+          {
+            "id": "bucket_a",
+            "name": "Bucket A",
+            "balance": 111.11,
+            "apr": 19.99,
+            "payment_priority": 1
+          },
+          {
+            "id": "bucket_b",
+            "name": "Bucket B",
+            "balance": 222.22,
+            "apr": 14.99,
+            "payment_priority": 2
+          }
+        ]
+      }],
+      "extraPerMonth": 22.22,
+      "startDate": "2025-01-01"
+    },
+    "expected": {
+      "precisionRequirements": {
+        "allValuesRoundedToPence": true,
+        "noNaNValues": true,
+        "noCumulativeDrift": true
+      }
+    }
+  }
+]
