@@ -1,0 +1,43 @@
+# Cloudflare Pages Configuration for TrySnowball Clean v2
+# This file configures the Pages project (not Workers)
+
+[build]
+command = "npm run build:staging"
+publish = "build"
+
+[build.environment]
+NODE_VERSION = "18"
+REACT_APP_ENVIRONMENT = "staging"
+REACT_APP_API_BASE_URL = "https://staging.trysnowball.co.uk"
+REACT_APP_STRIPE_MODE = "test"
+
+# Production build override
+[env.production.build]
+command = "npm run build"
+
+[env.production.build.environment]
+REACT_APP_ENVIRONMENT = "production"
+REACT_APP_API_BASE_URL = "https://trysnowball.co.uk"
+REACT_APP_STRIPE_MODE = "live"
+
+# Staging configuration
+[env.staging]
+# Custom domain for staging
+custom_domain = "staging.trysnowball.co.uk"
+
+# Security headers
+[[headers]]
+for = "/*"
+[headers.values]
+X-Frame-Options = "DENY"
+X-Content-Type-Options = "nosniff"
+X-XSS-Protection = "1; mode=block"
+Strict-Transport-Security = "max-age=31536000; includeSubDomains"
+Referrer-Policy = "strict-origin-when-cross-origin"
+
+# SPA routing - send all non-file requests to index.html
+[[redirects]]
+from = "/*"
+to = "/index.html"
+status = 200
+conditions = {Role = [""]} # Apply to all requests that don't match a file

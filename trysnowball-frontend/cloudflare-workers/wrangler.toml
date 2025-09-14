@@ -17,8 +17,8 @@ database_id = "c22c4bca-0e0c-44db-957f-5e087c660fb0"
 [env.production]
 name = "trysnowball-auth-main-prod"
 routes = [
-  "trysnowball.co.uk/auth/*",
-  "trysnowball.co.uk/api/*"
+  { pattern = "trysnowball.co.uk/auth/*", zone_name = "trysnowball.co.uk" },
+  { pattern = "www.trysnowball.co.uk/auth/*", zone_name = "trysnowball.co.uk" }
 ]
 
 [[env.production.d1_databases]]
@@ -28,7 +28,10 @@ database_id = "c22c4bca-0e0c-44db-957f-5e087c660fb0"
 
 [env.staging]
 name = "trysnowball-auth-staging"
-route = "staging-trysnowball.pages.dev/auth/*"
+routes = [
+  "staging-trysnowball.pages.dev/auth/*",
+  { pattern = "staging.trysnowball.co.uk/auth/*", zone_name = "trysnowball.co.uk" }
+]
 
 [[env.staging.d1_databases]]
 binding = "DB"
