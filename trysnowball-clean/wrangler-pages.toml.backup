@@ -19,12 +19,12 @@ REACT_APP_STRIPE_MODE = "test"
 REACT_APP_POSTHOG_PROJECT_KEY = "phc_staging_TiBCyhgzWEmeR7XdAFMpzAoqZXfeAvVDJwmqiP2Eo7X"
 GENERATE_SOURCEMAP = "false"
 
-# Staging environment (default)
-[env.staging]
+# Preview environment (staging)
+[env.preview]
 name = "trysnowball-v2"
 compatibility_date = "2024-01-01"
 
-[env.staging.vars]
+[env.preview.vars]
 ENVIRONMENT = "staging"
 NODE_ENV = "production"
 REACT_APP_ENVIRONMENT = "staging"
@@ -55,7 +55,7 @@ REACT_APP_API_BASE_URL = "https://api.trysnowball.co.uk"
 REACT_APP_STRIPE_MODE = "live"
 
 # Routes (handled by Pages)
-[[env.staging.routes]]
+[[env.preview.routes]]
 pattern = "staging.trysnowball.co.uk/*"
 zone_name = "trysnowball.co.uk"
 
@@ -68,7 +68,7 @@ zone_name = "trysnowball.co.uk"
 # clean.trysnowball.co.uk -> production environment (or replace main domain)
 
 # Browser cache settings
-[[env.staging.rules]]
+[[env.preview.rules]]
 action = "set_cache_headers"
 path = "/static/*"
 headers = { "Cache-Control" = "public, max-age=31536000, immutable" }
@@ -79,7 +79,7 @@ path = "/static/*"
 headers = { "Cache-Control" = "public, max-age=31536000, immutable" }
 
 # Security settings for both environments
-[[env.staging.headers]]
+[[env.preview.headers]]
 path = "/*"
 headers = {
     "X-Frame-Options" = "DENY",
@@ -102,7 +102,7 @@ headers = {
 }
 
 # SPA routing - send all non-asset requests to index.html
-[[env.staging.redirects]]
+[[env.preview.redirects]]
 from = "/*"
 to = "/index.html"
 status = 200
