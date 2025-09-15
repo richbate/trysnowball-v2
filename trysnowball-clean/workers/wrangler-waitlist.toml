@@ -1,0 +1,20 @@
+# Waitlist email capture worker configuration
+name = "trysnowball-waitlist-capture"
+main = "waitlist-capture.js"
+compatibility_date = "2024-01-01"
+
+# Route configuration
+routes = [
+  { pattern = "trysnowball.co.uk/api/waitlist*", zone_name = "trysnowball.co.uk" },
+  { pattern = "staging.trysnowball.co.uk/api/waitlist*", zone_name = "trysnowball.co.uk" }
+]
+
+# D1 Database binding
+[[d1_databases]]
+binding = "DB"
+database_name = "trysnowball-waitlist"
+database_id = "26e165fb-5d6f-4f55-a4d1-f555a7c179cc"
+
+# Environment variables
+[vars]
+ENVIRONMENT = "production"
