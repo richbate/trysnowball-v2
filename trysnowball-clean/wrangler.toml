@@ -1,0 +1,9 @@
+name = "trysnowball-clean"
+compatibility_date = "2024-01-01"
+pages_build_output_dir = "build"
+
+# D1 Database binding for waitlist
+[[d1_databases]]
+binding = "DB"
+database_name = "trysnowball-waitlist"
+database_id = "26e165fb-5d6f-4f55-a4d1-f555a7c179cc"
