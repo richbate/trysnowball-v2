@@ -7,17 +7,17 @@ import { useCallback } from 'react';
 import { useDemoMode } from '../providers/DemoModeProvider';
 
 export const useAnalyticsWithDemo = () => {
- const { isDemo } = useDemoMode();
- 
- const capture = useCallback((eventName, properties = {}) => {
-  if (!window.posthog) return;
+  const { isDemo } = useDemoMode();
   
-  // Add demo_mode flag to all events
-  window.posthog.capture(eventName, {
-   ...properties,
-   demo_mode: isDemo
-  });
- }, [isDemo]);
- 
- return { capture };
+  const capture = useCallback((eventName, properties = {}) => {
+    if (!window.posthog) return;
+    
+    // Add demo_mode flag to all events
+    window.posthog.capture(eventName, {
+      ...properties,
+      demo_mode: isDemo
+    });
+  }, [isDemo]);
+  
+  return { capture };
 };

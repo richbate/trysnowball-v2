@@ -9,24 +9,24 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext.tsx';
 
 export default function DemoEnter() {
- const { enterDemo } = useDemoMode();
- const navigate = useNavigate();
- const { user } = useAuth();
- 
- useEffect(() => {
-  // Safety: Don't enter demo if user has real data
-  if (user?.id) {
-   console.warn('[Demo] Blocked demo entry for logged-in user');
-   navigate('/plan');
-   return;
-  }
+  const { enterDemo } = useDemoMode();
+  const navigate = useNavigate();
+  const { user } = useAuth();
   
-  // Enter demo mode with source tracking
-  enterDemo('url_route', 'uk');
+  useEffect(() => {
+    // Safety: Don't enter demo if user has real data
+    if (user?.id) {
+      console.warn('[Demo] Blocked demo entry for logged-in user');
+      navigate('/plan');
+      return;
+    }
+    
+    // Enter demo mode with source tracking
+    enterDemo('url_route');
+    
+    // Navigate to home
+    navigate('/');
+  }, [enterDemo, navigate, user]);
   
-  // Navigate to home
-  navigate('/');
- }, [enterDemo, navigate, user]);
- 
- return null;
+  return null;
 }

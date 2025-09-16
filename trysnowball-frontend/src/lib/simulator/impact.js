@@ -1,52 +1,52 @@
 // Impact calculation for scenario analysis
-import { runSimulationWithPlan } from "./runWithPlan.ts";
-import { buildExtraPlan } from "./extraPlan.ts";
+import { runSimulationWithPlan } from "./runWithPlan";
+import { buildExtraPlan } from "./extraPlan";
 import { hashKey } from "./hash";
 
 const cache = new Map();
 
 function runCached(debts, plan, monthsCap) {
- const key = hashKey({ debts, plan, monthsCap });
- const hit = cache.get(key);
- if (hit) return hit;
- const res = runSimulationWithPlan(debts, plan, monthsCap);
- cache.set(key, res);
- return res;
+  const key = hashKey({ debts, plan, monthsCap });
+  const hit = cache.get(key);
+  if (hit) return hit;
+  const res = runSimulationWithPlan(debts, plan, monthsCap);
+  cache.set(key, res);
+  return res;
 }
 
 // Main API
 export function computeImpacts(
- debts,
- baseExtra,
- selections,
- monthsCap = 120
+  debts,
+  baseExtra,
+  selections,
+  monthsCap = 120
 ) {
- // baseline (slider only)
- const basePlan = buildExtraPlan([], monthsCap, baseExtra);
- const base = runCached(debts, basePlan, monthsCap);
+  // baseline (slider only)
+  const basePlan = buildExtraPlan([], monthsCap, baseExtra);
+  const base = runCached(debts, basePlan, monthsCap);
 
- // combined (slider + all active scenarios)
- const activeSelections = selections.filter(s => s.active);
- const combinedPlan = buildExtraPlan(activeSelections, monthsCap, baseExtra);
- const combined = runCached(debts, combinedPlan, monthsCap);
+  // combined (slider + all active scenarios)
+  const activeSelections = selections.filter(s => s.active);
+  const combinedPlan = buildExtraPlan(activeSelections, monthsCap, baseExtra);
+  const combined = runCached(debts, combinedPlan, monthsCap);
 
- // per-scenario (marginal vs baseline)
- const perScenario = selections.map(s => {
-  if (!s.active) {
-   return { id: s.id, monthsSaved: 0, interestSaved: 0 };
-  }
-  const soloPlan = buildExtraPlan([s], monthsCap, baseExtra);
-  const solo = runCached(debts, soloPlan, monthsCap);
-  const monthsSaved = Math.max(0, base.monthsToZero - solo.monthsToZero);
-  const interestSaved = Math.max(0, Math.round(base.totalInterest - solo.totalInterest));
-  return { id: s.id, monthsSaved, interestSaved };
- });
+  // per-scenario (marginal vs baseline)
+  const perScenario = selections.map(s => {
+    if (!s.active) {
+      return { id: s.id, monthsSaved: 0, interestSaved: 0 };
+    }
+    const soloPlan = buildExtraPlan([s], monthsCap, baseExtra);
+    const solo = runCached(debts, soloPlan, monthsCap);
+    const monthsSaved = Math.max(0, base.monthsToZero - solo.monthsToZero);
+    const interestSaved = Math.max(0, Math.round(base.totalInterest - solo.totalInterest));
+    return { id: s.id, monthsSaved, interestSaved };
+  });
 
- // aggregate deltas (combined vs baseline)
- const agg = {
-  monthsSaved: Math.max(0, base.monthsToZero - combined.monthsToZero),
-  interestSaved: Math.max(0, Math.round(base.totalInterest - combined.totalInterest))
- };
+  // aggregate deltas (combined vs baseline)
+  const agg = {
+    monthsSaved: Math.max(0, base.monthsToZero - combined.monthsToZero),
+    interestSaved: Math.max(0, Math.round(base.totalInterest - combined.totalInterest))
+  };
 
- return { base, combined, perScenario, agg, plans: { basePlan, combinedPlan } };
+  return { base, combined, perScenario, agg, plans: { basePlan, combinedPlan } };
 }

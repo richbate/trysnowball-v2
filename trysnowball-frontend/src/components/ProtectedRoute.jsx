@@ -4,51 +4,39 @@
  */
 
 import React from 'react';
-import { Navigate, useLocation } from 'react-router-dom';
+import { Navigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext.tsx';
-import { useUserDebts } from '../hooks/useUserDebts';
+import { useDebts } from '../hooks/useDebts';
 import { useDemoMode } from '../providers/DemoModeProvider';
 import PageSkeleton from './PageSkeleton';
 
 const ProtectedRoute = ({ children }) => {
- const { user, authReady } = useAuth();
- const { debts, loading: debtsLoading } = useUserDebts();
- const { isDemo } = useDemoMode();
- const location = useLocation();
- 
- // Show loading while auth/debts are loading
- if (!authReady || debtsLoading) {
-  return <PageSkeleton />;
- }
- 
- // Check if this is a new user via UTM parameters
- const searchParams = new URLSearchParams(location.search);
- const isFromUTM = searchParams.has('utm_source') || searchParams.has('utm_medium') || searchParams.has('utm_campaign');
- const hasStoredDemo = localStorage.getItem('SNOWBALL_DEMO_FLAG') === 'true';
- 
- // Not logged in and not in demo -> check if they should go to onboarding first
- if (!user && !isDemo) {
-  // If coming from UTM (like Google) and no existing demo/debt data -> go to onboarding
-  if (isFromUTM && !hasStoredDemo && (!debts || debts.length === 0)) {
-   return <Navigate to="/onboarding" replace />;
+  const { user, authReady } = useAuth();
+  const { debts, loading: debtsLoading } = useDebts();
+  const { isDemo } = useDemoMode();
+  
+  // Show loading while auth/debts are loading
+  if (!authReady || debtsLoading) {
+    return <PageSkeleton />;
   }
   
-  // Otherwise show landing page
-  const Landing = React.lazy(() => import('../pages/Landing'));
-  return (
-   <React.Suspense fallback={<PageSkeleton />}>
-    <Landing />
-   </React.Suspense>
-  );
- }
- 
- // Logged in but no debts and not in demo -> go to onboarding
- if (user && (!debts || debts.length === 0) && !isDemo) {
-  return <Navigate to="/onboarding" replace />;
- }
- 
- // Has debts or is in demo -> show dashboard
- return children;
+  // Not logged in and not in demo -> show landing page directly
+  if (!user && !isDemo) {
+    const Landing = React.lazy(() => import('../pages/Landing'));
+    return (
+      <React.Suspense fallback={<PageSkeleton />}>
+        <Landing />
+      </React.Suspense>
+    );
+  }
+  
+  // Logged in but no debts and not in demo -> go to onboarding
+  if (user && (!debts || debts.length === 0) && !isDemo) {
+    return <Navigate to="/onboarding" replace />;
+  }
+  
+  // Has debts or is in demo -> show dashboard
+  return children;
 };
 
 export default ProtectedRoute;

@@ -3,61 +3,33 @@ import { screen } from '@testing-library/react';
 import MyPlan from '../pages/MyPlan';
 import { renderWithProviders } from '../testUtils';
 
-// 1) Make ProtectedRoute pass-through
-jest.mock('../components/ProtectedRoute', () => ({
- __esModule: true,
- default: ({ children }) => <>{children}</>,
-}));
-
-// 2) Pretend user is authed/ready
-jest.mock('../contexts/AuthContext', () => ({
- __esModule: true,
- useAuth: () => ({ user: { id: 'u1' }, authReady: true }),
-}));
-
-// 3) Feed stable debts and no loading
-jest.mock('../hooks/useUserDebts', () => ({
- __esModule: true,
- useUserDebts: () => ({
-  debts: [
-   { id:'d1', name:'Card A', amount_pennies: 150000, min_payment_pennies: 8000, apr: 1999 },
-   { id:'d2', name:'Card B', amount_pennies: 200000, min_payment_pennies: 10000, apr: 2499 },
-  ],
-  loading: false,
-  metrics: {
-   totalDebt: 350000, // £3,500 in pence
-   totalMinPayments: 18000, // £180 in pence 
-  },
- }),
-}));
-
 // 👇 Mock the user context for this test
 jest.mock('../contexts/UserContext', () => {
- const actual = jest.requireActual('../contexts/UserContext');
- return {
-  ...actual,
-  // No-op provider so we can wrap components if they import it
-  UserProvider: ({ children }) => <>{children}</>,
-  // Force an authenticated user shape that your components expect
-  useUser: () => ({
-   isAuthenticated: true,
-   user: { id: 'test-user', email: 't@example.com' },
-   signIn: jest.fn(),
-   signOut: jest.fn(),
-   refreshSession: jest.fn(),
-  }),
- };
+  const actual = jest.requireActual('../contexts/UserContext');
+  return {
+    ...actual,
+    // No-op provider so we can wrap components if they import it
+    UserProvider: ({ children }) => <>{children}</>,
+    // Force an authenticated user shape that your components expect
+    useUser: () => ({
+      isAuthenticated: true,
+      user: { id: 'test-user', email: 't@example.com' },
+      signIn: jest.fn(),
+      signOut: jest.fn(),
+      refreshSession: jest.fn(),
+    }),
+  };
 });
 
-describe.skip('MyPlan – header totals', () => {
- test('shows 3,500 total and £180 min; no legacy totals', async () => {
-  renderWithProviders(<MyPlan />, { theme: 'light' });
+describe('MyPlan – header totals', () => {
+  test('shows 3,500 total and £180 min; no legacy totals', async () => {
+    renderWithProviders(<MyPlan />, { theme: 'light' });
 
-  // Adjust matchers to your exact UI copy/formatting:
-  expect(await screen.findByText(/£?\s*3,?500/i)).toBeInTheDocument();
-  expect(screen.getByText(/£?\s*180\s*\/\s*mo/i)).toBeInTheDocument();
+    // Adjust matchers to your exact UI copy/formatting:
+    expect(await screen.findByText(/£?\s*3,?500/i)).toBeInTheDocument();
+    expect(screen.getByText(/£?\s*180\s*\/\s*mo/i)).toBeInTheDocument();
 
-  // Ensure the legacy value does NOT appear
-  expect(screen.queryByText(/18,?512/)).toBeNull();
- });
+    // Ensure the legacy value does NOT appear
+    expect(screen.queryByText(/18,?512/)).toBeNull();
+  });
 });

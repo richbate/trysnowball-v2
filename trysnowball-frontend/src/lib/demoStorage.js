@@ -1,168 +1,158 @@
 /**
- * Demo Storage Manager (DEPRECATED)
- * 
- * WARNING: This system is deprecated in favor of unified IndexedDB demo data
- * managed by DemoModeProvider. Demo data is now seeded directly into IndexedDB
- * when entering demo mode, eliminating the need for SessionStorage-based demo systems.
- * 
- * TODO: Remove this file after confirming no components still reference it.
+ * Demo Storage Manager
+ * Handles all demo mode data operations
  */
 
 import demoData from '../data/demoData.json';
 
 class DemoStorage {
- constructor() {
-  this.initialized = false;
-  
-  // Deprecation warning
-  if (process.env.NODE_ENV !== 'production') {
-   console.warn('[DEPRECATION] DemoStorage is deprecated. Demo data is now managed through IndexedDB via DemoModeProvider.');
-  }
- }
- 
- // Initialize demo data in sessionStorage
- init() {
-  if (this.initialized) return;
-  
-  // Load demo debts
-  sessionStorage.setItem('DEMO_DEBTS', JSON.stringify(demoData.debts));
-  
-  // Load demo settings
-  sessionStorage.setItem('DEMO_SETTINGS', JSON.stringify(demoData.settings));
-  
-  // Load demo snowflakes
-  sessionStorage.setItem('DEMO_SNOWFLAKES', JSON.stringify(demoData.snowflakes));
-  
-  // Load demo goals
-  sessionStorage.setItem('DEMO_GOALS', JSON.stringify(demoData.goals));
-  
-  // Load demo milestones
-  sessionStorage.setItem('DEMO_MILESTONES', JSON.stringify(demoData.milestones));
-  
-  // Set last balance update for demo
-  sessionStorage.setItem('DEMO_LAST_BALANCE_UPDATE', demoData.settings.lastBalanceUpdate);
-  
-  this.initialized = true;
- }
- 
- // Get demo debts with rehydration on expiry
- getDebts() {
-  try {
-   const stored = sessionStorage.getItem('DEMO_DEBTS');
-   if (!stored) {
-    // Rehydrate if session was cleared
+  constructor() {
     this.initialized = false;
+  }
+  
+  // Initialize demo data in sessionStorage
+  init() {
+    if (this.initialized) return;
+    
+    // Load demo debts
+    sessionStorage.setItem('DEMO_DEBTS', JSON.stringify(demoData.debts));
+    
+    // Load demo settings
+    sessionStorage.setItem('DEMO_SETTINGS', JSON.stringify(demoData.settings));
+    
+    // Load demo snowflakes
+    sessionStorage.setItem('DEMO_SNOWFLAKES', JSON.stringify(demoData.snowflakes));
+    
+    // Load demo goals
+    sessionStorage.setItem('DEMO_GOALS', JSON.stringify(demoData.goals));
+    
+    // Load demo milestones
+    sessionStorage.setItem('DEMO_MILESTONES', JSON.stringify(demoData.milestones));
+    
+    // Set last balance update for demo
+    sessionStorage.setItem('DEMO_LAST_BALANCE_UPDATE', demoData.settings.lastBalanceUpdate);
+    
+    this.initialized = true;
+  }
+  
+  // Get demo debts with rehydration on expiry
+  getDebts() {
+    try {
+      const stored = sessionStorage.getItem('DEMO_DEBTS');
+      if (!stored) {
+        // Rehydrate if session was cleared
+        this.initialized = false;
+        this.init();
+        return demoData.debts;
+      }
+      return JSON.parse(stored);
+    } catch (error) {
+      console.warn('[Demo] Rehydrating demo data after session expiry');
+      this.initialized = false;
+      this.init();
+      return demoData.debts;
+    }
+  }
+  
+  // Update demo debts (in memory only)
+  setDebts(debts) {
+    sessionStorage.setItem('DEMO_DEBTS', JSON.stringify(debts));
+  }
+  
+  // Get demo settings
+  getSettings() {
     this.init();
-    return demoData.debts;
-   }
-   return JSON.parse(stored);
-  } catch (error) {
-   console.warn('[Demo] Rehydrating demo data after session expiry');
-   this.initialized = false;
-   this.init();
-   return demoData.debts;
+    try {
+      const stored = sessionStorage.getItem('DEMO_SETTINGS');
+      return stored ? JSON.parse(stored) : demoData.settings;
+    } catch {
+      return demoData.settings;
+    }
   }
- }
- 
- // Update demo debts (in memory only)
- setDebts(debts) {
-  sessionStorage.setItem('DEMO_DEBTS', JSON.stringify(debts));
- }
- 
- // Get demo settings
- getSettings() {
-  this.init();
-  try {
-   const stored = sessionStorage.getItem('DEMO_SETTINGS');
-   return stored ? JSON.parse(stored) : demoData.settings;
-  } catch {
-   return demoData.settings;
+  
+  // Update demo settings (in memory only)
+  setSettings(settings) {
+    sessionStorage.setItem('DEMO_SETTINGS', JSON.stringify(settings));
   }
- }
- 
- // Update demo settings (in memory only)
- setSettings(settings) {
-  sessionStorage.setItem('DEMO_SETTINGS', JSON.stringify(settings));
- }
- 
- // Get demo snowflakes
- getSnowflakes() {
-  this.init();
-  try {
-   const stored = sessionStorage.getItem('DEMO_SNOWFLAKES');
-   return stored ? JSON.parse(stored) : demoData.snowflakes;
-  } catch {
-   return demoData.snowflakes;
+  
+  // Get demo snowflakes
+  getSnowflakes() {
+    this.init();
+    try {
+      const stored = sessionStorage.getItem('DEMO_SNOWFLAKES');
+      return stored ? JSON.parse(stored) : demoData.snowflakes;
+    } catch {
+      return demoData.snowflakes;
+    }
   }
- }
- 
- // Add demo snowflake
- addSnowflake(snowflake) {
-  const snowflakes = this.getSnowflakes();
-  snowflakes.push({
-   ...snowflake,
-   id: `sf_demo_${Date.now()}`,
-   date: new Date().toISOString()
-  });
-  sessionStorage.setItem('DEMO_SNOWFLAKES', JSON.stringify(snowflakes));
- }
- 
- // Get demo goals
- getGoals() {
-  this.init();
-  try {
-   const stored = sessionStorage.getItem('DEMO_GOALS');
-   return stored ? JSON.parse(stored) : demoData.goals;
-  } catch {
-   return demoData.goals;
+  
+  // Add demo snowflake
+  addSnowflake(snowflake) {
+    const snowflakes = this.getSnowflakes();
+    snowflakes.push({
+      ...snowflake,
+      id: `sf_demo_${Date.now()}`,
+      date: new Date().toISOString()
+    });
+    sessionStorage.setItem('DEMO_SNOWFLAKES', JSON.stringify(snowflakes));
   }
- }
- 
- // Clear all demo data
- clear() {
-  Object.keys(sessionStorage).forEach(key => {
-   if (key.startsWith('DEMO_')) {
-    sessionStorage.removeItem(key);
-   }
-  });
-  this.initialized = false;
- }
- 
- // Get total debt
- getTotalDebt() {
-  const debts = this.getDebts();
-  return debts.reduce((sum, debt) => sum + (debt.amount_pennies || debt.amount || 0), 0);
- }
- 
- // Get total minimum payments
- getTotalMinimum() {
-  const debts = this.getDebts();
-  return debts.reduce((sum, debt) => sum + (debt.minimumPayment || 0), 0);
- }
- 
- // Get extra payment amount
- getExtraPayment() {
-  const settings = this.getSettings();
-  return settings.extraPayment || 0;
- }
- 
- // Update extra payment
- setExtraPayment(amount) {
-  const settings = this.getSettings();
-  this.setSettings({ ...settings, extraPayment: amount });
- }
- 
- // Get strategy
- getStrategy() {
-  const settings = this.getSettings();
-  return settings.strategy || 'snowball';
- }
- 
- // Update strategy
- setStrategy(strategy) {
-  const settings = this.getSettings();
-  this.setSettings({ ...settings, strategy });
- }
+  
+  // Get demo goals
+  getGoals() {
+    this.init();
+    try {
+      const stored = sessionStorage.getItem('DEMO_GOALS');
+      return stored ? JSON.parse(stored) : demoData.goals;
+    } catch {
+      return demoData.goals;
+    }
+  }
+  
+  // Clear all demo data
+  clear() {
+    Object.keys(sessionStorage).forEach(key => {
+      if (key.startsWith('DEMO_')) {
+        sessionStorage.removeItem(key);
+      }
+    });
+    this.initialized = false;
+  }
+  
+  // Get total debt
+  getTotalDebt() {
+    const debts = this.getDebts();
+    return debts.reduce((sum, debt) => sum + (debt.balance || debt.amount || 0), 0);
+  }
+  
+  // Get total minimum payments
+  getTotalMinimum() {
+    const debts = this.getDebts();
+    return debts.reduce((sum, debt) => sum + (debt.minimumPayment || 0), 0);
+  }
+  
+  // Get extra payment amount
+  getExtraPayment() {
+    const settings = this.getSettings();
+    return settings.extraPayment || 0;
+  }
+  
+  // Update extra payment
+  setExtraPayment(amount) {
+    const settings = this.getSettings();
+    this.setSettings({ ...settings, extraPayment: amount });
+  }
+  
+  // Get strategy
+  getStrategy() {
+    const settings = this.getSettings();
+    return settings.strategy || 'snowball';
+  }
+  
+  // Update strategy
+  setStrategy(strategy) {
+    const settings = this.getSettings();
+    this.setSettings({ ...settings, strategy });
+  }
 }
 
 export const demoStorage = new DemoStorage();

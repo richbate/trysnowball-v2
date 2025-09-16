@@ -9,22 +9,22 @@ export type Locale = 'en-GB' | 'en-US';
 export type PlanTab = 'debts' | 'strategy' | 'timeline' | 'goals';
 
 export interface AppSettings {
- theme: ThemeMode;
- currency: Currency;
- reminders: boolean;
- locale: Locale;
- defaultPlanTab: PlanTab;
+  theme: ThemeMode;
+  currency: Currency;
+  reminders: boolean;
+  locale: Locale;
+  defaultPlanTab: PlanTab;
 }
 
 export interface SettingsRow {
- key: string; // Always 'app'
- value: AppSettings;
+  key: string;  // Always 'app'
+  value: AppSettings;
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
- theme: 'system',
- currency: 'GBP',
- reminders: true,
- locale: 'en-GB',
- defaultPlanTab: 'debts'
+  theme: 'system',
+  currency: 'GBP',
+  reminders: true,
+  locale: 'en-GB',
+  defaultPlanTab: 'debts'
 };

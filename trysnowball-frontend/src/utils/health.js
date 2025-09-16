@@ -1,15 +1,15 @@
 export async function safeCheckAuthHealth(url, { timeoutMs = 3000 } = {}) {
- if (!url) return { ok: false, reason: 'NO_URL' };
+  if (!url) return { ok: false, reason: 'NO_URL' };
 
- const ctrl = new AbortController();
- const t = setTimeout(() => ctrl.abort('timeout'), timeoutMs);
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort('timeout'), timeoutMs);
 
- try {
-  const r = await fetch(url, { signal: ctrl.signal, credentials: 'include' });
-  clearTimeout(t);
-  return { ok: r.ok, status: r.status };
- } catch (e) {
-  clearTimeout(t);
-  return { ok: false, reason: e?.message || 'NETWORK' };
- }
+  try {
+    const r = await fetch(url, { signal: ctrl.signal, credentials: 'include' });
+    clearTimeout(t);
+    return { ok: r.ok, status: r.status };
+  } catch (e) {
+    clearTimeout(t);
+    return { ok: false, reason: e?.message || 'NETWORK' };
+  }
 }

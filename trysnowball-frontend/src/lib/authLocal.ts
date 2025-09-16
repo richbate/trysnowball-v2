@@ -1,50 +1,29 @@
 // src/lib/authLocal.ts
 export type LocalEntitlement = {
- isPro: boolean;
- plan: 'free' | 'pro' | 'founder';
- betaAccess?: boolean;
- dailyQuota?: number;
- reason?: string;
+  isPro: boolean;
+  plan: 'free' | 'pro' | 'founder';
+  betaAccess?: boolean;
+  dailyQuota?: number;
+  reason?: string;
 };
 
 export async function fetchLocalUser(): Promise<null | { id?: string; email?: string; name?: string }> {
- // Try to get user info from auth worker using token/cookie
- try {
-  const response = await fetch('/auth/user', {
-   credentials: 'include', // Include cookies
-   headers: {
-    'Content-Type': 'application/json',
-   },
-  });
-
-  if (response.ok) {
-   const data = await response.json();
-   console.log('[authLocal] User data from auth worker:', data);
-   return data.user || null;
-  } else {
-   console.log('[authLocal] Auth worker returned:', response.status);
-   return null;
-  }
- } catch (error) {
-  console.warn('[authLocal] Failed to fetch user from auth worker:', error);
-  
-  // Fallback: check localStorage for cached user data
+  // Optional: hydrate from local (keep null if unknown)
   try {
-   const raw = localStorage.getItem('snowball:user');
-   return raw ? JSON.parse(raw) : null;
+    const raw = localStorage.getItem('snowball:user');
+    return raw ? JSON.parse(raw) : null;
   } catch {
-   return null;
+    return null;
   }
- }
 }
 
 export async function fetchLocalEntitlement(): Promise<LocalEntitlement> {
- // Safe defaults for CI / local mode
- return {
-  isPro: false,
-  plan: 'free',
-  betaAccess: false,
-  dailyQuota: 40,
-  reason: 'Local auth (no server endpoints)',
- };
+  // Safe defaults for CI / local mode
+  return {
+    isPro: false,
+    plan: 'free',
+    betaAccess: false,
+    dailyQuota: 40,
+    reason: 'Local auth (no server endpoints)',
+  };
 }

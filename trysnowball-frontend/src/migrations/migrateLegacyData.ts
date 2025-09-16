@@ -5,433 +5,433 @@
  * This migration is idempotent and runs once at startup.
  */
 
-import { localDebtStore } from '../data/localDebtStore';
-import { Debt, LegacyDebt, normalizeAmount } from '../types/debt';
+import { localDebtStore } from '../data/localDebtStore.ts';
+import { Debt, LegacyDebt, normalizeAmount } from '../types/debt.ts';
 
 // Known legacy storage keys
 const LEGACY_KEYS = [
- 'trysnowball-user-data',
- 'trysnowball-user-data-dev-user-123',
- 'debtBalances',
- 'trysnowball_demo_debts',
- 'sb_debts_simple_v1',
- 'debts',
- 'debt-data'
+  'trysnowball-user-data',
+  'trysnowball-user-data-dev-user-123',
+  'debtBalances',
+  'trysnowball_demo_debts',
+  'sb_debts_simple_v1',
+  'debts',
+  'debt-data'
 ];
 
 /**
  * Main migration function
  */
 export async function migrateLegacyData(): Promise<{
- migrated: boolean;
- count: number;
- source: string;
- duration: number;
+  migrated: boolean;
+  count: number;
+  source: string;
+  duration: number;
 }> {
- const startTime = Date.now();
- 
- try {
-  // Check if migration is needed
-  const needsMigration = await localDebtStore.needsMigration();
-  if (!needsMigration) {
-   console.log('[Migration] Already completed, skipping');
-   return {
-    migrated: false,
-    count: 0,
-    source: 'none',
-    duration: Date.now() - startTime
-   };
+  const startTime = Date.now();
+  
+  try {
+    // Check if migration is needed
+    const needsMigration = await localDebtStore.needsMigration();
+    if (!needsMigration) {
+      console.log('[Migration] Already completed, skipping');
+      return {
+        migrated: false,
+        count: 0,
+        source: 'none',
+        duration: Date.now() - startTime
+      };
+    }
+    
+    console.log('[Migration] Starting legacy data migration...');
+    
+    // Track migration analytics
+    trackMigrationEvent('data_migration_started', {
+      timestamp: new Date().toISOString()
+    });
+    
+    // Try to find and migrate legacy data
+    const migrationResult = await findAndMigrateLegacyData();
+    
+    if (migrationResult.count > 0) {
+      // Mark migration as complete
+      await localDebtStore.markMigrationComplete();
+      
+      // Clear legacy storage (but keep backup)
+      backupAndClearLegacyStorage();
+      
+      console.log(`[Migration] Successfully migrated ${migrationResult.count} debts from ${migrationResult.source}`);
+      
+      // Track completion
+      trackMigrationEvent('data_migration_completed', {
+        duration_ms: Date.now() - startTime,
+        count: migrationResult.count,
+        source: migrationResult.source
+      });
+      
+      return {
+        migrated: true,
+        count: migrationResult.count,
+        source: migrationResult.source,
+        duration: Date.now() - startTime
+      };
+    } else {
+      // No legacy data found, just mark as complete
+      await localDebtStore.markMigrationComplete();
+      
+      console.log('[Migration] No legacy data found, marking as complete');
+      
+      return {
+        migrated: false,
+        count: 0,
+        source: 'none',
+        duration: Date.now() - startTime
+      };
+    }
+  } catch (error) {
+    console.error('[Migration] Error during migration:', error);
+    
+    trackMigrationEvent('data_migration_error', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      duration_ms: Date.now() - startTime
+    });
+    
+    // Don't mark as complete if there was an error
+    return {
+      migrated: false,
+      count: 0,
+      source: 'error',
+      duration: Date.now() - startTime
+    };
   }
-  
-  console.log('[Migration] Starting legacy data migration...');
-  
-  // Track migration analytics
-  trackMigrationEvent('data_migration_started', {
-   timestamp: new Date().toISOString()
-  });
-  
-  // Try to find and migrate legacy data
-  const migrationResult = await findAndMigrateLegacyData();
-  
-  if (migrationResult.count > 0) {
-   // Mark migration as complete
-   await localDebtStore.markMigrationComplete();
-   
-   // Clear legacy storage (but keep backup)
-   backupAndClearLegacyStorage();
-   
-   console.log(`[Migration] Successfully migrated ${migrationResult.count} debts from ${migrationResult.source}`);
-   
-   // Track completion
-   trackMigrationEvent('data_migration_completed', {
-    duration_ms: Date.now() - startTime,
-    count: migrationResult.count,
-    source: migrationResult.source
-   });
-   
-   return {
-    migrated: true,
-    count: migrationResult.count,
-    source: migrationResult.source,
-    duration: Date.now() - startTime
-   };
-  } else {
-   // No legacy data found, just mark as complete
-   await localDebtStore.markMigrationComplete();
-   
-   console.log('[Migration] No legacy data found, marking as complete');
-   
-   return {
-    migrated: false,
-    count: 0,
-    source: 'none',
-    duration: Date.now() - startTime
-   };
-  }
- } catch (error) {
-  console.error('[Migration] Error during migration:', error);
-  
-  trackMigrationEvent('data_migration_error', {
-   error: error instanceof Error ? error.message : 'Unknown error',
-   duration_ms: Date.now() - startTime
-  });
-  
-  // Don't mark as complete if there was an error
-  return {
-   migrated: false,
-   count: 0,
-   source: 'error',
-   duration: Date.now() - startTime
-  };
- }
 }
 
 /**
  * Find and migrate legacy data from localStorage
  */
 async function findAndMigrateLegacyData(): Promise<{
- count: number;
- source: string;
+  count: number;
+  source: string;
 }> {
- // Try each known legacy key
- for (const key of LEGACY_KEYS) {
-  try {
-   const rawData = localStorage.getItem(key);
-   if (!rawData) continue;
-   
-   console.log(`[Migration] Found data in ${key}`);
-   
-   // Parse the data
-   const parsed = JSON.parse(rawData);
-   
-   // Extract debts array (could be at different paths)
-   const debts = extractDebtsArray(parsed);
-   
-   if (debts && debts.length > 0) {
-    console.log(`[Migration] Found ${debts.length} debts in ${key}`);
-    
-    // Transform and migrate
-    const transformedDebts = debts.map(debt => transformLegacyDebt(debt));
-    
-    // Filter out invalid debts
-    const validDebts = transformedDebts.filter(d => d !== null) as Debt[];
-    
-    if (validDebts.length > 0) {
-     // Save to new store
-     await localDebtStore.upsertMany(validDebts);
-     
-     return {
-      count: validDebts.length,
-      source: key
-     };
+  // Try each known legacy key
+  for (const key of LEGACY_KEYS) {
+    try {
+      const rawData = localStorage.getItem(key);
+      if (!rawData) continue;
+      
+      console.log(`[Migration] Found data in ${key}`);
+      
+      // Parse the data
+      const parsed = JSON.parse(rawData);
+      
+      // Extract debts array (could be at different paths)
+      const debts = extractDebtsArray(parsed);
+      
+      if (debts && debts.length > 0) {
+        console.log(`[Migration] Found ${debts.length} debts in ${key}`);
+        
+        // Transform and migrate
+        const transformedDebts = debts.map(debt => transformLegacyDebt(debt));
+        
+        // Filter out invalid debts
+        const validDebts = transformedDebts.filter(d => d !== null) as Debt[];
+        
+        if (validDebts.length > 0) {
+          // Save to new store
+          await localDebtStore.upsertMany(validDebts);
+          
+          return {
+            count: validDebts.length,
+            source: key
+          };
+        }
+      }
+    } catch (error) {
+      console.warn(`[Migration] Failed to parse ${key}:`, error);
+      continue;
     }
-   }
-  } catch (error) {
-   console.warn(`[Migration] Failed to parse ${key}:`, error);
-   continue;
   }
- }
- 
- // Also check for debtsManager format
- const debtsManagerData = checkDebtsManagerFormat();
- if (debtsManagerData.count > 0) {
-  return debtsManagerData;
- }
- 
- return {
-  count: 0,
-  source: 'none'
- };
+  
+  // Also check for debtsManager format
+  const debtsManagerData = checkDebtsManagerFormat();
+  if (debtsManagerData.count > 0) {
+    return debtsManagerData;
+  }
+  
+  return {
+    count: 0,
+    source: 'none'
+  };
 }
 
 /**
  * Extract debts array from various data structures
  */
 function extractDebtsArray(data: any): LegacyDebt[] | null {
- // Direct array
- if (Array.isArray(data)) {
-  return data;
- }
- 
- // Object with debts property
- if (data && typeof data === 'object') {
-  if (Array.isArray(data.debts)) {
-   return data.debts;
-  }
-  if (Array.isArray(data.debtList)) {
-   return data.debtList;
-  }
-  if (Array.isArray(data.items)) {
-   return data.items;
+  // Direct array
+  if (Array.isArray(data)) {
+    return data;
   }
   
-  // Check nested structures
-  if (data.data) {
-   return extractDebtsArray(data.data);
+  // Object with debts property
+  if (data && typeof data === 'object') {
+    if (Array.isArray(data.debts)) {
+      return data.debts;
+    }
+    if (Array.isArray(data.debtList)) {
+      return data.debtList;
+    }
+    if (Array.isArray(data.items)) {
+      return data.items;
+    }
+    
+    // Check nested structures
+    if (data.data) {
+      return extractDebtsArray(data.data);
+    }
+    if (data.state) {
+      return extractDebtsArray(data.state);
+    }
   }
-  if (data.state) {
-   return extractDebtsArray(data.state);
-  }
- }
- 
- return null;
+  
+  return null;
 }
 
 /**
  * Transform legacy debt to new format
  */
 function transformLegacyDebt(legacy: LegacyDebt): Debt | null {
- try {
-  // Skip if no name or completely empty
-  if (!legacy.name && !legacy.id) {
-   return null;
+  try {
+    // Skip if no name or completely empty
+    if (!legacy.name && !legacy.id) {
+      return null;
+    }
+    
+    // Extract balance (check various field names)
+    const balance = normalizeAmount(
+      legacy.balance ?? 
+      legacy.amount ?? 
+      0
+    );
+    
+    // Skip if zero balance and no original amount
+    if (balance === 0 && !legacy.originalAmount) {
+      return null;
+    }
+    
+    // Extract interest rate (check various field names)
+    const interestRate = normalizeAmount(
+      legacy.interestRate ?? 
+      legacy.rate ?? 
+      legacy.interest ?? 
+      0
+    );
+    
+    // Extract minimum payment
+    const minPayment = normalizeAmount(
+      legacy.minPayment ?? 
+      legacy.min ?? 
+      legacy.regularPayment ?? 
+      Math.max(25, balance * 0.02) // Default to 2% of balance, minimum £25
+    );
+    
+    // Generate ID if missing
+    const id = legacy.id || `migrated_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
+    
+    // Determine type
+    const type = determineDebtType(legacy.type || legacy.name || '');
+    
+    const now = new Date().toISOString();
+    
+    return {
+      id,
+      name: legacy.name || 'Migrated Debt',
+      type,
+      balance,
+      originalAmount: normalizeAmount(legacy.originalAmount ?? balance),
+      interestRate,
+      minPayment,
+      order: legacy.order ?? 999,
+      createdAt: legacy.createdAt || now,
+      updatedAt: legacy.updatedAt || now,
+      isDemo: legacy.isDemo || false
+    };
+  } catch (error) {
+    console.error('[Migration] Error transforming debt:', error, legacy);
+    return null;
   }
-  
-  // Extract balance (check various field names)
-  const balance = normalizeAmount(
-   legacy.balance ?? 
-   legacy.amount ?? 
-   0
-  );
-  
-  // Skip if zero balance and no original amount
-  if (balance === 0 && !legacy.originalAmount) {
-   return null;
-  }
-  
-  // Extract interest rate (check various field names)
-  const interestRate = normalizeAmount(
-   legacy.interestRate ?? 
-   legacy.rate ?? 
-   legacy.interest ?? 
-   0
-  );
-  
-  // Extract minimum payment
-  const minPayment = normalizeAmount(
-   legacy.minPayment ?? 
-   legacy.min ?? 
-   legacy.regularPayment ?? 
-   Math.max(25, balance * 0.02) // Default to 2% of balance, minimum £25
-  );
-  
-  // Generate ID if missing
-  const id = legacy.id || `migrated_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
-  
-  // Determine type
-  const type = determineDebtType(legacy.type || legacy.name || '');
-  
-  const now = new Date().toISOString();
-  
-  return {
-   id,
-   name: legacy.name || 'Migrated Debt',
-   type,
-   balance,
-   originalAmount: normalizeAmount(legacy.originalAmount ?? balance),
-   interestRate,
-   minPayment,
-   order: legacy.order ?? 999,
-   createdAt: legacy.createdAt || now,
-   updatedAt: legacy.updatedAt || now,
-   isDemo: legacy.isDemo || false
-  };
- } catch (error) {
-  console.error('[Migration] Error transforming debt:', error, legacy);
-  return null;
- }
 }
 
 /**
  * Determine debt type from string
  */
 function determineDebtType(input: string): Debt['type'] {
- const lowered = input.toLowerCase();
- 
- if (lowered.includes('credit') || lowered.includes('visa') || lowered.includes('mastercard')) {
-  return 'Credit Card';
- }
- if (lowered.includes('loan') && !lowered.includes('student')) {
-  return 'Personal Loan';
- }
- if (lowered.includes('store') || lowered.includes('paypal')) {
-  return 'Store Card';
- }
- if (lowered.includes('overdraft')) {
-  return 'Overdraft';
- }
- if (lowered.includes('car') || lowered.includes('auto')) {
-  return 'Car Loan';
- }
- if (lowered.includes('student')) {
-  return 'Student Loan';
- }
- if (lowered.includes('mortgage') || lowered.includes('home')) {
-  return 'Mortgage';
- }
- 
- return 'Other';
+  const lowered = input.toLowerCase();
+  
+  if (lowered.includes('credit') || lowered.includes('visa') || lowered.includes('mastercard')) {
+    return 'Credit Card';
+  }
+  if (lowered.includes('loan') && !lowered.includes('student')) {
+    return 'Personal Loan';
+  }
+  if (lowered.includes('store') || lowered.includes('paypal')) {
+    return 'Store Card';
+  }
+  if (lowered.includes('overdraft')) {
+    return 'Overdraft';
+  }
+  if (lowered.includes('car') || lowered.includes('auto')) {
+    return 'Car Loan';
+  }
+  if (lowered.includes('student')) {
+    return 'Student Loan';
+  }
+  if (lowered.includes('mortgage') || lowered.includes('home')) {
+    return 'Mortgage';
+  }
+  
+  return 'Other';
 }
 
 /**
  * Check for debtsManager specific format
  */
 function checkDebtsManagerFormat(): { count: number; source: string } {
- try {
-  // Look for the specific key pattern used by debtsManager
-  const keys = Object.keys(localStorage);
-  const debtsManagerKey = keys.find(k => 
-   k.includes('trysnowball-user-data') || 
-   k === 'trysnowball_debts'
-  );
-  
-  if (debtsManagerKey) {
-   const data = localStorage.getItem(debtsManagerKey);
-   if (data) {
-    const parsed = JSON.parse(data);
+  try {
+    // Look for the specific key pattern used by debtsManager
+    const keys = Object.keys(localStorage);
+    const debtsManagerKey = keys.find(k => 
+      k.includes('trysnowball-user-data') || 
+      k === 'trysnowball_debts'
+    );
     
-    // debtsManager stores in a specific format
-    if (parsed.debts && Array.isArray(parsed.debts)) {
-     const transformedDebts = parsed.debts
-      .map((d: any) => transformLegacyDebt(d))
-      .filter((d: any) => d !== null);
-     
-     if (transformedDebts.length > 0) {
-      // Save to new store (synchronously for this check)
-      localDebtStore.upsertMany(transformedDebts).then(() => {
-       console.log(`[Migration] Migrated ${transformedDebts.length} from debtsManager`);
-      });
-      
-      return {
-       count: transformedDebts.length,
-       source: 'debtsManager'
-      };
-     }
+    if (debtsManagerKey) {
+      const data = localStorage.getItem(debtsManagerKey);
+      if (data) {
+        const parsed = JSON.parse(data);
+        
+        // debtsManager stores in a specific format
+        if (parsed.debts && Array.isArray(parsed.debts)) {
+          const transformedDebts = parsed.debts
+            .map((d: any) => transformLegacyDebt(d))
+            .filter((d: any) => d !== null);
+          
+          if (transformedDebts.length > 0) {
+            // Save to new store (synchronously for this check)
+            localDebtStore.upsertMany(transformedDebts).then(() => {
+              console.log(`[Migration] Migrated ${transformedDebts.length} from debtsManager`);
+            });
+            
+            return {
+              count: transformedDebts.length,
+              source: 'debtsManager'
+            };
+          }
+        }
+      }
     }
-   }
+  } catch (error) {
+    console.warn('[Migration] Error checking debtsManager format:', error);
   }
- } catch (error) {
-  console.warn('[Migration] Error checking debtsManager format:', error);
- }
- 
- return { count: 0, source: 'none' };
+  
+  return { count: 0, source: 'none' };
 }
 
 /**
  * Backup and clear legacy storage
  */
 function backupAndClearLegacyStorage(): void {
- try {
-  // Create backup
-  const backup: Record<string, any> = {};
-  
-  for (const key of LEGACY_KEYS) {
-   const value = localStorage.getItem(key);
-   if (value) {
-    backup[key] = value;
-   }
+  try {
+    // Create backup
+    const backup: Record<string, any> = {};
+    
+    for (const key of LEGACY_KEYS) {
+      const value = localStorage.getItem(key);
+      if (value) {
+        backup[key] = value;
+      }
+    }
+    
+    // Store backup with timestamp
+    if (Object.keys(backup).length > 0) {
+      localStorage.setItem(
+        `legacy_backup_${Date.now()}`,
+        JSON.stringify({
+          timestamp: new Date().toISOString(),
+          data: backup
+        })
+      );
+      
+      console.log('[Migration] Created backup of legacy data');
+    }
+    
+    // Clear legacy keys (but not the backup)
+    for (const key of LEGACY_KEYS) {
+      localStorage.removeItem(key);
+    }
+    
+    console.log('[Migration] Cleared legacy storage keys');
+  } catch (error) {
+    console.error('[Migration] Error during backup/clear:', error);
   }
-  
-  // Store backup with timestamp
-  if (Object.keys(backup).length > 0) {
-   localStorage.setItem(
-    `legacy_backup_${Date.now()}`,
-    JSON.stringify({
-     timestamp: new Date().toISOString(),
-     data: backup
-    })
-   );
-   
-   console.log('[Migration] Created backup of legacy data');
-  }
-  
-  // Clear legacy keys (but not the backup)
-  for (const key of LEGACY_KEYS) {
-   localStorage.removeItem(key);
-  }
-  
-  console.log('[Migration] Cleared legacy storage keys');
- } catch (error) {
-  console.error('[Migration] Error during backup/clear:', error);
- }
 }
 
 /**
  * Track migration analytics events
  */
 function trackMigrationEvent(event: string, properties: Record<string, any>): void {
- try {
-  // Log in development
-  if (process.env.NODE_ENV === 'development') {
-   console.log(`[Analytics] ${event}`, properties);
+  try {
+    // Log in development
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`[Analytics] ${event}`, properties);
+    }
+    
+    // Send to PostHog if available
+    if (typeof window !== 'undefined' && (window as any).posthog) {
+      (window as any).posthog.capture(event, {
+        ...properties,
+        migration_version: 'v2',
+        source: 'migrateLegacyData'
+      });
+    }
+  } catch (error) {
+    // Silently fail analytics
   }
-  
-  // Send to PostHog if available
-  if (typeof window !== 'undefined' && (window as any).posthog) {
-   (window as any).posthog.capture(event, {
-    ...properties,
-    migration_version: 'v2',
-    source: 'migrateLegacyData'
-   });
-  }
- } catch (error) {
-  // Silently fail analytics
- }
 }
 
 /**
  * Run migration on app startup
  */
 export async function runMigrationOnStartup(): Promise<void> {
- // Only run in browser environment
- if (typeof window === 'undefined') {
-  return;
- }
- 
- // Run migration after a short delay to not block app startup
- setTimeout(async () => {
-  try {
-   const result = await migrateLegacyData();
-   
-   if (result.migrated) {
-    console.log(`✅ [Migration] Completed: ${result.count} debts migrated from ${result.source} in ${result.duration}ms`);
-    
-    // Show user notification if significant data was migrated
-    if (result.count > 0) {
-     showMigrationNotification(result.count);
-    }
-   }
-  } catch (error) {
-   console.error('❌ [Migration] Failed:', error);
+  // Only run in browser environment
+  if (typeof window === 'undefined') {
+    return;
   }
- }, 1000);
+  
+  // Run migration after a short delay to not block app startup
+  setTimeout(async () => {
+    try {
+      const result = await migrateLegacyData();
+      
+      if (result.migrated) {
+        console.log(`✅ [Migration] Completed: ${result.count} debts migrated from ${result.source} in ${result.duration}ms`);
+        
+        // Show user notification if significant data was migrated
+        if (result.count > 0) {
+          showMigrationNotification(result.count);
+        }
+      }
+    } catch (error) {
+      console.error('❌ [Migration] Failed:', error);
+    }
+  }, 1000);
 }
 
 /**
  * Show user notification about migration
  */
 function showMigrationNotification(count: number): void {
- // This would integrate with your toast/notification system
- // For now, just log it
- console.log(`📦 Successfully migrated ${count} debt${count > 1 ? 's' : ''} to the new storage system!`);
+  // This would integrate with your toast/notification system
+  // For now, just log it
+  console.log(`📦 Successfully migrated ${count} debt${count > 1 ? 's' : ''} to the new storage system!`);
 }

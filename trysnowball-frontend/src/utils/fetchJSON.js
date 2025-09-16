@@ -1,24 +1,24 @@
 // src/utils/fetchJSON.js
 export async function fetchJSON(url, init = {}) {
- try {
-  const res = await fetch(url, init);
-  const ct = (res.headers.get('content-type') || '').toLowerCase();
-  const text = await res.text();
-  
-  if (!res.ok) return null;
-  
-  if (ct.includes('application/json')) {
-   return text ? JSON.parse(text) : null;
+  try {
+    const res = await fetch(url, init);
+    const ct = (res.headers.get('content-type') || '').toLowerCase();
+    const text = await res.text();
+    
+    if (!res.ok) return null;
+    
+    if (ct.includes('application/json')) {
+      return text ? JSON.parse(text) : null;
+    }
+    
+    console.warn('[fetchJSON] non-JSON response; returning null', { 
+      url, 
+      ct, 
+      sample: text.slice(0, 120) 
+    });
+    return null;
+  } catch (e) {
+    console.warn('[fetchJSON] network error', { url, e });
+    return null;
   }
-  
-  console.warn('[fetchJSON] non-JSON response; returning null', { 
-   url, 
-   ct, 
-   sample: text.slice(0, 120) 
-  });
-  return null;
- } catch (e) {
-  console.warn('[fetchJSON] network error', { url, e });
-  return null;
- }
 }

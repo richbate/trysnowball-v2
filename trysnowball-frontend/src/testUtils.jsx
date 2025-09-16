@@ -3,12 +3,19 @@ import React from 'react';
 import { render } from '@testing-library/react';
 import { BrowserRouter } from 'react-router-dom';
 
+import { ThemeProvider } from './contexts/ThemeContext';
+
 export function renderWithProviders(
- ui,
- {
-  router = true,
- } = {}
+  ui,
+  {
+    theme = 'light',
+    router = true,
+  } = {}
 ) {
- const tree = router ? <BrowserRouter>{ui}</BrowserRouter> : ui;
- return render(tree);
+  const tree = (
+    <ThemeProvider initialTheme={theme}>
+      {router ? <BrowserRouter>{ui}</BrowserRouter> : ui}
+    </ThemeProvider>
+  );
+  return render(tree);
 }

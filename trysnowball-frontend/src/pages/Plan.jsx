@@ -1,162 +1,122 @@
 /**
  * Plan Workspace Page
- * Contains all heavy tools in tabs: Debts, Strategy, Snowball, Snowflakes, Goals
+ * Contains all heavy tools in tabs: Debts, Strategy, Forecast, Snowflakes, Goals
  */
 
-import React, { useEffect } from 'react';
+import React from 'react';
 import { Routes, Route, Navigate, useLocation, Link } from 'react-router-dom';
-import { useUserDebts } from '../hooks/useUserDebts';
-import { useSnowballSettings } from '../hooks/useSnowballSettings';
+import { useTheme } from '../contexts/ThemeContext';
+import { useDebts } from '../hooks/useDebts';
 import DemoWatermark from '../components/DemoWatermark';
-import { calculateSnowballTimeline, calculateAvalancheTimeline } from '../selectors/amortization';
-import { setLastPlanTab } from '../utils/planRouting';
 
 // Tab components
 import DebtsTab from '../components/plan/DebtsTab/DebtsTab';
 import StrategyTab from '../components/plan/StrategyTab/StrategyTab';
 import ForecastTab from '../components/plan/ForecastTab/ForecastTab';
-import SnowflakesTab from './MyPlan/SnowflakesTab';
-import GoalsTab from './MyPlan/GoalsTab';
-import ReviewPayments from './ReviewPayments';
-import PlanTab from './Plan/PlanTab';
+import SnowflakesTab from '../components/plan/SnowflakesTab/SnowflakesTab';
+import GoalsTab from '../components/plan/GoalsTab/GoalsTab';
 
 const Plan = () => {
- const location = useLocation();
- const { debts, addDebt, updateDebt, deleteDebt, recordPayment } = useUserDebts();
- const { snowballAmount } = useSnowballSettings();
- 
- // Use debts for all tabs - single source of truth
- const displayDebts = debts;
- 
- // Semantic theme colors
- const colors = {
-  background: 'bg-bg',
-  surface: 'bg-surface',
-  border: 'border-border',
-  text: {
-   primary: 'text-text',
-   secondary: 'text-muted',
-   muted: 'text-muted'
-  }
- };
- 
- // Determine active tab from route
- const getActiveTab = () => {
-  const path = location.pathname;
+  const { colors: themeColors } = useTheme();
+  const location = useLocation();
+  const { debts } = useDebts();
   
-  // Check specific paths first (more specific before general)
-  if (path.includes('/debts')) return 'debts';
-  if (path.includes('/strategy')) return 'strategy';
-  if (path.includes('/snowball')) return 'snowball';
-  if (path.includes('/snowflakes')) return 'snowflakes';
-  if (path.includes('/goals')) return 'goals';
-  if (path.includes('/advanced') || path.includes('/review')) return 'advanced';
-  if (path.includes('/plan/plan')) return 'plan';  // Check /plan/plan specifically
+  // Safe fallback for colors
+  const colors = themeColors || {
+    background: 'bg-gray-50',
+    surface: 'bg-white',
+    border: 'border-gray-200',
+    text: {
+      primary: 'text-gray-900',
+      secondary: 'text-gray-600',
+      muted: 'text-gray-500'
+    }
+  };
   
-  // Default tab - always debts so users can add debts
-  return 'debts';
- };
- 
- const activeTab = getActiveTab();
- 
- // Persist the current tab whenever it changes
- useEffect(() => {
-  setLastPlanTab(activeTab);
- }, [activeTab]);
- 
- // Tab configuration
- const tabs = [
-  { id: 'debts', label: 'Debts', path: '/plan/debts', icon: '💳' },
-  { id: 'strategy', label: 'Strategy', path: '/plan/strategy', icon: '🎯' },
-  { id: 'plan', label: 'Plan', path: '/plan/plan', icon: '📋' },
-  { id: 'snowball', label: 'Snowball', path: '/plan/snowball', icon: '⚡' },
-  { id: 'snowflakes', label: 'Snowflakes', path: '/plan/snowflakes', icon: '❄️' },
-  { id: 'goals', label: 'Goals', path: '/plan/goals', icon: '🏆' },
- ];
- 
- return (
-  <div data-testid="plan-workspace" className="min-h-screen bg-gradient-to-br from-primary via-accent to-primary">
-   <DemoWatermark position="top-right" />
-   
-   {/* Purple gradient background container */}
-   <div className="px-4 py-6">
-    <div className="max-w-6xl mx-auto">
-     {/* Elevated Header Card */}
-     <div data-testid="plan-header" className="bg-white/90 backdrop-blur-lg rounded-3xl shadow-xl p-6 mb-6">
-      <div className="mb-4">
-       <h1 data-testid="plan-title" className="text-3xl font-black text-gray-900">Your Debt Plan</h1>
-       <p data-testid="plan-subtitle" className="text-lg text-gray-700 mt-2 font-medium">
-        Manage debts, choose strategy, and track progress
-       </p>
+  // Determine active tab from route
+  const getActiveTab = () => {
+    const path = location.pathname;
+    if (path.includes('/debts')) return 'debts';
+    if (path.includes('/strategy')) return 'strategy';
+    if (path.includes('/forecast')) return 'forecast';
+    if (path.includes('/snowflakes')) return 'snowflakes';
+    if (path.includes('/goals')) return 'goals';
+    
+    // Default tab based on user state
+    return debts && debts.length > 0 ? 'debts' : 'forecast';
+  };
+  
+  const activeTab = getActiveTab();
+  
+  // Tab configuration
+  const tabs = [
+    { id: 'debts', label: 'Debts', path: '/plan/debts', icon: '💳' },
+    { id: 'strategy', label: 'Strategy', path: '/plan/strategy', icon: '🎯' },
+    { id: 'forecast', label: 'Forecast', path: '/plan/forecast', icon: '📊' },
+    { id: 'snowflakes', label: 'Snowflakes', path: '/plan/snowflakes', icon: '❄️' },
+    { id: 'goals', label: 'Goals', path: '/plan/goals', icon: '🎯' },
+  ];
+  
+  return (
+    <div className={`min-h-screen ${colors.background}`}>
+      <DemoWatermark position="top-right" />
+      
+      {/* Header */}
+      <div className={`${colors.surface} border-b ${colors.border}`}>
+        <div className="max-w-6xl mx-auto px-4">
+          <div className="py-4">
+            <h1 className="text-2xl font-bold">Your Debt Plan</h1>
+            <p className="text-sm text-gray-600 mt-1">
+              Manage debts, choose strategy, and track progress
+            </p>
+          </div>
+          
+          {/* Tab Navigation */}
+          <div className="flex space-x-1 overflow-x-auto">
+            {tabs.map(tab => {
+              const isActive = activeTab === tab.id;
+              return (
+                <Link
+                  key={tab.id}
+                  to={tab.path}
+                  className={`
+                    flex items-center space-x-2 px-4 py-3 border-b-2 transition-colors whitespace-nowrap
+                    ${isActive 
+                      ? 'border-primary text-primary font-medium' 
+                      : 'border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300'
+                    }
+                  `}
+                >
+                  <span>{tab.icon}</span>
+                  <span>{tab.label}</span>
+                </Link>
+              );
+            })}
+          </div>
+        </div>
       </div>
       
-      {/* Tab Navigation */}
-      <div data-testid="plan-tabs" className="flex space-x-1 overflow-x-auto">
-       {tabs.map(tab => {
-        const isActive = activeTab === tab.id;
-        return (
-         <Link
-          key={tab.id}
-          to={tab.path}
-          data-testid={`plan-tab-${tab.id}`}
-          className={`
-           flex items-center space-x-2 px-6 py-3 rounded-2xl transition-all whitespace-nowrap font-semibold
-           ${isActive 
-            ? 'bg-primary text-white shadow-lg transform -translate-y-0.5' 
-            : 'text-gray-600 hover:text-primary hover:bg-secondary/50'
-           }
-          `}
-         >
-          <span>{tab.icon}</span>
-          <span>{tab.label}</span>
-         </Link>
-        );
-       })}
+      {/* Tab Content */}
+      <div className="max-w-6xl mx-auto px-4 py-6">
+        <Routes>
+          <Route path="debts" element={<DebtsTab />} />
+          <Route path="strategy" element={<StrategyTab colors={colors} timelineDebtsData={debts} hasNoDebtData={!debts || debts.length === 0} />} />
+          <Route path="forecast" element={<ForecastTab colors={colors} timelineDebtsData={debts} hasNoDebtData={!debts || debts.length === 0} />} />
+          <Route path="snowflakes" element={<SnowflakesTab />} />
+          <Route path="goals" element={<GoalsTab />} />
+          <Route 
+            path="/" 
+            element={
+              <Navigate 
+                to={debts && debts.length > 0 ? '/plan/debts' : '/plan/forecast'} 
+                replace 
+              />
+            } 
+          />
+        </Routes>
       </div>
-     </div>
-     
-     {/* Tab Content - Elevated Card */}
-     <div data-testid="plan-content" className="bg-white/90 backdrop-blur-lg rounded-3xl shadow-xl p-8">
-    <Routes>
-     <Route path="debts" element={<DebtsTab debts={displayDebts} addDebt={addDebt} updateDebt={updateDebt} deleteDebt={deleteDebt} recordPayment={recordPayment} />} />
-     <Route path="strategy" element={<StrategyTab colors={colors} timelineDebtsData={displayDebts} hasNoDebtData={!displayDebts || displayDebts.length === 0} />} />
-     <Route path="review" element={<ReviewPayments debts={displayDebts} recordPayment={recordPayment} />} />
-     <Route path="plan" element={<PlanTab debts={displayDebts} />} />
-     <Route path="advanced" element={<Navigate to="/plan/plan" replace />} />
-     <Route path="snowball" element={<ForecastTab colors={colors} timelineDebtsData={displayDebts} hasNoDebtData={!displayDebts || displayDebts.length === 0} />} />
-     <Route path="forecast" element={<Navigate to="/plan/snowball" replace />} />
-     <Route path="snowflakes" element={
-      <SnowflakesTab 
-       debts={displayDebts}
-       calculateTimeline={(strategy, inputs) => {
-        if (strategy === 'snowball') {
-         return calculateSnowballTimeline(
-          inputs.debts || [],
-          { extraPayment: snowballAmount || 0 },
-          inputs.snowflakesMap
-         );
-        } else {
-         return calculateAvalancheTimeline(
-          inputs.debts || [],
-          { extraPayment: snowballAmount || 0 },
-          inputs.snowflakesMap
-         );
-        }
-       }}
-       inputs={{
-        payoffStrategy: 'snowball' // Default strategy
-       }}
-       snowballAmount={snowballAmount}
-      />
-     } />
-     <Route path="goals" element={<GoalsTab debts={displayDebts} />} />
-     {/* Removed catch-all redirect - handled by PlanIndexRedirect */}
-    </Routes>
-     </div>
     </div>
-   </div>
-  </div>
- );
+  );
 };
 
 export default Plan;

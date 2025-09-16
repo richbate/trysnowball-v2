@@ -1,8 +1,11 @@
 /* eslint-disable no-undef */
 /**
- * Critical Flows Smoke Tests - FIXED VERSION
+ * Critical Flows Smoke Tests
  * 
- * Tests the most important user journeys
+ * Tests the most important user journeys to catch regressions fast:
+ * 1. Debts Tab: Demo load → reorder → edit → history → clear → empty state
+ * 2. Upgrade: Free user sees pricing; Pro user sees no gates
+ * 3. Empty States: NoDebtsState shows proper CTAs
  */
 
 describe('Critical User Flows - Smoke Tests', () => {
@@ -11,64 +14,80 @@ describe('Critical User Flows - Smoke Tests', () => {
     cy.clearLocalStorage();
     cy.clearAllSessionStorage();
     
-    // Visit home page and wait for React to load
+    // Visit home page and wait for load
     cy.visit('/');
-    cy.get('#root').should('not.be.empty');
+    cy.get('body').should('be.visible');
   });
 
-  describe('Plan Page Critical Flow', () => {
-    it('completes debt management lifecycle', () => {
-      cy.log('🎯 Testing: Plan page debt management');
+  describe('Debts Tab Critical Flow', () => {
+    it('completes full debt management lifecycle', () => {
+      cy.log('🎯 Testing: Demo load → reorder → edit → history → clear → empty state');
       
-      // Navigate to Plan (not my-plan anymore)
-      cy.visit('/plan');
-      cy.wait(2000);
+      // Navigate to My Plan
+      cy.visit('/my-plan');
+      cy.wait(1000);
       
-      // Check if we need to load demo data
-      cy.get('body').then(($body) => {
-        const bodyText = $body.text();
-        
-        if (bodyText.includes('No debts') || bodyText.includes('Get started') || bodyText.includes('empty')) {
-          cy.log('Empty state detected, attempting to load demo data');
-          
-          // Look for demo button and click it
-          const demoBtn = $body.find('button').filter((i, el) => {
-            const text = el.textContent.toLowerCase();
-            return text.includes('demo') || text.includes('example');
-          });
-          
-          if (demoBtn.length > 0) {
-            cy.wrap(demoBtn.first()).click({ force: true });
-            cy.wait(2000);
-          }
-        }
-        
-        // Now verify we have debt content
-        cy.get('body').then($body => {
-          const text = $body.text().toLowerCase();
-          expect(text).to.include('debt');
-        });
-      });
+      // Should start with demo data loaded
+      cy.log('Step 1: Demo data should be loaded');
+      cy.get('[data-testid="debt-table"], table').should('be.visible');
+      cy.get('[data-testid="debt-summary-cards"], .debt-summary').should('exist');
       
-      cy.log('✅ Plan page lifecycle completed');
+      // Should see multiple debts
+      cy.get('tbody tr, [data-testid="debt-row"]').should('have.length.at.least', 2);
+      
+      // Step 2: Test reordering (drag or click-based)
+      cy.log('Step 2: Testing debt reordering');
+      cy.get('[data-testid="debt-row"]:first, tbody tr:first').should('exist');
+      
+      // Step 3: Test edit functionality
+      cy.log('Step 3: Testing debt edit');
+      cy.get('[data-testid="edit-debt"], [title*="Edit"], button').contains(/edit|✏️/i).first().click({ force: true });
+      cy.get('[data-testid="debt-form"], .modal, form').should('be.visible');
+      cy.get('button').contains(/cancel|close|×/i).click({ force: true });
+      
+      // Step 4: Test history view (if available)
+      cy.log('Step 4: Testing debt history');
+      cy.get('[data-testid="view-history"], button').contains(/history|📊/i).first().click({ force: true });
+      // History modal should appear or navigate
+      cy.get('body').should('contain.text', /history|balance|changes/i);
+      cy.get('button, [data-testid="close"]').contains(/close|×|back/i).first().click({ force: true });
+      
+      // Step 5: Clear all data
+      cy.log('Step 5: Testing clear all data');
+      cy.get('[data-testid="clear-data"], button').contains(/clear|delete|remove/i).first().click({ force: true });
+      
+      // Confirm clear action
+      cy.get('button').contains(/confirm|yes|clear/i).click({ force: true });
+      
+      // Step 6: Verify empty state
+      cy.log('Step 6: Verifying empty state');
+      cy.get('[data-testid="no-debts-state"], .empty-state').should('be.visible');
+      cy.get('button').contains(/add.*debt|get started|demo/i).should('be.visible');
+      
+      // Step 7: Reload demo data from empty state  
+      cy.log('Step 7: Reloading demo data');
+      cy.get('button').contains(/demo|try.*demo/i).click({ force: true });
+      cy.get('tbody tr, [data-testid="debt-row"]').should('have.length.at.least', 1);
+      
+      cy.log('✅ Debts tab lifecycle completed successfully');
     });
   });
 
   describe('Upgrade Page Critical Flow', () => {
-    it('shows pricing to users', () => {
-      cy.log('🎯 Testing: Upgrade page');
+    it('shows pricing to free users', () => {
+      cy.log('🎯 Testing: Free user sees upgrade pricing');
       
       // Navigate to upgrade page
       cy.visit('/upgrade');
-      cy.wait(1000);
       
       // Should see pricing content
-      cy.get('body').then($body => {
-        const text = $body.text().toLowerCase();
-        expect(text).to.match(/upgrade|pro|premium|pricing|plan|subscribe/);
-      });
+      cy.get('body').should('contain.text', /upgrade|pricing|pro|plan/i);
+      cy.get('[data-testid="pricing"], .pricing, .plan').should('exist');
       
-      cy.log('✅ Upgrade page shows correctly');
+      // Should see upgrade buttons
+      cy.get('button').contains(/upgrade|choose|select/i).should('be.visible');
+      
+      cy.log('✅ Upgrade page shows correctly for free users');
     });
 
     it('account/upgrade route works', () => {
@@ -76,15 +95,40 @@ describe('Critical User Flows - Smoke Tests', () => {
       
       // Navigate to account upgrade page
       cy.visit('/account/upgrade');
+      
+      // Should show same upgrade content
+      cy.get('body').should('contain.text', /upgrade|pricing|pro|plan/i);
+      
+      cy.log('✅ Account upgrade route works correctly');
+    });
+  });
+
+  describe('Empty States Critical Flow', () => {
+    it('shows proper CTAs in no debts state', () => {
+      cy.log('🎯 Testing: NoDebtsState shows proper CTAs');
+      
+      // Navigate to My Plan and clear data to get empty state
+      cy.visit('/my-plan');
       cy.wait(1000);
       
-      // Should show upgrade content
-      cy.get('body').then($body => {
-        const text = $body.text().toLowerCase();
-        expect(text).to.match(/upgrade|pricing|pro|plan/);
-      });
+      // Clear any existing data
+      cy.get('button').contains(/clear|delete|remove/i).first().click({ force: true });
+      cy.get('button').contains(/confirm|yes|clear/i).click({ force: true });
       
-      cy.log('✅ Account upgrade route works');
+      // Should show empty state with CTAs
+      cy.get('[data-testid="no-debts-state"], .empty-state').should('be.visible');
+      
+      // Should have "Add Debt" CTA
+      cy.get('button').contains(/add.*debt|get started/i).should('be.visible');
+      
+      // Should have "Demo Data" CTA
+      cy.get('button').contains(/demo|try.*demo/i).should('be.visible');
+      
+      // Test Add Debt CTA
+      cy.get('button').contains(/add.*debt|get started/i).click({ force: true });
+      cy.get('[data-testid="debt-form"], .modal, form').should('be.visible');
+      
+      cy.log('✅ Empty state CTAs work correctly');
     });
   });
 
@@ -94,15 +138,15 @@ describe('Critical User Flows - Smoke Tests', () => {
       
       const routes = [
         '/',
-        '/plan', 
+        '/my-plan', 
         '/upgrade',
         '/library'
       ];
       
       routes.forEach(route => {
         cy.visit(route);
-        cy.get('#root').should('not.be.empty');
-        cy.get('body').should('not.contain.text', 'JS Error');
+        cy.get('body').should('be.visible');
+        cy.get('body').should('not.contain.text', /error|not found|500/i);
         cy.log(`✅ Route ${route} loads successfully`);
       });
     });
@@ -113,42 +157,20 @@ describe('Critical User Flows - Smoke Tests', () => {
       cy.log('🎯 Testing: Rapid navigation stability');
       
       // Rapidly navigate between key pages
-      const pages = ['/plan', '/upgrade', '/', '/library', '/plan'];
+      const pages = ['/my-plan', '/upgrade', '/', '/library', '/my-plan'];
       
       pages.forEach((page, index) => {
         cy.visit(page);
         cy.wait(200); // Brief wait to allow rendering
-        cy.get('#root').should('not.be.empty');
+        cy.get('body').should('be.visible');
         cy.log(`Navigation ${index + 1}/5: ${page} loaded`);
       });
       
       // Final check - should still be functional
-      cy.visit('/plan');
-      cy.get('body').should('exist');
+      cy.visit('/my-plan');
+      cy.get('[data-testid="debt-table"], table, .debt-table').should('exist');
       
       cy.log('✅ Rapid navigation handled without crashes');
-    });
-  });
-  
-  describe('Empty States Critical Flow', () => {
-    it('shows proper content in various states', () => {
-      cy.log('🎯 Testing: Different page states');
-      
-      // Visit plan page
-      cy.visit('/plan');
-      cy.wait(2000);
-      
-      // Page should have meaningful content
-      cy.get('body').then($body => {
-        const text = $body.text();
-        // Should have some meaningful text
-        expect(text.length).to.be.greaterThan(100);
-      });
-      
-      // Check for interactive elements
-      cy.get('button').should('exist');
-      
-      cy.log('✅ Page states work correctly');
     });
   });
 });

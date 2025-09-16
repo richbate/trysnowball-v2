@@ -7,17 +7,17 @@
 import { z } from "zod";
 
 const AIConfigSchema = z.object({
- AI_PROVIDER: z.enum(["openai", "mock"]).default("openai"),
- OPENAI_API_KEY: z.string().min(1).optional(),    // required if provider=openai
- OPENAI_BASE_URL: z.string().url().optional(),    // allow custom base (e.g., proxy)
- GPT_MODEL_CHAT: z.string().default("gpt-4o-mini"),
- GPT_MODEL_INGEST: z.string().default("gpt-4o-mini"),
- GPT_TIMEOUT_MS: z.coerce.number().default(15000),
- GPT_MAX_TOKENS: z.coerce.number().default(512),
- GPT_STREAMING: z.enum(["on","off"]).default("on"),
- GPT_DAILY_TOKEN_BUDGET: z.coerce.number().default(250_000), // soft guard
- GPT_ENABLED: z.enum(["true","false"]).default("true"),
- NODE_ENV: z.enum(["development","test","production"]).default("development"),
+  AI_PROVIDER: z.enum(["openai", "mock"]).default("openai"),
+  OPENAI_API_KEY: z.string().min(1).optional(),       // required if provider=openai
+  OPENAI_BASE_URL: z.string().url().optional(),       // allow custom base (e.g., proxy)
+  GPT_MODEL_CHAT: z.string().default("gpt-4o-mini"),
+  GPT_MODEL_INGEST: z.string().default("gpt-4o-mini"),
+  GPT_TIMEOUT_MS: z.coerce.number().default(15000),
+  GPT_MAX_TOKENS: z.coerce.number().default(512),
+  GPT_STREAMING: z.enum(["on","off"]).default("on"),
+  GPT_DAILY_TOKEN_BUDGET: z.coerce.number().default(250_000), // soft guard
+  GPT_ENABLED: z.enum(["true","false"]).default("true"),
+  NODE_ENV: z.enum(["development","test","production"]).default("development"),
 });
 
 export type AIConfig = z.infer<typeof AIConfigSchema>;
@@ -31,40 +31,40 @@ export type AIConfig = z.infer<typeof AIConfigSchema>;
  * @throws Error if configuration is invalid in production
  */
 export function getAIConfig(env: Record<string, string | undefined>): AIConfig {
- const parsed = AIConfigSchema.safeParse({
-  AI_PROVIDER: env.AI_PROVIDER,
-  OPENAI_API_KEY: env.OPENAI_API_KEY,
-  OPENAI_BASE_URL: env.OPENAI_BASE_URL,
-  GPT_MODEL_CHAT: env.GPT_MODEL_CHAT,
-  GPT_MODEL_INGEST: env.GPT_MODEL_INGEST,
-  GPT_TIMEOUT_MS: env.GPT_TIMEOUT_MS,
-  GPT_MAX_TOKENS: env.GPT_MAX_TOKENS,
-  GPT_STREAMING: env.GPT_STREAMING,
-  GPT_DAILY_TOKEN_BUDGET: env.GPT_DAILY_TOKEN_BUDGET,
-  GPT_ENABLED: env.GPT_ENABLED,
-  NODE_ENV: env.NODE_ENV,
- });
+  const parsed = AIConfigSchema.safeParse({
+    AI_PROVIDER: env.AI_PROVIDER,
+    OPENAI_API_KEY: env.OPENAI_API_KEY,
+    OPENAI_BASE_URL: env.OPENAI_BASE_URL,
+    GPT_MODEL_CHAT: env.GPT_MODEL_CHAT,
+    GPT_MODEL_INGEST: env.GPT_MODEL_INGEST,
+    GPT_TIMEOUT_MS: env.GPT_TIMEOUT_MS,
+    GPT_MAX_TOKENS: env.GPT_MAX_TOKENS,
+    GPT_STREAMING: env.GPT_STREAMING,
+    GPT_DAILY_TOKEN_BUDGET: env.GPT_DAILY_TOKEN_BUDGET,
+    GPT_ENABLED: env.GPT_ENABLED,
+    NODE_ENV: env.NODE_ENV,
+  });
 
- if (!parsed.success) {
-  const errorMessage = `AI configuration invalid: ${parsed.error.message}`;
-  console.error('[AI Config]', errorMessage);
-  throw new Error(errorMessage);
- }
-
- const cfg = parsed.data;
-
- // Handle missing OpenAI API key
- if (cfg.AI_PROVIDER === "openai" && !cfg.OPENAI_API_KEY) {
-  if (cfg.NODE_ENV === "production") {
-   throw new Error("OPENAI_API_KEY is required in production when AI_PROVIDER=openai");
+  if (!parsed.success) {
+    const errorMessage = `AI configuration invalid: ${parsed.error.message}`;
+    console.error('[AI Config]', errorMessage);
+    throw new Error(errorMessage);
   }
-  
-  // Development: fall back to mock to avoid breaking local runs
-  console.warn('[AI Config] OPENAI_API_KEY missing in development, falling back to mock provider');
-  return { ...cfg, AI_PROVIDER: "mock" };
- }
 
- return cfg;
+  const cfg = parsed.data;
+
+  // Handle missing OpenAI API key
+  if (cfg.AI_PROVIDER === "openai" && !cfg.OPENAI_API_KEY) {
+    if (cfg.NODE_ENV === "production") {
+      throw new Error("OPENAI_API_KEY is required in production when AI_PROVIDER=openai");
+    }
+    
+    // Development: fall back to mock to avoid breaking local runs
+    console.warn('[AI Config] OPENAI_API_KEY missing in development, falling back to mock provider');
+    return { ...cfg, AI_PROVIDER: "mock" };
+  }
+
+  return cfg;
 }
 
 /**
@@ -72,62 +72,62 @@ export function getAIConfig(env: Record<string, string | undefined>): AIConfig {
  * Only reads public environment variables safe for browser
  */
 export function isAIAvailableClient(): boolean {
- // Only check public env var - never expose API keys to client
- return process.env.REACT_APP_AI_ENABLED !== 'false';
+  // Only check public env var - never expose API keys to client
+  return process.env.REACT_APP_AI_ENABLED !== 'false';
 }
 
 /**
  * Get client-safe AI configuration (no secrets)
  */
 export function getClientAIConfig() {
- return {
-  enabled: isAIAvailableClient(),
-  provider: process.env.REACT_APP_AI_PROVIDER || 'openai',
-  // Never expose API keys or internal config to client
- };
+  return {
+    enabled: isAIAvailableClient(),
+    provider: process.env.REACT_APP_AI_PROVIDER || 'openai',
+    // Never expose API keys or internal config to client
+  };
 }
 
 /**
  * Validate AI configuration for CI/deployment checks
  */
 export function validateAIConfigForProduction(env: Record<string, string | undefined>): { 
- valid: boolean; 
- errors: string[]; 
- warnings: string[];
+  valid: boolean; 
+  errors: string[]; 
+  warnings: string[];
 } {
- const errors: string[] = [];
- const warnings: string[] = [];
+  const errors: string[] = [];
+  const warnings: string[] = [];
 
- try {
-  const config = getAIConfig(env);
-  
-  if (config.NODE_ENV === 'production') {
-   if (config.AI_PROVIDER === 'openai' && !config.OPENAI_API_KEY) {
-    errors.push('OPENAI_API_KEY is required in production');
-   }
-   
-   if (config.GPT_DAILY_TOKEN_BUDGET < 10000) {
-    warnings.push('Daily token budget is very low for production');
-   }
-   
-   if (config.GPT_MAX_TOKENS > 2048) {
-    warnings.push('Max tokens is high - may increase costs');
-   }
+  try {
+    const config = getAIConfig(env);
+    
+    if (config.NODE_ENV === 'production') {
+      if (config.AI_PROVIDER === 'openai' && !config.OPENAI_API_KEY) {
+        errors.push('OPENAI_API_KEY is required in production');
+      }
+      
+      if (config.GPT_DAILY_TOKEN_BUDGET < 10000) {
+        warnings.push('Daily token budget is very low for production');
+      }
+      
+      if (config.GPT_MAX_TOKENS > 2048) {
+        warnings.push('Max tokens is high - may increase costs');
+      }
+    }
+    
+    if (config.GPT_ENABLED === 'false') {
+      warnings.push('AI features are disabled');
+    }
+    
+  } catch (error) {
+    errors.push(error instanceof Error ? error.message : 'Unknown validation error');
   }
-  
-  if (config.GPT_ENABLED === 'false') {
-   warnings.push('AI features are disabled');
-  }
-  
- } catch (error) {
-  errors.push(error instanceof Error ? error.message : 'Unknown validation error');
- }
 
- return {
-  valid: errors.length === 0,
-  errors,
-  warnings
- };
+  return {
+    valid: errors.length === 0,
+    errors,
+    warnings
+  };
 }
 
 export default AIConfigSchema;

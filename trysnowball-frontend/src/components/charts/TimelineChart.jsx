@@ -1,137 +1,85 @@
 import React from 'react';
 import {
- LineChart, Line, XAxis, YAxis, CartesianGrid,
- Tooltip, Legend, ResponsiveContainer,
- AreaChart, Area, ReferenceLine, ReferenceArea
+  LineChart, Line, XAxis, YAxis, CartesianGrid,
+  Tooltip, Legend, ResponsiveContainer,
+  AreaChart, Area
 } from 'recharts';
 
 // Format currency helper
 const formatCurrency = (value) => {
- if (typeof value !== 'number' || isNaN(value)) return '£0';
- return '£' + Math.round(value).toLocaleString();
+  if (typeof value !== 'number' || isNaN(value)) return '£0';
+  return '£' + Math.round(value).toLocaleString();
 };
 
 const TimelineChart = ({ 
- chartData, 
- stackedChartData, 
- chartType = 'line',
- height = 400,
- balanceTransferScenarios = null // New prop for balance transfer scenarios
+  chartData, 
+  stackedChartData, 
+  chartType = 'line',
+  height = 400 
 }) => {
- return (
-  <ResponsiveContainer width="100%" height={height}>
-   {chartType === 'line' ? (
-    <LineChart data={chartData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-     <CartesianGrid stroke="#e5e7eb" />
-     <XAxis
-      dataKey="month"
-      tick={{ fontSize: 12 }}
-      angle={-45}
-      textAnchor="end"
-      height={80}
-      interval={'preserveStartEnd'}
-     />
-     <YAxis 
-      tickFormatter={formatCurrency}
-      domain={[0, (dataMax) => Math.ceil(dataMax / 10000) * 10000]}
-     />
-     <Tooltip formatter={(v) => formatCurrency(v)} />
-     <Legend
-      iconType="rect"
-      formatter={(value) =>
-       value === 'minimumOnly' ? 'Minimum Payments Only' : 'Snowball Method'
-      }
-      wrapperStyle={{ paddingBottom: '10px' }}
-     />
-     <Line type="monotone" dataKey="minimumOnly" stroke="#f59e0b" strokeWidth={2} dot={false} />
-     <Line type="monotone" dataKey="snowball" stroke="#10b981" strokeWidth={2} dot={false} />
-     
-     {/* Balance Transfer Scenario Lines */}
-     {balanceTransferScenarios?.optionA && (
-      <Line 
-       type="monotone" 
-       dataKey="balanceTransferOptionA" 
-       stroke="#3b82f6" 
-       strokeWidth={2} 
-       strokeDasharray="5 5"
-       dot={false}
-       name="0% Transfer + Fee"
-      />
-     )}
-     {balanceTransferScenarios?.optionB && (
-      <Line 
-       type="monotone" 
-       dataKey="balanceTransferOptionB" 
-       stroke="#8b5cf6" 
-       strokeWidth={2} 
-       strokeDasharray="3 3"
-       dot={false}
-       name="Low APR Option"
-      />
-     )}
-     
-     {/* Visual indicators for balance transfer key events */}
-     {balanceTransferScenarios?.promoEndMonth && (
-      <ReferenceLine 
-       x={balanceTransferScenarios.promoEndMonth} 
-       stroke="#ef4444" 
-       strokeWidth={2}
-       strokeDasharray="2 2"
-       label={{ 
-        value: "0% Ends", 
-        position: "topLeft",
-        style: { fontSize: '12px', fill: '#ef4444' }
-       }}
-      />
-     )}
-     
-     {/* Upfront fee indicator at month 0 */}
-     {balanceTransferScenarios?.upfrontFee && (
-      <ReferenceArea
-       x1={0}
-       x2={1}
-       fill="#ef4444"
-       fillOpacity={0.1}
-       stroke="#ef4444"
-       strokeWidth={1}
-      />
-     )}
-    </LineChart>
-   ) : (
-    <AreaChart data={stackedChartData.data || []} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-     <CartesianGrid stroke="#e5e7eb" />
-     <XAxis
-      dataKey="month"
-      tick={{ fontSize: 12 }}
-      angle={-45}
-      textAnchor="end"
-      height={80}
-      interval={'preserveStartEnd'}
-     />
-     <YAxis 
-      tickFormatter={formatCurrency}
-      domain={[0, (dataMax) => Math.ceil(dataMax / 10000) * 10000]}
-     />
-     <Tooltip 
-      formatter={(value, name) => [formatCurrency(Math.round(value)), name]}
-      labelFormatter={(month) => `Month ${month}`}
-     />
-     <Legend wrapperStyle={{ paddingBottom: '10px' }} />
-     {stackedChartData.debtInfo && stackedChartData.debtInfo.map((debt, index) => (
-      <Area
-       key={debt.name}
-       type="monotone"
-       dataKey={debt.name}
-       stackId="1"
-       stroke={debt.color}
-       fill={debt.color}
-       fillOpacity={0.6}
-      />
-     ))}
-    </AreaChart>
-   )}
-  </ResponsiveContainer>
- );
+  return (
+    <ResponsiveContainer width="100%" height={height}>
+      {chartType === 'line' ? (
+        <LineChart data={chartData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+          <CartesianGrid stroke="#e5e7eb" />
+          <XAxis
+            dataKey="month"
+            tick={{ fontSize: 12 }}
+            angle={-45}
+            textAnchor="end"
+            height={80}
+            interval={'preserveStartEnd'}
+          />
+          <YAxis 
+            tickFormatter={formatCurrency}
+            domain={[0, (dataMax) => Math.ceil(dataMax / 10000) * 10000]}
+          />
+          <Tooltip formatter={(v) => formatCurrency(v)} />
+          <Legend
+            iconType="rect"
+            formatter={(value) =>
+              value === 'minimumOnly' ? 'Minimum Payments Only' : 'Snowball Method'
+            }
+            wrapperStyle={{ paddingBottom: '10px' }}
+          />
+          <Line type="monotone" dataKey="minimumOnly" stroke="#f59e0b" strokeWidth={2} dot={false} />
+          <Line type="monotone" dataKey="snowball" stroke="#10b981" strokeWidth={2} dot={false} />
+        </LineChart>
+      ) : (
+        <AreaChart data={stackedChartData.data || []} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+          <CartesianGrid stroke="#e5e7eb" />
+          <XAxis
+            dataKey="month"
+            tick={{ fontSize: 12 }}
+            angle={-45}
+            textAnchor="end"
+            height={80}
+            interval={'preserveStartEnd'}
+          />
+          <YAxis 
+            tickFormatter={formatCurrency}
+            domain={[0, (dataMax) => Math.ceil(dataMax / 10000) * 10000]}
+          />
+          <Tooltip 
+            formatter={(value, name) => [formatCurrency(Math.round(value)), name]}
+            labelFormatter={(month) => `Month ${month}`}
+          />
+          <Legend wrapperStyle={{ paddingBottom: '10px' }} />
+          {stackedChartData.debtInfo && stackedChartData.debtInfo.map((debt, index) => (
+            <Area
+              key={debt.name}
+              type="monotone"
+              dataKey={debt.name}
+              stackId="1"
+              stroke={debt.color}
+              fill={debt.color}
+              fillOpacity={0.6}
+            />
+          ))}
+        </AreaChart>
+      )}
+    </ResponsiveContainer>
+  );
 };
 
 export default TimelineChart;

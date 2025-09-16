@@ -10,179 +10,179 @@ import { debtsManager } from '../../lib/debtsManager';
 import 'fake-indexeddb/auto';
 
 describe('Demo Data Consistency', () => {
- beforeEach(async () => {
-  // Clear any existing data
-  await localDebtStore.clearAll();
- });
-
- describe('generateDemoDebts', () => {
-  it('returns UK demo debts by default', () => {
-   const debts = generateDemoDebts();
-   
-   expect(debts).toHaveLength(5);
-   expect(debts.every(d => d.isDemo)).toBe(true);
-   expect(debts.map(d => d.name)).toContain('PayPal Credit');
-   expect(debts.map(d => d.name)).toContain('Barclaycard');
-   expect(debts.map(d => d.name)).toContain('Halifax Credit Card');
-   expect(debts.map(d => d.name)).toContain('MBNA Card');
+  beforeEach(async () => {
+    // Clear any existing data
+    await localDebtStore.clearAll();
   });
 
-  it('returns UK demo debts when explicitly requested', () => {
-   const debts = generateDemoDebts('uk');
-   
-   expect(debts).toHaveLength(5);
-   expect(debts.every(d => d.isDemo)).toBe(true);
+  describe('generateDemoDebts', () => {
+    it('returns UK demo debts by default', () => {
+      const debts = generateDemoDebts();
+      
+      expect(debts).toHaveLength(5);
+      expect(debts.every(d => d.isDemo)).toBe(true);
+      expect(debts.map(d => d.name)).toContain('PayPal Credit');
+      expect(debts.map(d => d.name)).toContain('Barclaycard');
+      expect(debts.map(d => d.name)).toContain('Halifax Credit Card');
+      expect(debts.map(d => d.name)).toContain('MBNA Card');
+    });
+
+    it('returns UK demo debts when explicitly requested', () => {
+      const debts = generateDemoDebts('uk');
+      
+      expect(debts).toHaveLength(5);
+      expect(debts.every(d => d.isDemo)).toBe(true);
+    });
+
+    it('returns default demo debts for international locale', () => {
+      const debts = generateDemoDebts('default');
+      
+      expect(debts).toHaveLength(3);
+      expect(debts.every(d => d.isDemo)).toBe(true);
+      expect(debts.map(d => d.name)).toContain('Visa Card');
+      expect(debts.map(d => d.name)).toContain('PayPal Credit');
+      expect(debts.map(d => d.name)).toContain('Personal Loan');
+    });
+
+    it('returns consistent data across multiple calls', () => {
+      const debts1 = generateDemoDebts('uk');
+      const debts2 = generateDemoDebts('uk');
+      
+      expect(debts1).toEqual(debts2);
+    });
   });
 
-  it('returns default demo debts for international locale', () => {
-   const debts = generateDemoDebts('default');
-   
-   expect(debts).toHaveLength(3);
-   expect(debts.every(d => d.isDemo)).toBe(true);
-   expect(debts.map(d => d.name)).toContain('Visa Card');
-   expect(debts.map(d => d.name)).toContain('PayPal Credit');
-   expect(debts.map(d => d.name)).toContain('Personal Loan');
+  describe('localDebtStore.loadDemoData', () => {
+    it('returns the same debts as generateDemoDebts', async () => {
+      const expectedDebts = generateDemoDebts('uk');
+      const loadedDebts = await localDebtStore.loadDemoData('uk');
+      
+      expect(loadedDebts).toEqual(expectedDebts);
+    });
+
+    it('persists demo data to IndexedDB', async () => {
+      await localDebtStore.loadDemoData('uk');
+      const persistedDebts = await localDebtStore.listDebts();
+      const expectedDebts = generateDemoDebts('uk');
+      
+      expect(persistedDebts).toHaveLength(expectedDebts.length);
+      expect(persistedDebts.every(d => d.isDemo)).toBe(true);
+    });
+
+    it('clears existing data before loading demo data', async () => {
+      // Add a non-demo debt first
+      await localDebtStore.upsertDebt({
+        id: 'real_debt',
+        name: 'Real Debt',
+        balance: 1000,
+        minPayment: 50,
+        isDemo: false
+      });
+      
+      // Load demo data (should clear everything first)
+      await localDebtStore.loadDemoData('uk');
+      
+      const allDebts = await localDebtStore.listDebts();
+      expect(allDebts.every(d => d.isDemo)).toBe(true);
+      expect(allDebts.find(d => d.id === 'real_debt')).toBeUndefined();
+    });
   });
 
-  it('returns consistent data across multiple calls', () => {
-   const debts1 = generateDemoDebts('uk');
-   const debts2 = generateDemoDebts('uk');
-   
-   expect(debts1).toEqual(debts2);
-  });
- });
+  describe('Integration: debtsManager.loadDemoData', () => {
+    it('produces the same results as direct localDebtStore call', async () => {
+      const managerResult = await debtsManager.loadDemoData('uk');
+      const storeResult = generateDemoDebts('uk');
+      
+      expect(managerResult).toEqual(storeResult);
+    });
 
- describe('localDebtStore.loadDemoData', () => {
-  it('returns the same debts as generateDemoDebts', async () => {
-   const expectedDebts = generateDemoDebts('uk');
-   const loadedDebts = await localDebtStore.loadDemoData('uk');
-   
-   expect(loadedDebts).toEqual(expectedDebts);
-  });
+    it('maintains consistency across clear and reload cycles', async () => {
+      // Load demo data
+      const firstLoad = await debtsManager.loadDemoData('uk');
+      
+      // Clear and reload
+      await debtsManager.clearAllData();
+      const secondLoad = await debtsManager.loadDemoData('uk');
+      
+      // Should be identical
+      expect(firstLoad).toEqual(secondLoad);
+    });
 
-  it('persists demo data to IndexedDB', async () => {
-   await localDebtStore.loadDemoData('uk');
-   const persistedDebts = await localDebtStore.listDebts();
-   const expectedDebts = generateDemoDebts('uk');
-   
-   expect(persistedDebts).toHaveLength(expectedDebts.length);
-   expect(persistedDebts.every(d => d.isDemo)).toBe(true);
-  });
-
-  it('clears existing data before loading demo data', async () => {
-   // Add a non-demo debt first
-   await localDebtStore.upsertDebt({
-    id: 'real_debt',
-    name: 'Real Debt',
-    balance: 1000,
-    minPayment: 50,
-    isDemo: false
-   });
-   
-   // Load demo data (should clear everything first)
-   await localDebtStore.loadDemoData('uk');
-   
-   const allDebts = await localDebtStore.listDebts();
-   expect(allDebts.every(d => d.isDemo)).toBe(true);
-   expect(allDebts.find(d => d.id === 'real_debt')).toBeUndefined();
-  });
- });
-
- describe('Integration: debtsManager.loadDemoData', () => {
-  it('produces the same results as direct localDebtStore call', async () => {
-   const managerResult = await debtsManager.loadDemoData('uk');
-   const storeResult = generateDemoDebts('uk');
-   
-   expect(managerResult).toEqual(storeResult);
+    it('updates manager state correctly', async () => {
+      await debtsManager.loadDemoData('uk');
+      const managerDebts = debtsManager.getDebts();
+      const expectedDebts = generateDemoDebts('uk');
+      
+      expect(managerDebts).toHaveLength(expectedDebts.length);
+      expect(managerDebts.every(d => d.isDemo)).toBe(true);
+    });
   });
 
-  it('maintains consistency across clear and reload cycles', async () => {
-   // Load demo data
-   const firstLoad = await debtsManager.loadDemoData('uk');
-   
-   // Clear and reload
-   await debtsManager.clearAllData();
-   const secondLoad = await debtsManager.loadDemoData('uk');
-   
-   // Should be identical
-   expect(firstLoad).toEqual(secondLoad);
-  });
+  describe('Regression Prevention', () => {
+    it('debtsManager.loadDemoData returns exactly generateDemoDebts', async () => {
+      const managerResult = await debtsManager.loadDemoData('uk');
+      const generatorResult = generateDemoDebts('uk');
+      
+      expect(managerResult).toEqual(generatorResult);
+    });
 
-  it('updates manager state correctly', async () => {
-   await debtsManager.loadDemoData('uk');
-   const managerDebts = debtsManager.getDebts();
-   const expectedDebts = generateDemoDebts('uk');
-   
-   expect(managerDebts).toHaveLength(expectedDebts.length);
-   expect(managerDebts.every(d => d.isDemo)).toBe(true);
-  });
- });
+    it('clearing then loading demo produces identical IDs/balances', async () => {
+      // First load
+      await debtsManager.loadDemoData('uk');
+      const firstDebts = debtsManager.getDebts();
+      const firstIds = firstDebts.map(d => d.id);
+      const firstBalances = firstDebts.map(d => d.balance);
+      
+      // Clear and reload
+      await debtsManager.clearAllData();
+      await debtsManager.loadDemoData('uk');
+      const secondDebts = debtsManager.getDebts();
+      const secondIds = secondDebts.map(d => d.id);
+      const secondBalances = secondDebts.map(d => d.balance);
+      
+      // Should be identical
+      expect(secondIds).toEqual(firstIds);
+      expect(secondBalances).toEqual(firstBalances);
+    });
 
- describe('Regression Prevention', () => {
-  it('debtsManager.loadDemoData returns exactly generateDemoDebts', async () => {
-   const managerResult = await debtsManager.loadDemoData('uk');
-   const generatorResult = generateDemoDebts('uk');
-   
-   expect(managerResult).toEqual(generatorResult);
-  });
+    it('prevents duplicate demo data definitions', () => {
+      // This test will fail if someone reintroduces duplicate demo data
+      const ukDebts = generateDemoDebts('uk');
+      const defaultDebts = generateDemoDebts('default');
+      
+      // UK and default should have different contents
+      expect(ukDebts).not.toEqual(defaultDebts);
+      
+      // But multiple calls to the same locale should be identical
+      expect(generateDemoDebts('uk')).toEqual(generateDemoDebts('uk'));
+      expect(generateDemoDebts('default')).toEqual(generateDemoDebts('default'));
+    });
 
-  it('clearing then loading demo produces identical IDs/balances', async () => {
-   // First load
-   await debtsManager.loadDemoData('uk');
-   const firstDebts = debtsManager.getDebts();
-   const firstIds = firstDebts.map(d => d.id);
-   const firstBalances = firstDebts.map(d => d.balance);
-   
-   // Clear and reload
-   await debtsManager.clearAllData();
-   await debtsManager.loadDemoData('uk');
-   const secondDebts = debtsManager.getDebts();
-   const secondIds = secondDebts.map(d => d.id);
-   const secondBalances = secondDebts.map(d => d.balance);
-   
-   // Should be identical
-   expect(secondIds).toEqual(firstIds);
-   expect(secondBalances).toEqual(firstBalances);
+    it('ensures demo data has required properties', () => {
+      const debts = generateDemoDebts('uk');
+      
+      debts.forEach(debt => {
+        expect(debt).toHaveProperty('id');
+        expect(debt).toHaveProperty('name');
+        expect(debt).toHaveProperty('balance');
+        expect(debt).toHaveProperty('minPayment');
+        expect(debt).toHaveProperty('interestRate');
+        expect(debt).toHaveProperty('order');
+        expect(debt).toHaveProperty('isDemo', true);
+        expect(debt).toHaveProperty('createdAt');
+        expect(debt).toHaveProperty('updatedAt');
+        
+        // Validate data types
+        expect(typeof debt.id).toBe('string');
+        expect(typeof debt.name).toBe('string');
+        expect(typeof debt.balance).toBe('number');
+        expect(typeof debt.minPayment).toBe('number');
+        expect(typeof debt.interestRate).toBe('number');
+        expect(typeof debt.order).toBe('number');
+        expect(debt.balance).toBeGreaterThan(0);
+        expect(debt.minPayment).toBeGreaterThan(0);
+        expect(debt.interestRate).toBeGreaterThan(0);
+      });
+    });
   });
-
-  it('prevents duplicate demo data definitions', () => {
-   // This test will fail if someone reintroduces duplicate demo data
-   const ukDebts = generateDemoDebts('uk');
-   const defaultDebts = generateDemoDebts('default');
-   
-   // UK and default should have different contents
-   expect(ukDebts).not.toEqual(defaultDebts);
-   
-   // But multiple calls to the same locale should be identical
-   expect(generateDemoDebts('uk')).toEqual(generateDemoDebts('uk'));
-   expect(generateDemoDebts('default')).toEqual(generateDemoDebts('default'));
-  });
-
-  it('ensures demo data has required properties', () => {
-   const debts = generateDemoDebts('uk');
-   
-   debts.forEach(debt => {
-    expect(debt).toHaveProperty('id');
-    expect(debt).toHaveProperty('name');
-    expect(debt).toHaveProperty('balance');
-    expect(debt).toHaveProperty('minPayment');
-    expect(debt).toHaveProperty('interestRate');
-    expect(debt).toHaveProperty('order');
-    expect(debt).toHaveProperty('isDemo', true);
-    expect(debt).toHaveProperty('createdAt');
-    expect(debt).toHaveProperty('updatedAt');
-    
-    // Validate data types
-    expect(typeof debt.id).toBe('string');
-    expect(typeof debt.name).toBe('string');
-    expect(typeof debt.amount_pennies).toBe('number');
-    expect(typeof debt.min_payment_pennies).toBe('number');
-    expect(typeof debt.apr).toBe('number');
-    expect(typeof debt.order).toBe('number');
-    expect(debt.amount_pennies).toBeGreaterThan(0);
-    expect(debt.min_payment_pennies).toBeGreaterThan(0);
-    expect(debt.apr).toBeGreaterThan(0);
-   });
-  });
- });
 });

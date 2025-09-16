@@ -7,44 +7,41 @@
 
 import Dexie, { Table } from 'dexie';
 import { 
- Debt, 
- DebtPayment, 
- DebtSnapshot, 
- MigrationMeta,
- PaymentEntry,
- normalizeAmount 
-} from '../types/debt';
-import { generateDemoDebts, DemoLocale } from './demoDebts';
-import { AppSettings, SettingsRow, DEFAULT_SETTINGS } from '../types/settings';
+  Debt, 
+  DebtPayment, 
+  DebtSnapshot, 
+  MigrationMeta,
+  normalizeAmount 
+} from '../types/debt.ts';
+import { generateDemoDebts, DemoLocale } from './demoDebts.ts';
+import { AppSettings, SettingsRow, DEFAULT_SETTINGS } from '../types/settings.ts';
 
 // Database version - increment when schema changes
-const DB_VERSION = 4;
+const DB_VERSION = 3;
 
 /**
  * Main database class extending Dexie
  */
 class DebtDatabase extends Dexie {
- // Tables with TypeScript types
- debts!: Table<Debt>;
- payments!: Table<DebtPayment>;
- payment_entries!: Table<PaymentEntry>;
- snapshots!: Table<DebtSnapshot>;
- meta!: Table<MigrationMeta>;
- settings!: Table<SettingsRow>;
+  // Tables with TypeScript types
+  debts!: Table<Debt>;
+  payments!: Table<DebtPayment>;
+  snapshots!: Table<DebtSnapshot>;
+  meta!: Table<MigrationMeta>;
+  settings!: Table<SettingsRow>;
 
- constructor() {
-  super('SnowballDebtsDB');
-  
-  this.version(DB_VERSION).stores({
-   // Primary keys and indexes
-   debts: 'id, name, type, order, createdAt, updatedAt',
-   payments: 'id, debtId, month, date, createdAt',
-   payment_entries: 'id, debt_id, payment_date, created_at, payment_type',
-   snapshots: 'id, debtId, timestamp',
-   meta: 'key, updatedAt',
-   settings: '&key' // & means unique key
-  });
- }
+  constructor() {
+    super('SnowballDebtsDB');
+    
+    this.version(DB_VERSION).stores({
+      // Primary keys and indexes
+      debts: 'id, name, type, order, createdAt, updatedAt',
+      payments: 'id, debtId, month, date, createdAt',
+      snapshots: 'id, debtId, timestamp',
+      meta: 'key, updatedAt',
+      settings: '&key'  // & means unique key
+    });
+  }
 }
 
 // Single database instance
@@ -55,649 +52,459 @@ const db = new DebtDatabase();
  * All debt operations go through this interface
  */
 export class LocalDebtStore {
- private static instance: LocalDebtStore;
- 
- private constructor() {}
- 
- static getInstance(): LocalDebtStore {
-  if (!LocalDebtStore.instance) {
-   LocalDebtStore.instance = new LocalDebtStore();
-  }
-  return LocalDebtStore.instance;
- }
-
- // ========== Core CRUD Operations ==========
-
- /**
-  * List all debts, optionally filtered
-  */
- async listDebts({ includeDemo = false } = {}): Promise<Debt[]> {
-  try {
-   const allDebts = await db.debts.toArray();
-   
-   // Stronger isolation: explicitly filter demo data by default
-   const debts = includeDemo ? allDebts : allDebts.filter(d => !d?.isDemo);
-   
-   // Sort by order, then by creation date
-   return debts.sort((a, b) => {
-    if (a.order !== b.order) return a.order - b.order;
-    return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
-   });
-  } catch (error) {
-   console.error('[LocalDebtStore] Error listing debts:', error);
-   return [];
-  }
- }
-
- /**
-  * Get a single debt by ID
-  */
- async getDebt(id: string): Promise<Debt | null> {
-  try {
-   const debt = await db.debts.get(id);
-   return debt || null;
-  } catch (error) {
-   console.error('[LocalDebtStore] Error getting debt:', error);
-   return null;
-  }
- }
-
- /**
-  * Insert or update a debt - normalizes input and strips legacy fields
-  */
- async upsertDebt(raw: any): Promise<string> {
-  try {
-   // Import here to avoid circular dependency
-   const { normalizeDebt } = await import('../utils/safeDebtNormalizer');
-   
-   // Normalize the debt (handles legacy fields, heuristics, etc.)
-   const normalized = normalizeDebt(raw);
-   
-   // Get existing debt for merging timestamps if this is an update
-   const existing = normalized.id ? await db.debts.get(normalized.id) : null;
-   
-   // Create clean record with ONLY normalized fields (no legacy fields written)
-   const record = {
-    id: normalized.id,
-    name: normalized.name,
-    amount_pennies: normalized.amount_pennies,
-    min_payment_pennies: normalized.min_payment_pennies,
-    apr: normalized.apr,
-    debt_type: normalized.debt_type,
-    limit_pennies: normalized.limit_pennies,
-    order_index: normalized.order_index,
-    created_at: existing?.created_at || normalized.created_at,
-    updated_at: normalized.updated_at,
-    _norm_v: normalized._norm_v,
-   };
-   
-   // Save to database (IndexedDB schema might need to be flexible for new fields)
-   await db.debts.put(record as any);
-   
-   // Track analytics
-   this.trackAnalytics('debt_upserted', {
-    id: normalized.id,
-    isNew: !existing,
-    type: normalized.debt_type
-   });
-   
-   // Track secure analytics for new debt (de-identified)
-   if (!existing) {
-    try {
-     const { captureDebtAdded } = await import('../utils/secureAnalytics');
-     await captureDebtAdded({
-      balance: normalized.amount_pennies,
-      name: normalized.name,
-      type: normalized.debt_type
-     }, 'free'); // TODO: get actual user tier
-    } catch (analyticsError) {
-     // Never block user operations for analytics failures
-     if (process.env.NODE_ENV === 'development') {
-      console.debug('[localDebtStore] Analytics error:', analyticsError);
-     }
-    }
-   }
-   
-   return normalized.id;
-  } catch (error) {
-   console.error('[LocalDebtStore] Error upserting debt:', error);
-   throw error;
-  }
- }
-
- /**
-  * Bulk insert/update debts
-  */
- async upsertMany(debts: Partial<Debt>[]): Promise<void> {
-  try {
-   const now = new Date().toISOString();
-   
-   const completeDebts = await Promise.all(
-    debts.map(async (debt, index) => {
-     const id = debt.id || `debt_${Date.now()}_${index}_${Math.random().toString(36).slice(2, 11)}`;
-     const existing = debt.id ? await db.debts.get(debt.id) : null;
-     
-     return {
-      id,
-      name: debt.name || 'Unnamed Debt',
-      type: debt.type || 'Other',
-      balance: normalizeAmount(debt.amount_pennies ?? 0),
-      originalAmount: normalizeAmount(debt.originalAmount ?? debt.amount_pennies ?? 0),
-      interestRate: normalizeAmount(debt.apr ?? 0),
-      minPayment: normalizeAmount(debt.min_payment_pennies ?? 0),
-      order: debt.order ?? index,
-      createdAt: debt.createdAt || existing?.createdAt || now,
-      updatedAt: now,
-      isDemo: debt.isDemo,
-      notes: debt.notes,
-      accountNumber: debt.accountNumber,
-      dueDate: debt.dueDate,
-      creditLimit: debt.creditLimit
-     } as Debt;
-    })
-   );
-   
-   await db.debts.bulkPut(completeDebts);
-   
-   this.trackAnalytics('debts_bulk_upserted', {
-    count: completeDebts.length
-   });
-  } catch (error) {
-   console.error('[LocalDebtStore] Error upserting many debts:', error);
-   throw error;
-  }
- }
-
- /**
-  * Delete a debt
-  */
- async deleteDebt(id: string): Promise<void> {
-  try {
-   await db.transaction('rw', db.debts, db.payments, db.snapshots, async () => {
-    // Delete the debt
-    await db.debts.delete(id);
-    
-    // Delete related payments
-    await db.payments.where('debtId').equals(id).delete();
-    
-    // Delete related snapshots
-    await db.snapshots.where('debtId').equals(id).delete();
-   });
-   
-   this.trackAnalytics('debt_deleted', { id });
-  } catch (error) {
-   console.error('[LocalDebtStore] Error deleting debt:', error);
-   throw error;
-  }
- }
-
- /**
-  * Clear all debts (dangerous!)
-  */
- async clearAll(): Promise<void> {
-  try {
-   await db.transaction('rw', db.debts, db.payments, db.snapshots, async () => {
-    await db.debts.clear();
-    await db.payments.clear();
-    await db.snapshots.clear();
-   });
-   
-   this.trackAnalytics('all_debts_cleared', {});
-  } catch (error) {
-   console.error('[LocalDebtStore] Error clearing all debts:', error);
-   throw error;
-  }
- }
-
- // ========== Payment Operations ==========
-
- /**
-  * Record a payment
-  */
- async recordPayment(payment: Omit<DebtPayment, 'id' | 'createdAt'>): Promise<void> {
-  try {
-   const now = new Date().toISOString();
-   
-   const completePayment: DebtPayment = {
-    id: `payment_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`,
-    createdAt: now,
-    ...payment
-   };
-   
-   await db.payments.add(completePayment);
-   
-   // Update debt balance
-   const debt = await db.debts.get(payment.debtId);
-   if (debt) {
-    await this.upsertDebt({
-     ...debt,
-     balance: Math.max(0, (debt.balance || 0) - payment.amount)
-    });
-    
-    // Record snapshot
-    await this.recordSnapshot({
-     debtId: payment.debtId,
-     balance: (debt.balance || 0) - payment.amount,
-     timestamp: now,
-     eventType: 'payment'
-    });
-   }
-   
-   // Track secure analytics for payment (de-identified)
-   try {
-    const { bandAmount, toPennies } = await import('../shared/amountBands.ts');
-    const amountBand = bandAmount(toPennies(payment.amount));
-    
-    this.trackAnalytics('payment_recorded', {
-     debtId: payment.debtId,
-     amount_band: amountBand, // De-identified amount
-     type: payment.type
-    });
-   } catch (analyticsError) {
-    // Never block user operations for analytics failures
-    if (process.env.NODE_ENV === 'development') {
-     console.debug('[localDebtStore] Payment analytics error:', analyticsError);
-    }
-   }
-  } catch (error) {
-   console.error('[LocalDebtStore] Error recording payment:', error);
-   throw error;
-  }
- }
-
- /**
-  * Get payment history for a debt or month
-  */
- async getPayments(filters?: { debtId?: string; month?: string }): Promise<DebtPayment[]> {
-  try {
-   let query = db.payments.toCollection();
-   
-   if (filters?.debtId) {
-    query = db.payments.where('debtId').equals(filters.debtId);
-   }
-   
-   let payments = await query.toArray();
-   
-   if (filters?.month) {
-    payments = payments.filter(p => p.month === filters.month);
-   }
-   
-   return payments.sort((a, b) => 
-    new Date(b.date).getTime() - new Date(a.date).getTime()
-   );
-  } catch (error) {
-   console.error('[LocalDebtStore] Error getting payments:', error);
-   return [];
-  }
- }
-
- // ========== Snapshot Operations ==========
-
- /**
-  * Record a debt balance snapshot
-  */
- private async recordSnapshot(snapshot: DebtSnapshot): Promise<void> {
-  try {
-   await db.snapshots.add({
-    ...snapshot,
-    id: `snapshot_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`
-   } as any);
-  } catch (error) {
-   console.error('[LocalDebtStore] Error recording snapshot:', error);
-  }
- }
-
- /**
-  * Get debt history snapshots
-  */
- async getSnapshots(debtId: string, limit = 100): Promise<DebtSnapshot[]> {
-  try {
-   return await db.snapshots
-    .where('debtId')
-    .equals(debtId)
-    .limit(limit)
-    .reverse()
-    .sortBy('timestamp');
-  } catch (error) {
-   console.error('[LocalDebtStore] Error getting snapshots:', error);
-   return [];
-  }
- }
-
- /**
-  * Bulk add snapshots for historical import
-  */
- async bulkAddSnapshots(snapshots: DebtSnapshot[]): Promise<void> {
-  try {
-   // Validate snapshots
-   if (!Array.isArray(snapshots) || snapshots.length === 0) {
-    throw new Error('No snapshots provided');
-   }
-
-   // Add all snapshots in a transaction
-   await db.transaction('rw', db.snapshots, async () => {
-    for (const snapshot of snapshots) {
-     // Check if snapshot already exists for this debt at this time
-     const existing = await db.snapshots
-      .where(['debtId', 'timestamp'])
-      .equals([snapshot.debtId, snapshot.timestamp])
-      .first();
-     
-     if (!existing) {
-      await db.snapshots.add(snapshot);
-     }
-    }
-   });
-
-   this.trackAnalytics('snapshots_imported', { 
-    count: snapshots.length,
-    debtId: snapshots[0]?.debtId 
-   });
-  } catch (error) {
-   console.error('[LocalDebtStore] Error bulk adding snapshots:', error);
-   throw error;
-  }
- }
-
- // ========== Metadata Operations ==========
-
- /**
-  * Get metadata value
-  */
- async getMeta(key: string): Promise<any> {
-  try {
-   const meta = await db.meta.get(key);
-   return meta?.value;
-  } catch (error) {
-   console.error('[LocalDebtStore] Error getting meta:', error);
-   return null;
-  }
- }
-
- /**
-  * Set metadata value
-  */
- async setMeta(key: string, value: any): Promise<void> {
-  try {
-   await db.meta.put({
-    key,
-    value,
-    updatedAt: new Date().toISOString()
-   });
-  } catch (error) {
-   console.error('[LocalDebtStore] Error setting meta:', error);
-  }
- }
-
- // ========== Demo Data ==========
-
- /**
-  * Load demo data
-  */
- async loadDemoData(locale: DemoLocale = 'uk'): Promise<Partial<Debt>[]> {
-  try {
-   const demoDebts = generateDemoDebts(locale);
-   
-   await this.clearAll();
-   await this.upsertMany(demoDebts);
-   await this.setMeta('demo_loaded', true);
-   
-   this.trackAnalytics('demo_data_loaded', {
-    count: demoDebts.length,
-    locale
-   });
-   
-   return demoDebts;
-  } catch (error) {
-   console.error('[LocalDebtStore] Error loading demo data:', error);
-   throw error;
-  }
- }
-
- /**
-  * Clear demo data only
-  */
- async clearDemoData(): Promise<void> {
-  try {
-   // Get all debts and filter for demo debts in memory (isDemo not indexed) 
-   // Fixed: No longer uses where('isDemo') query to avoid schema error
-   const allDebts = await db.debts.toArray();
-   const demoDebts = allDebts.filter(d => d.isDemo);
-   const demoIds = demoDebts.map(d => d.id);
-   
-   if (demoIds.length === 0) {
-    console.log('[LocalDebtStore] No demo data to clear');
-    return;
-   }
-   
-   await db.transaction('rw', db.debts, db.payments, db.snapshots, async () => {
-    // Delete demo debts
-    await db.debts.bulkDelete(demoIds);
-    
-    // Delete related payments
-    for (const id of demoIds) {
-     await db.payments.where('debtId').equals(id).delete();
-     await db.snapshots.where('debtId').equals(id).delete();
-    }
-   });
-   
-   await this.setMeta('demo_loaded', false);
-   
-   this.trackAnalytics('demo_data_cleared', {
-    count: demoIds.length
-   });
-   
-   console.log(`[LocalDebtStore] Cleared ${demoIds.length} demo debts`);
-  } catch (error) {
-   console.error('[LocalDebtStore] Error clearing demo data:', error);
-   throw error;
-  }
- }
-
- /**
-  * Replace all demo data (for DemoModeProvider integration)
-  */
- async replaceAllForDemo(debts: Partial<Debt>[]): Promise<void> {
-  try {
-   // Clear existing demo data first
-   await this.clearDemoData();
-   
-   // Mark all debts as demo and insert
-   const demoDebts = debts.map(debt => ({ ...debt, isDemo: true }));
-   await this.upsertMany(demoDebts);
-   
-   await this.setMeta('demo_loaded', true);
-   
-   this.trackAnalytics('demo_data_replaced', {
-    count: demoDebts.length
-   });
-  } catch (error) {
-   console.error('[LocalDebtStore] Error replacing demo data:', error);
-   throw error;
-  }
- }
-
- /**
-  * Clear demo data (alias for DemoModeProvider)
-  */
- async clearDemo(): Promise<void> {
-  return this.clearDemoData();
- }
-
- // ========== Settings Operations (CP-1) ==========
-
- /**
-  * Get app settings with defaults
-  */
- async getSettings(): Promise<AppSettings> {
-  try {
-   const row = await db.settings.get('app');
-   return { ...DEFAULT_SETTINGS, ...(row?.value ?? {}) };
-  } catch (error) {
-   console.error('[LocalDebtStore] Error getting settings:', error);
-   return DEFAULT_SETTINGS;
-  }
- }
-
- /**
-  * Update app settings (partial update)
-  */
- async setSettings(patch: Partial<AppSettings>): Promise<AppSettings> {
-  try {
-   const current = await this.getSettings();
-   const next = { ...current, ...patch };
-   await db.settings.put({ key: 'app', value: next });
-   
-   // Track setting changes (non-blocking)
-   try {
-    const changedKeys = Object.keys(patch);
-    this.trackAnalytics('settings_updated', { keys: changedKeys });
-   } catch {}
-   
-   return next;
-  } catch (error) {
-   console.error('[LocalDebtStore] Error updating settings:', error);
-   throw error;
-  }
- }
-
- // ========== Analytics ==========
-
- private trackAnalytics(event: string, properties: Record<string, any>): void {
-  // Analytics tracking (to be integrated with PostHog or similar)
-  if (process.env.NODE_ENV === 'development') {
-   console.log(`[Analytics] ${event}`, properties);
-  }
+  private static instance: LocalDebtStore;
   
-  // Send to analytics service
-  try {
-   if (typeof window !== 'undefined' && (window as any).posthog) {
-    (window as any).posthog.capture(event, {
-     ...properties,
-     source: 'localDebtStore'
-    });
-   }
-  } catch (error) {
-   // Silently fail analytics
-  }
- }
-
- // ========== Migration Status ==========
-
- /**
-  * Check if migration is needed
-  */
- async needsMigration(): Promise<boolean> {
-  const migrationComplete = await this.getMeta('migration_completed_v2');
-  return !migrationComplete;
- }
-
- /**
-  * Mark migration as complete
-  */
- async markMigrationComplete(): Promise<void> {
-  await this.setMeta('migration_completed_v2', true);
-  await this.setMeta('migration_date', new Date().toISOString());
- }
-
- // ========== Payment Entry Operations ==========
-
- /**
-  * Record a payment entry
-  */
- async recordPayment(payment: Partial<PaymentEntry>): Promise<string> {
-  try {
-   const now = new Date().toISOString();
-   
-   // Generate ID if not provided
-   const id = payment.id || `payment_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
-   
-   // Prepare the complete payment entry
-   const completePayment: PaymentEntry = {
-    id,
-    debt_id: payment.debt_id || '',
-    amount_pennies: payment.amount_pennies || 0,
-    payment_date: payment.payment_date || now.split('T')[0], // YYYY-MM-DD
-    payment_type: payment.payment_type || 'extra',
-    created_at: now,
-    updated_at: now,
-    notes: payment.notes,
-    is_demo: payment.is_demo || false,
-    ...payment
-   };
-
-   // Save to database
-   await db.payment_entries.put(completePayment);
-
-   // Update debt balance
-   if (payment.debt_id && payment.amount_pennies) {
-    const debt = await this.getDebt(payment.debt_id);
-    if (debt) {
-     const newBalance = Math.max(0, (debt.amount_pennies || 0) - payment.amount_pennies);
-     await this.upsertDebt({
-      id: payment.debt_id,
-      amount_pennies: newBalance,
-      updated_at: now
-     });
+  private constructor() {}
+  
+  static getInstance(): LocalDebtStore {
+    if (!LocalDebtStore.instance) {
+      LocalDebtStore.instance = new LocalDebtStore();
     }
-   }
-   
-   return id;
-  } catch (error) {
-   console.error('[LocalDebtStore] Error recording payment:', error);
-   throw error;
+    return LocalDebtStore.instance;
   }
- }
 
- /**
-  * List payment entries for a debt
-  */
- async listPaymentEntries(debtId: string): Promise<PaymentEntry[]> {
-  try {
-   const payments = await db.payment_entries
-    .where('debt_id')
-    .equals(debtId)
-    .toArray();
-   
-   return payments.sort((a, b) => 
-    new Date(b.payment_date).getTime() - new Date(a.payment_date).getTime()
-   );
-  } catch (error) {
-   console.error('[LocalDebtStore] Error listing payment entries:', error);
-   return [];
-  }
- }
+  // ========== Core CRUD Operations ==========
 
- /**
-  * Get all payment entries
-  */
- async getAllPaymentEntries({ includeDemo = false } = {}): Promise<PaymentEntry[]> {
-  try {
-   const allPayments = await db.payment_entries.toArray();
-   
-   // Filter demo data by default
-   const payments = includeDemo ? allPayments : allPayments.filter(p => !p?.is_demo);
-   
-   return payments.sort((a, b) => 
-    new Date(b.payment_date).getTime() - new Date(a.payment_date).getTime()
-   );
-  } catch (error) {
-   console.error('[LocalDebtStore] Error getting payment entries:', error);
-   return [];
+  /**
+   * List all debts, optionally filtered
+   */
+  async listDebts(includeDemo = true): Promise<Debt[]> {
+    try {
+      let debts = await db.debts.toArray();
+      
+      if (!includeDemo) {
+        debts = debts.filter(d => !d.isDemo);
+      }
+      
+      // Sort by order, then by creation date
+      return debts.sort((a, b) => {
+        if (a.order !== b.order) return a.order - b.order;
+        return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+      });
+    } catch (error) {
+      console.error('[LocalDebtStore] Error listing debts:', error);
+      return [];
+    }
   }
- }
 
- /**
-  * Delete a payment entry
-  */
- async deletePaymentEntry(id: string): Promise<void> {
-  try {
-   await db.payment_entries.delete(id);
-  } catch (error) {
-   console.error('[LocalDebtStore] Error deleting payment entry:', error);
-   throw error;
+  /**
+   * Get a single debt by ID
+   */
+  async getDebt(id: string): Promise<Debt | null> {
+    try {
+      const debt = await db.debts.get(id);
+      return debt || null;
+    } catch (error) {
+      console.error('[LocalDebtStore] Error getting debt:', error);
+      return null;
+    }
   }
- }
+
+  /**
+   * Insert or update a debt
+   */
+  async upsertDebt(debt: Partial<Debt>): Promise<string> {
+    try {
+      const now = new Date().toISOString();
+      
+      // Generate ID if not provided
+      const id = debt.id || `debt_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
+      
+      // Get existing debt if updating
+      const existing = debt.id ? await db.debts.get(debt.id) : null;
+      
+      // Prepare the complete debt object
+      const completeDebt: Debt = {
+        // Defaults
+        id,
+        name: 'Unnamed Debt',
+        type: 'Other',
+        balance: 0,
+        originalAmount: 0,
+        interestRate: 0,
+        minPayment: 0,
+        order: 999,
+        createdAt: now,
+        updatedAt: now,
+        
+        // Merge existing data
+        ...existing,
+        
+        // Apply updates (with normalization)
+        ...debt,
+        id,
+        balance: normalizeAmount(debt.balance ?? existing?.balance ?? 0),
+        originalAmount: normalizeAmount(debt.originalAmount ?? existing?.originalAmount ?? (debt.balance ?? 0)),
+        interestRate: normalizeAmount(debt.interestRate ?? existing?.interestRate ?? 0),
+        minPayment: normalizeAmount(debt.minPayment ?? existing?.minPayment ?? 0),
+        updatedAt: now
+      };
+      
+      // Save to database
+      await db.debts.put(completeDebt);
+      
+      // Track analytics
+      this.trackAnalytics('debt_upserted', {
+        id,
+        isNew: !existing,
+        type: completeDebt.type
+      });
+      
+      return id;
+    } catch (error) {
+      console.error('[LocalDebtStore] Error upserting debt:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Bulk insert/update debts
+   */
+  async upsertMany(debts: Partial<Debt>[]): Promise<void> {
+    try {
+      const now = new Date().toISOString();
+      
+      const completeDebts = await Promise.all(
+        debts.map(async (debt, index) => {
+          const id = debt.id || `debt_${Date.now()}_${index}_${Math.random().toString(36).slice(2, 11)}`;
+          const existing = debt.id ? await db.debts.get(debt.id) : null;
+          
+          return {
+            id,
+            name: debt.name || 'Unnamed Debt',
+            type: debt.type || 'Other',
+            balance: normalizeAmount(debt.balance ?? 0),
+            originalAmount: normalizeAmount(debt.originalAmount ?? debt.balance ?? 0),
+            interestRate: normalizeAmount(debt.interestRate ?? 0),
+            minPayment: normalizeAmount(debt.minPayment ?? 0),
+            order: debt.order ?? index,
+            createdAt: debt.createdAt || existing?.createdAt || now,
+            updatedAt: now,
+            isDemo: debt.isDemo,
+            notes: debt.notes,
+            accountNumber: debt.accountNumber,
+            dueDate: debt.dueDate,
+            creditLimit: debt.creditLimit
+          } as Debt;
+        })
+      );
+      
+      await db.debts.bulkPut(completeDebts);
+      
+      this.trackAnalytics('debts_bulk_upserted', {
+        count: completeDebts.length
+      });
+    } catch (error) {
+      console.error('[LocalDebtStore] Error upserting many debts:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Delete a debt
+   */
+  async deleteDebt(id: string): Promise<void> {
+    try {
+      await db.transaction('rw', db.debts, db.payments, db.snapshots, async () => {
+        // Delete the debt
+        await db.debts.delete(id);
+        
+        // Delete related payments
+        await db.payments.where('debtId').equals(id).delete();
+        
+        // Delete related snapshots
+        await db.snapshots.where('debtId').equals(id).delete();
+      });
+      
+      this.trackAnalytics('debt_deleted', { id });
+    } catch (error) {
+      console.error('[LocalDebtStore] Error deleting debt:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Clear all debts (dangerous!)
+   */
+  async clearAll(): Promise<void> {
+    try {
+      await db.transaction('rw', db.debts, db.payments, db.snapshots, async () => {
+        await db.debts.clear();
+        await db.payments.clear();
+        await db.snapshots.clear();
+      });
+      
+      this.trackAnalytics('all_debts_cleared', {});
+    } catch (error) {
+      console.error('[LocalDebtStore] Error clearing all debts:', error);
+      throw error;
+    }
+  }
+
+  // ========== Payment Operations ==========
+
+  /**
+   * Record a payment
+   */
+  async recordPayment(payment: Omit<DebtPayment, 'id' | 'createdAt'>): Promise<void> {
+    try {
+      const now = new Date().toISOString();
+      
+      const completePayment: DebtPayment = {
+        id: `payment_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`,
+        createdAt: now,
+        ...payment
+      };
+      
+      await db.payments.add(completePayment);
+      
+      // Update debt balance
+      const debt = await db.debts.get(payment.debtId);
+      if (debt) {
+        await this.upsertDebt({
+          ...debt,
+          balance: Math.max(0, debt.balance - payment.amount)
+        });
+        
+        // Record snapshot
+        await this.recordSnapshot({
+          debtId: payment.debtId,
+          balance: debt.balance - payment.amount,
+          timestamp: now,
+          eventType: 'payment'
+        });
+      }
+      
+      this.trackAnalytics('payment_recorded', {
+        debtId: payment.debtId,
+        amount: payment.amount,
+        type: payment.type
+      });
+    } catch (error) {
+      console.error('[LocalDebtStore] Error recording payment:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get payment history for a debt or month
+   */
+  async getPayments(filters?: { debtId?: string; month?: string }): Promise<DebtPayment[]> {
+    try {
+      let query = db.payments.toCollection();
+      
+      if (filters?.debtId) {
+        query = db.payments.where('debtId').equals(filters.debtId);
+      }
+      
+      let payments = await query.toArray();
+      
+      if (filters?.month) {
+        payments = payments.filter(p => p.month === filters.month);
+      }
+      
+      return payments.sort((a, b) => 
+        new Date(b.date).getTime() - new Date(a.date).getTime()
+      );
+    } catch (error) {
+      console.error('[LocalDebtStore] Error getting payments:', error);
+      return [];
+    }
+  }
+
+  // ========== Snapshot Operations ==========
+
+  /**
+   * Record a debt balance snapshot
+   */
+  private async recordSnapshot(snapshot: DebtSnapshot): Promise<void> {
+    try {
+      await db.snapshots.add({
+        ...snapshot,
+        id: `snapshot_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`
+      } as any);
+    } catch (error) {
+      console.error('[LocalDebtStore] Error recording snapshot:', error);
+    }
+  }
+
+  /**
+   * Get debt history snapshots
+   */
+  async getSnapshots(debtId: string, limit = 100): Promise<DebtSnapshot[]> {
+    try {
+      return await db.snapshots
+        .where('debtId')
+        .equals(debtId)
+        .limit(limit)
+        .reverse()
+        .sortBy('timestamp');
+    } catch (error) {
+      console.error('[LocalDebtStore] Error getting snapshots:', error);
+      return [];
+    }
+  }
+
+  // ========== Metadata Operations ==========
+
+  /**
+   * Get metadata value
+   */
+  async getMeta(key: string): Promise<any> {
+    try {
+      const meta = await db.meta.get(key);
+      return meta?.value;
+    } catch (error) {
+      console.error('[LocalDebtStore] Error getting meta:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Set metadata value
+   */
+  async setMeta(key: string, value: any): Promise<void> {
+    try {
+      await db.meta.put({
+        key,
+        value,
+        updatedAt: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error('[LocalDebtStore] Error setting meta:', error);
+    }
+  }
+
+  // ========== Demo Data ==========
+
+  /**
+   * Load demo data
+   */
+  async loadDemoData(locale: DemoLocale = 'uk'): Promise<Partial<Debt>[]> {
+    try {
+      const demoDebts = generateDemoDebts(locale);
+      
+      await this.clearAll();
+      await this.upsertMany(demoDebts);
+      await this.setMeta('demo_loaded', true);
+      
+      this.trackAnalytics('demo_data_loaded', {
+        count: demoDebts.length,
+        locale
+      });
+      
+      return demoDebts;
+    } catch (error) {
+      console.error('[LocalDebtStore] Error loading demo data:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Clear demo data only
+   */
+  async clearDemoData(): Promise<void> {
+    try {
+      const demoDebts = await db.debts.where('isDemo').equals(true).toArray();
+      const demoIds = demoDebts.map(d => d.id);
+      
+      await db.transaction('rw', db.debts, db.payments, db.snapshots, async () => {
+        // Delete demo debts
+        await db.debts.bulkDelete(demoIds);
+        
+        // Delete related payments
+        for (const id of demoIds) {
+          await db.payments.where('debtId').equals(id).delete();
+          await db.snapshots.where('debtId').equals(id).delete();
+        }
+      });
+      
+      await this.setMeta('demo_loaded', false);
+      
+      this.trackAnalytics('demo_data_cleared', {
+        count: demoIds.length
+      });
+    } catch (error) {
+      console.error('[LocalDebtStore] Error clearing demo data:', error);
+      throw error;
+    }
+  }
+
+  // ========== Settings Operations (CP-1) ==========
+
+  /**
+   * Get app settings with defaults
+   */
+  async getSettings(): Promise<AppSettings> {
+    try {
+      const row = await db.settings.get('app');
+      return { ...DEFAULT_SETTINGS, ...(row?.value ?? {}) };
+    } catch (error) {
+      console.error('[LocalDebtStore] Error getting settings:', error);
+      return DEFAULT_SETTINGS;
+    }
+  }
+
+  /**
+   * Update app settings (partial update)
+   */
+  async setSettings(patch: Partial<AppSettings>): Promise<AppSettings> {
+    try {
+      const current = await this.getSettings();
+      const next = { ...current, ...patch };
+      await db.settings.put({ key: 'app', value: next });
+      
+      // Track setting changes (non-blocking)
+      try {
+        const changedKeys = Object.keys(patch);
+        this.trackAnalytics('settings_updated', { keys: changedKeys });
+      } catch {}
+      
+      return next;
+    } catch (error) {
+      console.error('[LocalDebtStore] Error updating settings:', error);
+      throw error;
+    }
+  }
+
+  // ========== Analytics ==========
+
+  private trackAnalytics(event: string, properties: Record<string, any>): void {
+    // Analytics tracking (to be integrated with PostHog or similar)
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`[Analytics] ${event}`, properties);
+    }
+    
+    // Send to analytics service
+    try {
+      if (typeof window !== 'undefined' && (window as any).posthog) {
+        (window as any).posthog.capture(event, {
+          ...properties,
+          source: 'localDebtStore'
+        });
+      }
+    } catch (error) {
+      // Silently fail analytics
+    }
+  }
+
+  // ========== Migration Status ==========
+
+  /**
+   * Check if migration is needed
+   */
+  async needsMigration(): Promise<boolean> {
+    const migrationComplete = await this.getMeta('migration_completed_v2');
+    return !migrationComplete;
+  }
+
+  /**
+   * Mark migration as complete
+   */
+  async markMigrationComplete(): Promise<void> {
+    await this.setMeta('migration_completed_v2', true);
+    await this.setMeta('migration_date', new Date().toISOString());
+  }
 }
 
 // Export singleton instance

@@ -1,47 +1,47 @@
 // Defer heavy library initialization until idle or needed
 export const deferredInit = {
- analytics: null,
- charts: null,
- 
- initAnalytics() {
-  if (this.analytics) return this.analytics;
+  analytics: null,
+  charts: null,
   
-  this.analytics = new Promise((resolve) => {
-   const load = () => {
-    import('../lib/posthog').then(({ initPostHog }) => {
-     initPostHog();
-     resolve(true);
-    });
-   };
+  initAnalytics() {
+    if (this.analytics) return this.analytics;
+    
+    this.analytics = new Promise((resolve) => {
+      const load = () => {
+        import('../lib/posthog').then(({ initPostHog }) => {
+          initPostHog();
+          resolve(true);
+        });
+      };
 
-   if ('requestIdleCallback' in window) {
-    requestIdleCallback(load, { timeout: 5000 });
-   } else {
-    setTimeout(load, 2000);
-   }
-  });
-  
-  return this.analytics;
- },
- 
- initCharts() {
-  if (this.charts) return this.charts;
-  
-  this.charts = new Promise((resolve) => {
-   const load = () => {
-    // Pre-load recharts when charts are first needed
-    import('recharts').then(() => {
-     resolve(true);
+      if ('requestIdleCallback' in window) {
+        requestIdleCallback(load, { timeout: 5000 });
+      } else {
+        setTimeout(load, 2000);
+      }
     });
-   };
-
-   if ('requestIdleCallback' in window) {
-    requestIdleCallback(load, { timeout: 3000 });
-   } else {
-    setTimeout(load, 1000);
-   }
-  });
+    
+    return this.analytics;
+  },
   
-  return this.charts;
- }
+  initCharts() {
+    if (this.charts) return this.charts;
+    
+    this.charts = new Promise((resolve) => {
+      const load = () => {
+        // Pre-load recharts when charts are first needed
+        import('recharts').then(() => {
+          resolve(true);
+        });
+      };
+
+      if ('requestIdleCallback' in window) {
+        requestIdleCallback(load, { timeout: 3000 });
+      } else {
+        setTimeout(load, 1000);
+      }
+    });
+    
+    return this.charts;
+  }
 };

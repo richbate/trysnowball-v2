@@ -10,214 +10,214 @@ const API_BASE_URL = process.env.REACT_APP_API_URL || 'https://trysnowball.co.uk
 
 // Debounce utility
 function debounce(func, wait) {
- let timeout;
- return function executedFunction(...args) {
-  const later = () => {
-   clearTimeout(timeout);
-   func(...args);
+  let timeout;
+  return function executedFunction(...args) {
+    const later = () => {
+      clearTimeout(timeout);
+      func(...args);
+    };
+    clearTimeout(timeout);
+    timeout = setTimeout(later, wait);
   };
-  clearTimeout(timeout);
-  timeout = setTimeout(later, wait);
- };
 }
 
 /**
  * API client for debt sync operations
  */
 export class DebtSyncClient {
- constructor() {
-  this.syncNeeded = false;
-  this.isOnline = navigator.onLine;
-  this.debouncedPutAllDebts = debounce(this.putAllDebts.bind(this), 500);
-  
-  // Listen for online/offline events
-  window.addEventListener('online', this.handleOnline.bind(this));
-  window.addEventListener('offline', this.handleOffline.bind(this));
- }
-
- /**
-  * Get JWT token from localStorage
-  */
- getAuthToken() {
-  return getToken();
- }
-
- /**
-  * Check if user is authenticated
-  */
- isAuthenticated() {
-  const token = this.getAuthToken();
-  if (!token) return false;
-  
-  try {
-   // Basic JWT expiration check (decode payload)
-   const payload = JSON.parse(atob(token.split('.')[1]));
-   return payload.exp > Date.now() / 1000;
-  } catch {
-   return false;
-  }
- }
-
- /**
-  * GET /api/debts - Fetch debts from D1
-  */
- async fetchDebtsFromServer() {
-  const token = this.getAuthToken();
-  if (!token) throw new Error('No authentication token');
-
-  const response = await fetch(`${API_BASE_URL}/api/debts`, {
-   method: 'GET',
-   headers: {
-    'Authorization': `Bearer ${token}`,
-    'Content-Type': 'application/json'
-   }
-  });
-
-  if (!response.ok) {
-   throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-  }
-
-  const data = await response.json();
-  return data.debts || [];
- }
-
- /**
-  * PUT /api/debts - Full replace debts in D1 (authoritative)
-  */
- async putAllDebts(debts) {
-  const token = this.getAuthToken();
-  if (!token) throw new Error('No authentication token');
-
-  if (!this.isOnline) {
-   console.log('[DebtSync] Offline - marking sync needed');
-   this.syncNeeded = true;
-   return;
-  }
-
-  try {
-   const startTime = Date.now();
-   
-   const response = await fetch(`${API_BASE_URL}/api/debts`, {
-    method: 'PUT',
-    headers: {
-     'Authorization': `Bearer ${token}`,
-     'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({ debts })
-   });
-
-   const latencyMs = Date.now() - startTime;
-
-   if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.error || `HTTP ${response.status}`);
-   }
-
-   // Success - clear sync flag
-   this.syncNeeded = false;
-   
-   // Track successful sync
-   analytics.track('debts_sync_put_success', {
-    debts_count: debts.length,
-    latency_ms: latencyMs,
-    timestamp: new Date().toISOString()
-   });
-
-   return await response.json();
-
-  } catch (error) {
-   console.error('[DebtSync] PUT failed:', error);
-   this.syncNeeded = true;
-   
-   // Track sync failure
-   analytics.track('debts_sync_put_error', {
-    debts_count: debts.length,
-    error_message: error.message,
-    timestamp: new Date().toISOString()
-   });
-
-   // Don't re-throw - let the UI continue working offline
-   return null;
-  }
- }
-
- /**
-  * Migration logic: D1 empty + local has debts → migrate to D1
-  * D1 has debts → D1 wins, mirror to local
-  */
- async hydrateFromServerOrMigrate(localDebts = []) {
-  if (!this.isAuthenticated()) {
-   throw new Error('User not authenticated');
-  }
-
-  try {
-   const serverDebts = await this.fetchDebtsFromServer();
-   
-   if (serverDebts.length === 0 && localDebts.length > 0) {
-    // Case 1: D1 empty, local has data → migrate local to D1
-    console.log('[DebtSync] Migrating local debts to D1:', localDebts.length);
+  constructor() {
+    this.syncNeeded = false;
+    this.isOnline = navigator.onLine;
+    this.debouncedPutAllDebts = debounce(this.putAllDebts.bind(this), 500);
     
-    const migrationResult = await this.putAllDebts(localDebts);
+    // Listen for online/offline events
+    window.addEventListener('online', this.handleOnline.bind(this));
+    window.addEventListener('offline', this.handleOffline.bind(this));
+  }
+
+  /**
+   * Get JWT token from localStorage
+   */
+  getAuthToken() {
+    return getToken();
+  }
+
+  /**
+   * Check if user is authenticated
+   */
+  isAuthenticated() {
+    const token = this.getAuthToken();
+    if (!token) return false;
     
-    // Track migration
-    analytics.track('debts_migrated_to_d1', {
-     count: localDebts.length,
-     total_balance_cents: localDebts.reduce((sum, debt) => sum + (debt.amount_pennies || 0), 0) * 100,
-     timestamp: new Date().toISOString()
+    try {
+      // Basic JWT expiration check (decode payload)
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      return payload.exp > Date.now() / 1000;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * GET /api/debts - Fetch debts from D1
+   */
+  async fetchDebtsFromServer() {
+    const token = this.getAuthToken();
+    if (!token) throw new Error('No authentication token');
+
+    const response = await fetch(`${API_BASE_URL}/api/debts`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
     });
 
-    // Return local debts (they're now authoritative in D1)
-    return { debts: localDebts, migratedToServer: true };
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    return data.debts || [];
+  }
+
+  /**
+   * PUT /api/debts - Full replace debts in D1 (authoritative)
+   */
+  async putAllDebts(debts) {
+    const token = this.getAuthToken();
+    if (!token) throw new Error('No authentication token');
+
+    if (!this.isOnline) {
+      console.log('[DebtSync] Offline - marking sync needed');
+      this.syncNeeded = true;
+      return;
+    }
+
+    try {
+      const startTime = Date.now();
+      
+      const response = await fetch(`${API_BASE_URL}/api/debts`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ debts })
+      });
+
+      const latencyMs = Date.now() - startTime;
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `HTTP ${response.status}`);
+      }
+
+      // Success - clear sync flag
+      this.syncNeeded = false;
+      
+      // Track successful sync
+      analytics.track('debts_sync_put_success', {
+        debts_count: debts.length,
+        latency_ms: latencyMs,
+        timestamp: new Date().toISOString()
+      });
+
+      return await response.json();
+
+    } catch (error) {
+      console.error('[DebtSync] PUT failed:', error);
+      this.syncNeeded = true;
+      
+      // Track sync failure
+      analytics.track('debts_sync_put_error', {
+        debts_count: debts.length,
+        error_message: error.message,
+        timestamp: new Date().toISOString()
+      });
+
+      // Don't re-throw - let the UI continue working offline
+      return null;
+    }
+  }
+
+  /**
+   * Migration logic: D1 empty + local has debts → migrate to D1
+   * D1 has debts → D1 wins, mirror to local
+   */
+  async hydrateFromServerOrMigrate(localDebts = []) {
+    if (!this.isAuthenticated()) {
+      throw new Error('User not authenticated');
+    }
+
+    try {
+      const serverDebts = await this.fetchDebtsFromServer();
+      
+      if (serverDebts.length === 0 && localDebts.length > 0) {
+        // Case 1: D1 empty, local has data → migrate local to D1
+        console.log('[DebtSync] Migrating local debts to D1:', localDebts.length);
+        
+        const migrationResult = await this.putAllDebts(localDebts);
+        
+        // Track migration
+        analytics.track('debts_migrated_to_d1', {
+          count: localDebts.length,
+          total_balance_cents: localDebts.reduce((sum, debt) => sum + (debt.balance || 0), 0) * 100,
+          timestamp: new Date().toISOString()
+        });
+
+        // Return local debts (they're now authoritative in D1)
+        return { debts: localDebts, migratedToServer: true };
+        
+      } else {
+        // Case 2: D1 has debts → D1 wins
+        console.log('[DebtSync] Using server debts as source of truth:', serverDebts.length);
+        return { debts: serverDebts, migratedToServer: false };
+      }
+      
+    } catch (error) {
+      console.error('[DebtSync] Hydration failed:', error);
+      // Fallback to local data on error
+      return { debts: localDebts, migratedToServer: false, error: error.message };
+    }
+  }
+
+  /**
+   * Handle coming back online
+   */
+  async handleOnline() {
+    console.log('[DebtSync] Back online');
+    this.isOnline = true;
     
-   } else {
-    // Case 2: D1 has debts → D1 wins
-    console.log('[DebtSync] Using server debts as source of truth:', serverDebts.length);
-    return { debts: serverDebts, migratedToServer: false };
-   }
-   
-  } catch (error) {
-   console.error('[DebtSync] Hydration failed:', error);
-   // Fallback to local data on error
-   return { debts: localDebts, migratedToServer: false, error: error.message };
+    if (this.syncNeeded && this.onSyncNeeded) {
+      console.log('[DebtSync] Syncing queued changes');
+      this.onSyncNeeded();
+    }
   }
- }
 
- /**
-  * Handle coming back online
-  */
- async handleOnline() {
-  console.log('[DebtSync] Back online');
-  this.isOnline = true;
-  
-  if (this.syncNeeded && this.onSyncNeeded) {
-   console.log('[DebtSync] Syncing queued changes');
-   this.onSyncNeeded();
+  /**
+   * Handle going offline
+   */
+  handleOffline() {
+    console.log('[DebtSync] Gone offline');
+    this.isOnline = false;
   }
- }
 
- /**
-  * Handle going offline
-  */
- handleOffline() {
-  console.log('[DebtSync] Gone offline');
-  this.isOnline = false;
- }
+  /**
+   * Set callback for when sync is needed after reconnection
+   */
+  onSyncNeeded(callback) {
+    this.onSyncNeededCallback = callback;
+  }
 
- /**
-  * Set callback for when sync is needed after reconnection
-  */
- onSyncNeeded(callback) {
-  this.onSyncNeededCallback = callback;
- }
-
- /**
-  * Mirror debts to localStorage for offline access
-  */
- mirrorToLocalStorage(debts, userId) {
-  // Legacy: storage persistence now handled by localDebtStore
-  // This method is kept for compatibility but no-ops
-  return;
- }
+  /**
+   * Mirror debts to localStorage for offline access
+   */
+  mirrorToLocalStorage(debts, userId) {
+    // Legacy: storage persistence now handled by localDebtStore
+    // This method is kept for compatibility but no-ops
+    return;
+  }
 }
 
 // Export singleton instance

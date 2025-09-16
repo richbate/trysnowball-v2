@@ -9,44 +9,44 @@ import remarkGfm from 'remark-gfm';
 import rehypeSanitize from 'rehype-sanitize';
 
 const SecureMarkdown = ({ content, className = '', allowImages = false }) => {
- const allowProtocol = (url = '') => /^(https?:|mailto:|tel:)/i.test(url);
- 
- return (
-  <ReactMarkdown
-   className={className}
-   remarkPlugins={[remarkGfm]}
-   rehypePlugins={[rehypeSanitize]}
-   skipHtml
-   components={{
-    // Safe links only
-    a: ({href = '', children, ...props}) => (
-     <a
-      href={allowProtocol(href) ? href : '#'}
-      target="_blank"
-      rel="noopener noreferrer"
-      {...props}
-     >
-      {children}
-     </a>
-    ),
-    // Block images for AI content by default (attack surface reduction)
-    img: allowImages ? 
-     ({src = '', alt = '', ...props}) => (
-      allowProtocol(src) ? 
-       <img src={src} alt={alt} loading="lazy" {...props} /> : 
-       null
-     ) : 
-     () => null,
-    // Block iframes entirely
-    iframe: () => null,
-    // Block object/embed tags
-    object: () => null,
-    embed: () => null
-   }}
-  >
-   {content || ''}
-  </ReactMarkdown>
- );
+  const allowProtocol = (url = '') => /^(https?:|mailto:|tel:)/i.test(url);
+  
+  return (
+    <ReactMarkdown
+      className={className}
+      remarkPlugins={[remarkGfm]}
+      rehypePlugins={[rehypeSanitize]}
+      skipHtml
+      components={{
+        // Safe links only
+        a: ({href = '', children, ...props}) => (
+          <a
+            href={allowProtocol(href) ? href : '#'}
+            target="_blank"
+            rel="noopener noreferrer"
+            {...props}
+          >
+            {children}
+          </a>
+        ),
+        // Block images for AI content by default (attack surface reduction)
+        img: allowImages ? 
+          ({src = '', alt = '', ...props}) => (
+            allowProtocol(src) ? 
+              <img src={src} alt={alt} loading="lazy" {...props} /> : 
+              null
+          ) : 
+          () => null,
+        // Block iframes entirely
+        iframe: () => null,
+        // Block object/embed tags
+        object: () => null,
+        embed: () => null
+      }}
+    >
+      {content || ''}
+    </ReactMarkdown>
+  );
 };
 
 export default SecureMarkdown;

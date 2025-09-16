@@ -6,12 +6,10 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Send, ThumbsUp, ThumbsDown, Copy, Bot, User } from 'lucide-react';
 import { useGPTAgent } from '../../hooks/useGPTAgent';
-import { useUserDebts } from '../../hooks/useUserDebts';
+import { useDebts } from '../../hooks/useDebts';
 import { useAIDebtManager } from '../../hooks/useAIDebtManager';
-import { useAuth } from '../../contexts/AuthContext.tsx';
-import { buildDebtContext, buildFallbackContext, formatContextForPrompt, validateDebtContext } from '../../selectors/debtContext';
+import { useUser } from '../../contexts/UserContext';
 import { buildGPTCoachContext, debugContext } from '../../utils/gptContextBuilders';
-import { FLAGS } from '../../config/flags';
 import { shouldUseSmartGreeting, createSmartGreetingResponse, trackSmartGreeting } from '../../utils/smartGreetings';
 import { processUserIntent } from '../../utils/aiIntentRouter';
 import { checkAISecurity, sanitizeInput, logSecurityEvent } from '../../utils/aiSecurity';
@@ -19,896 +17,696 @@ import { debtAnalytics } from '../../lib/posthog';
 import { formatCurrency } from '../../utils/debtFormatting';
 import { calculateDebtJourneyState } from '../../utils/debtJourneyStates';
 import { safeRenderMessage, processAIResponse } from '../../utils/safeMessageRenderer';
-import { getSystemPrompt } from '../../utils/aiPrompts';
 
-const GPTCoachChat = ({ 
- className = '', 
- dailyQuota = 40, 
- hasPremium = false,
- mode = 'general',
- context = null,
- onTimelineRequest = null
-}) => {
- const [messages, setMessages] = useState([]);
- const [inputValue, setInputValue] = useState('');
- const [chatStarted, setChatStarted] = useState(false);
- const [messagesFeedback, setMessagesFeedback] = useState({});
- const [sessionId] = useState(() => `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`);
- const [chatStartTime] = useState(() => Date.now());
- 
- const messagesEndRef = useRef(null);
- const inputRef = useRef(null);
- const chatContainerRef = useRef(null);
- 
- const { user } = useAuth();
- const { debts, totalDebt, totalMinPayments, projections, paymentHistory, settings, loading: debtsLoading } = useUserDebts();
- 
- // Expose data for debugging
- React.useEffect(() => {
-  window.userDebugData = user;
-  window.debtsDebugData = debts;
-  console.log('🔍 [AI Coach] Debts loaded:', (debts?.length ?? 0), 'debts');
- }, [user, debts]);
- 
- // GPT Agent for coaching
- const { 
-  callGPT, 
-  loading, 
-  error: gptError, 
-  isGPTAvailable,
-  reset: resetGPT 
- } = useGPTAgent('coach', {
-  onSuccess: handleGPTResponse,
-  onError: handleGPTError,
-  debugMode: process.env.NODE_ENV === 'development'
- });
-
- // AI Debt Manager for direct debt data manipulation
- const { 
-  updateDebtsViaAI, 
-  getDebtsForAI,
-  loading: aiDebtLoading 
- } = useAIDebtManager({
-  requireConfirmation: false, // Streamlined UX - no extra confirmations in chat
-  debugMode: process.env.NODE_ENV === 'development'
- });
-
- /**
-  * Auto-scroll to bottom when new messages arrive
-  */
- const scrollToBottom = useCallback(() => {
-  messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
- }, []);
-
- useEffect(() => {
-  scrollToBottom();
- }, [messages, scrollToBottom]);
-
- /**
-  * Initialize chat with personalized greeting based on journey state and mode
-  */
- const initializeChat = useCallback(() => {
-  if (!chatStarted) {
-   const userName = user?.email?.split('@')[0] || 'there';
-   let journeyState = null;
-   let greeting;
-   
-   // Handle YUKI disabled case
-   if (!FLAGS.YUKI_ENABLED) {
-    greeting = `Hi ${userName}! 👋 The AI Coach is currently disabled for maintenance. You can still manage your debts using the manual planning tools in your dashboard. Use the debt tables, calculators, and timeline charts to track your progress.`;
-   }
-   // Balance transfer mode has specialized greeting
-   else if (mode === 'balance_transfer') {
-    const totalHighAPR = context?.totalDebt || 0;
-    const avgAPR = context?.averageAPR || 0;
-    const debtCount = context?.highAPRDebts?.length || 0;
-    
-    greeting = `Hi ${userName}! 👋 I see you're thinking about a balance transfer for your ${debtCount > 1 ? `${debtCount} high-interest debts` : 'high-interest debt'} totaling ${formatCurrency(totalHighAPR)} at ${avgAPR.toFixed(1)}% average APR.
-
-Let's break down your options with real numbers. Balance transfers aren't always the money-saver they appear to be - it depends on your specific situation and payment capacity.
-
-Tell me about the offer you're considering: what's the promotional rate, how long does it last, and what's the transfer fee?`;
-   } else {
-    // Regular journey-based greetings
-    journeyState = calculateDebtJourneyState(debts, paymentHistory, projections);
-    
-    switch (journeyState.type) {
-     case 'start':
-      greeting = `Hi ${userName}! 👋 Welcome to your debt-free journey! I'm Yuki, your AI coach. I see you're ready to get started - let's add your first debt and create your personalized payoff plan. What debt would you like to tackle first?`;
-      break;
-     case 'early':
-      const debtCount = (debts?.length ?? 0);
-      greeting = `Hi ${userName}! 👋 Great to see you back! You've made a solid start on your debt journey with ${debtCount} debt${debtCount !== 1 ? 's' : ''} totaling ${formatCurrency(totalDebt)}. Every step counts - what would you like to work on today?`;
-      break;
-     case 'mid':
-      const progress = Math.round((debts.reduce((sum, debt) => sum + (debt.originalAmount || debt.amount_pennies || 0), 0) - totalDebt) / debts.reduce((sum, debt) => sum + (debt.originalAmount || debt.amount_pennies || 0), 0) * 100);
-      greeting = `Hi ${userName}! 👋 Fantastic progress! You've paid off ${progress}% of your original debt - you're really building momentum. With ${formatCurrency(totalDebt)} left to go, you're well on your way to debt freedom. What's your next move?`;
-      break;
-     case 'nearly':
-      greeting = `Hi ${userName}! 👋 You're SO close to the finish line! Just ${formatCurrency(totalDebt)} left to go - I can practically see you celebrating debt freedom! Let's talk about that final push. How can I help you cross that finish line?`;
-      break;
-     case 'debtFree':
-      greeting = `Hi ${userName}! 🎉 CONGRATULATIONS! You've achieved debt freedom - what an incredible accomplishment! This is a huge milestone that deserves celebration. Now let's talk about what's next for your money. What are your goals now that you're debt-free?`;
-      break;
-     case 'alreadyFree':
-      greeting = `Hi ${userName}! ✨ It's great to meet someone who's already debt-free! While you don't have debts to pay off, I can help you stay organized and plan for future financial goals. What would you like to work on today?`;
-      break;
-     default:
-      greeting = `Hi ${userName}! 👋 I'm Yuki, your AI debt coach. I can see your current situation and I'm here to help you achieve debt freedom. What would you like to work on today?`;
-    }
-   }
-   
-   const systemMessage = {
-    id: 'system-intro',
-    type: 'system',
-    content: greeting,
-    timestamp: new Date().toISOString(),
-    isGPT: true,
-    journeyState: journeyState?.type // Store for context
-   };
-   
-   setMessages([systemMessage]);
-   setChatStarted(true);
-   
-   // Track analytics with journey state and balance transfer context
-   trackChatEvent('chat_started', {
-    entryPoint: 'coach_page',
-    mode: mode || 'general',
-    isBalanceTransferMode: mode === 'balance_transfer',
+const GPTCoachChat = ({ className = '', dailyQuota = 40, hasPremium = false }) => {
+  const [messages, setMessages] = useState([]);
+  const [inputValue, setInputValue] = useState('');
+  const [chatStarted, setChatStarted] = useState(false);
+  const [messagesFeedback, setMessagesFeedback] = useState({});
+  
+  const messagesEndRef = useRef(null);
+  const inputRef = useRef(null);
+  const chatContainerRef = useRef(null);
+  
+  const { user } = useUser();
+  const { debts, totalDebt, totalMinPayments, projections, paymentHistory, settings, loading: debtsLoading } = useDebts();
+  
+  // Expose data for debugging
+  React.useEffect(() => {
+    window.userDebugData = user;
+    window.debtsDebugData = debts;
+    console.log('🔍 [AI Coach] Debts loaded:', debts.length, 'debts');
+  }, [user, debts]);
+  
+  // GPT Agent for coaching
+  const { 
+    callGPT, 
+    loading, 
+    error: gptError, 
     isGPTAvailable,
-    debtCount: (debts?.length ?? 0),
-    totalDebt,
-    journeyState: journeyState?.type,
-    sessionId,
-    hasPremium,
-    dailyQuota,
-    // Balance transfer specific context
-    ...(context && mode === 'balance_transfer' && {
-     btTotalDebt: context.totalDebt,
-     btAverageAPR: context.averageAPR,
-     btHighAPRDebtsCount: context.highAPRDebts?.length
-    })
-   });
-  }
- }, [chatStarted, user, debts?.length, totalDebt, isGPTAvailable, mode, context]);
-
- /**
-  * Build context for GPT with current user debt data
-  * Uses normalized debt context when YUKI_ENABLED, fallback otherwise
-  */
- const buildChatContext = useCallback(() => {
-  if (!FLAGS.YUKI_ENABLED) {
-   // Fallback context when AI coach is disabled
-   const fallbackContext = buildFallbackContext();
-   return {
-    ...fallbackContext,
-    mode: 'disabled',
-    message: 'AI Coach is currently disabled. Please use the debt tables for manual planning.'
-   };
-  }
-
-  // Build normalized debt context
-  let debtContext;
-  
-  if (debts && debts.length > 0) {
-   debtContext = buildDebtContext(debts);
-   
-   // Validate context to catch legacy field contamination
-   if (!validateDebtContext(debtContext)) {
-    console.error('❌ [YUKI] Invalid debt context detected - using fallback');
-    debtContext = buildFallbackContext();
-   }
-  } else {
-   debtContext = buildFallbackContext();
-  }
-
-  // Add session-specific context
-  const sessionInfo = {
-   messagesCount: messages.filter(m => m.type === 'user').length,
-   topicsSoFar: extractTopics(messages),
-   mode: mode
-  };
-  
-  // Add balance transfer context for specialized coaching
-  if (mode === 'balance_transfer' && context) {
-   sessionInfo.balanceTransferContext = context;
-  }
-
-  // Build complete GPT context
-  const gptContext = {
-   ...debtContext,
-   sessionInfo,
-   user: {
-    name: user?.email?.split('@')[0] || 'User',
-    email: user?.email || null,
-    userId: user?.id || null
-   }
-  };
-
-  // Debug context in development
-  if (process.env.NODE_ENV === 'development') {
-   console.log('🔍 [YUKI] Debt context built:', {
-    schema_version: debtContext.schema_version,
-    debt_count: debtContext.debt_count,
-    total_debt_gbp: debtContext.total_debt_gbp,
-    isValid: validateDebtContext(debtContext)
-   });
-  }
-
-  return gptContext;
- }, [debts, user, messages, mode, context]);
-
- /**
-  * Handle successful GPT response
-  */
- function handleGPTResponse(response) {
-  // Safely process the AI response without eval
-  const processedResponse = processAIResponse(response.message || response.content || response);
-  
-  const gptMessage = {
-   id: `gpt-${Date.now()}`,
-   type: 'gpt',
-   content: processedResponse.content.text || 'I apologize, but I had trouble generating a response. Could you try rephrasing your question?',
-   renderedContent: processedResponse.content.html, // Safe HTML without eval
-   timestamp: new Date().toISOString(),
-   isGPT: true,
-   isSafeRendered: true // Flag to use safe rendering
-  };
-
-  setMessages(prev => [...prev, gptMessage]);
-  
-  // Track successful response with enhanced LLM metrics
-  const responseTime = Date.now() - (gptMessage.startTime || Date.now());
-  const outputLength = gptMessage.content.length;
-  const outputWordCount = gptMessage.content.trim().split(/\s+/).length;
-  const messageNumber = messages.filter(m => m.type === 'gpt').length + 1;
-  
-  trackChatEvent('chat_gpt_responded', {
-   sessionId,
-   messageNumber,
-   responseTimeMs: responseTime,
-   outputLength,
-   outputWordCount,
-   debtCount: debts.length,
-   totalDebt,
-   journeyState: calculateDebtJourneyState(debts, paymentHistory, projections).type,
-   chatDurationMs: Date.now() - chatStartTime,
-   hasDebts: (debts?.length ?? 0) > 0
-  });
-  
-  // Track detailed LLM performance metrics if available
-  if (response.usage || response.metadata) {
-   debtAnalytics.trackLLMPerformance({
-    model: response.model || 'unknown',
-    responseTimeMs: responseTime,
-    inputTokens: response.usage?.prompt_tokens,
-    outputTokens: response.usage?.completion_tokens,
-    totalTokens: response.usage?.total_tokens,
-    tokensPerSecond: response.usage?.total_tokens ? (response.usage.total_tokens / (responseTime / 1000)) : null,
-    temperature: response.metadata?.temperature,
-    finishReason: response.metadata?.finish_reason,
-    cached: response.metadata?.cached
-   });
-  }
- }
-
- /**
-  * Handle GPT errors
-  */
- function handleGPTError(error) {
-  console.error('GPT Chat Error:', error);
-  
-  let errorMessage;
-  
-  // Handle specific error types with clear user guidance
-  if (error.message?.includes('401') || error.message?.includes('Please log in')) {
-   errorMessage = {
-    id: `error-${Date.now()}`,
-    type: 'gpt',
-    content: '🔐 Please log in to use the AI Coach.',
-    timestamp: new Date().toISOString(),
-    isGPT: true,
-    isError: true,
-    errorType: '401'
-   };
-  } else if (error.message?.includes('429') || error.message?.includes('quota') || error.message?.includes('limit')) {
-   errorMessage = {
-    id: `error-${Date.now()}`,
-    type: 'gpt', 
-    content: `⚡ Daily AI limit reached (${dailyQuota} messages). Try again tomorrow.${hasPremium ? '' : ' Upgrade for more messages!'}`,
-    timestamp: new Date().toISOString(),
-    isGPT: true,
-    isError: true,
-    errorType: '429'
-   };
-  } else {
-   errorMessage = {
-    id: `error-${Date.now()}`,
-    type: 'gpt',
-    content: "🔧 Can't reach AI right now. Please try again in a moment.",
-    timestamp: new Date().toISOString(),
-    isGPT: true,
-    isError: true,
-    errorType: 'network'
-   };
-  }
-
-  setMessages(prev => [...prev, errorMessage]);
-  
-  trackChatEvent('chat_error', {
-   errorType: errorMessage.errorType,
-   errorMessage: error.message?.substring(0, 100)
-  });
- }
-
- /**
-  * Detect if user message is requesting debt data updates
-  */
- const isDebtUpdateRequest = useCallback((message) => {
-  const lowerMessage = message.toLowerCase();
-  const updateKeywords = [
-   'update my', 'set my', 'change my', 'my balance is', 'paid off',
-   'balance to', 'new balance', 'current balance', 'i paid', 'clear my',
-   'add debt', 'new debt', 'remove debt', 'delete debt', 'remove my'
-  ];
-  
-  return updateKeywords.some(keyword => lowerMessage.includes(keyword)) ||
-      /\£[\d,]+/.test(message) || // Contains currency amounts
-      /balance.*\d+/.test(lowerMessage) ||
-      /\d+.*balance/.test(lowerMessage);
- }, []);
-
- /**
-  * Process debt update via AI
-  */
- const processDebtUpdate = useCallback(async (message) => {
-  try {
-   // Show processing message
-   const processingMessage = {
-    id: `processing-${Date.now()}`,
-    type: 'gpt',
-    content: '💭 Processing your debt update...',
-    timestamp: new Date().toISOString(),
-    isGPT: true,
-    isProcessing: true
-   };
-   setMessages(prev => [...prev, processingMessage]);
-
-   const result = await updateDebtsViaAI(message);
-   
-   // Remove processing message and add result
-   setMessages(prev => prev.filter(m => !m.isProcessing));
-   
-   if (result?.success) {
-    const successMessage = {
-     id: `debt-update-${Date.now()}`,
-     type: 'gpt',
-     content: `✅ ${result.summary || `${result.action} ${result.debts?.length || 0} debt(s)`}`,
-     timestamp: new Date().toISOString(),
-     isGPT: true,
-     isDebtUpdate: true
-    };
-    setMessages(prev => [...prev, successMessage]);
-
-    // Track debt update
-    debtAnalytics.trackBalanceUpdate(
-     result.debts?.reduce((sum, d) => sum + (d.balance || 0), 0) || 0,
-     result.debts?.reduce((sum, d) => sum + (d.balance || 0), 0) || 0,
-     'ai_chat_update'
-    );
-   } else {
-    throw new Error('Update failed');
-   }
-  } catch (error) {
-   console.error('AI debt update error:', error);
-   setMessages(prev => prev.filter(m => !m.isProcessing));
-   
-   const errorMessage = {
-    id: `error-${Date.now()}`,
-    type: 'gpt',
-    content: `❌ I couldn't update your debt data: ${error.message}. Try being more specific about which debt and what amount.`,
-    timestamp: new Date().toISOString(),
-    isGPT: true,
-    isError: true
-   };
-   setMessages(prev => [...prev, errorMessage]);
-  }
- }, [updateDebtsViaAI]);
-
- /**
-  * Send user message and get GPT response
-  */
- const sendMessage = useCallback(async () => {
-  if (!inputValue.trim() || loading || aiDebtLoading) return;
-
-  const userMessage = {
-   id: `user-${Date.now()}`,
-   type: 'user',
-   content: inputValue.trim(),
-   timestamp: new Date().toISOString(),
-   isGPT: false
-  };
-
-  // Add user message immediately
-  setMessages(prev => [...prev, userMessage]);
-
-  // Handle YUKI_ENABLED=false case
-  if (!FLAGS.YUKI_ENABLED) {
-   const disabledMessage = {
-    id: `disabled-${Date.now()}`,
-    type: 'gpt',
-    content: '🚫 AI Coach is currently disabled. For debt planning, please use the manual debt tables and calculators available in your dashboard.',
-    timestamp: new Date().toISOString(),
-    isGPT: true,
-    isDisabled: true
-   };
-   
-   setMessages(prev => [...prev, disabledMessage]);
-   setInputValue('');
-   
-   trackChatEvent('ai_disabled_interaction', {
-    userInput: inputValue.substring(0, 50),
-    sessionId
-   });
-   
-   return;
-  }
-  
-  // Track user message with enhanced analytics
-  const userMessageNumber = messages.filter(m => m.type === 'user').length + 1;
-  const inputLength = inputValue.length;
-  const inputWordCount = inputValue.trim().split(/\s+/).length;
-  
-  trackChatEvent('chat_message_sent', {
-   sessionId,
-   messageNumber: userMessageNumber,
-   inputLength,
-   inputWordCount,
-   contentPreview: inputValue.substring(0, 100), // First 100 chars for privacy
-   debtCount: debts.length,
-   totalDebt,
-   journeyState: calculateDebtJourneyState(debts, paymentHistory, projections).type,
-   chatDurationMs: Date.now() - chatStartTime,
-   hasDebts: (debts?.length ?? 0) > 0,
-   isDebtUpdateRequest: isDebtUpdateRequest(messageToSend),
-   containsCurrency: /£[\d,]+/.test(messageToSend),
-   containsNumbers: /\d+/.test(messageToSend)
+    reset: resetGPT 
+  } = useGPTAgent('coach', {
+    onSuccess: handleGPTResponse,
+    onError: handleGPTError,
+    debugMode: process.env.NODE_ENV === 'development'
   });
 
-  const messageToSend = sanitizeInput(inputValue);
-  setInputValue('');
-
-  // 🛡️ Security Check - protect against attacks
-  const securityCheck = checkAISecurity(messageToSend, {
-   conversationHistory: messages.slice(-5) // Last 5 messages for escalation detection
+  // AI Debt Manager for direct debt data manipulation
+  const { 
+    updateDebtsViaAI, 
+    getDebtsForAI,
+    loading: aiDebtLoading 
+  } = useAIDebtManager({
+    requireConfirmation: false, // Streamlined UX - no extra confirmations in chat
+    debugMode: process.env.NODE_ENV === 'development'
   });
 
-  if (!securityCheck.allowed) {
-   const securityMessage = {
-    id: `security-${Date.now()}`,
-    type: 'gpt',
-    content: securityCheck.reason + (securityCheck.safeAlternative ? `\n\n${securityCheck.safeAlternative}` : ''),
-    timestamp: new Date().toISOString(),
-    isGPT: true,
-    isSecurityResponse: true
-   };
+  /**
+   * Auto-scroll to bottom when new messages arrive
+   */
+  const scrollToBottom = useCallback(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, []);
 
-   setMessages(prev => [...prev, securityMessage]);
-   
-   // Log security event
-   logSecurityEvent('blocked_harmful_input', {
-    risks: securityCheck.risks,
-    riskLevel: securityCheck.risk,
-    inputLength: messageToSend.length
-   });
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages, scrollToBottom]);
 
-   trackChatEvent('security_blocked', {
-    risks: securityCheck.risks,
-    riskLevel: securityCheck.risk,
-    reason: securityCheck.reason
-   });
+  /**
+   * Initialize chat with personalized greeting based on journey state
+   */
+  const initializeChat = useCallback(() => {
+    if (!chatStarted) {
+      // Calculate journey state for personalized greeting
+      const journeyState = calculateDebtJourneyState(debts, paymentHistory, projections);
+      const userName = user?.email?.split('@')[0] || 'there';
+      
+      let greeting;
+      // Personalized greetings based on journey state
+        switch (journeyState.type) {
+          case 'start':
+            greeting = `Hi ${userName}! 👋 Welcome to your debt-free journey! I'm Yuki, your AI coach. I see you're ready to get started - let's add your first debt and create your personalized payoff plan. What debt would you like to tackle first?`;
+            break;
+          case 'early':
+            greeting = `Hi ${userName}! 👋 Great to see you back! You've made a solid start on your debt journey with ${debts.length} debt${debts.length !== 1 ? 's' : ''} totaling ${formatCurrency(totalDebt)}. Every step counts - what would you like to work on today?`;
+            break;
+          case 'mid':
+            const progress = Math.round((debts.reduce((sum, debt) => sum + (debt.originalAmount || debt.balance || 0), 0) - totalDebt) / debts.reduce((sum, debt) => sum + (debt.originalAmount || debt.balance || 0), 0) * 100);
+            greeting = `Hi ${userName}! 👋 Fantastic progress! You've paid off ${progress}% of your original debt - you're really building momentum. With ${formatCurrency(totalDebt)} left to go, you're well on your way to debt freedom. What's your next move?`;
+            break;
+          case 'nearly':
+            greeting = `Hi ${userName}! 👋 You're SO close to the finish line! Just ${formatCurrency(totalDebt)} left to go - I can practically see you celebrating debt freedom! Let's talk about that final push. How can I help you cross that finish line?`;
+            break;
+          case 'debtFree':
+            greeting = `Hi ${userName}! 🎉 CONGRATULATIONS! You've achieved debt freedom - what an incredible accomplishment! This is a huge milestone that deserves celebration. Now let's talk about what's next for your money. What are your goals now that you're debt-free?`;
+            break;
+          case 'alreadyFree':
+            greeting = `Hi ${userName}! ✨ It's great to meet someone who's already debt-free! While you don't have debts to pay off, I can help you stay organized and plan for future financial goals. What would you like to work on today?`;
+            break;
+          default:
+            greeting = `Hi ${userName}! 👋 I'm Yuki, your AI debt coach. I can see your current situation and I'm here to help you achieve debt freedom. What would you like to work on today?`;
+        }
+      
+      const systemMessage = {
+        id: 'system-intro',
+        type: 'system',
+        content: greeting,
+        timestamp: new Date().toISOString(),
+        isGPT: true,
+        journeyState: journeyState.type // Store for context
+      };
+      
+      setMessages([systemMessage]);
+      setChatStarted(true);
+      
+      // Track analytics with journey state
+      trackChatEvent('chat_started', {
+        entryPoint: 'coach_page',
+        isGPTAvailable,
+        debtCount: debts.length,
+        totalDebt,
+        journeyState: journeyState.type
+      });
+    }
+  }, [chatStarted, user, debts.length, totalDebt, isGPTAvailable]);
 
-   return; // Exit early - security blocked
-  }
-
-  // 🎯 Intent Router - handle specific commands before GPT processing
-  const intentResponse = await processUserIntent(messageToSend, { 
-   userId: user?.id, 
-   debts, 
-   totalDebt 
-  });
-  
-  if (intentResponse) {
-   const responseMessage = {
-    id: `gpt-${Date.now()}`,
-    type: 'gpt',
-    content: intentResponse.message,
-    timestamp: new Date().toISOString(),
-    isGPT: true,
-    isIntentResponse: true,
-    requiresConfirmation: intentResponse.requiresConfirmation,
-    suggestReload: intentResponse.suggestReload
-   };
-   
-   setMessages(prev => [...prev, responseMessage]);
-   
-   // Handle special actions
-   if (intentResponse.suggestReload) {
-    setTimeout(() => {
-     if (window.confirm('Data cleared! Reload page to see the clean state?')) {
-      window.location.reload();
-     }
-    }, 1000);
-   }
-   
-   trackChatEvent('intent_handled', {
-    intent: messageToSend,
-    action: intentResponse.action || 'unknown',
-    success: intentResponse.success
-   });
-   
-   return; // Exit early - intent was handled
-  }
-
-  // 🔥 Smart Greeting Filter - handle casual inputs without hitting GPT API
-  if (shouldUseSmartGreeting(messageToSend)) {
-   const context = buildChatContext();
-   const smartGreeting = createSmartGreetingResponse(messageToSend, context);
-   
-   // Add smart greeting response
-   setMessages(prev => [...prev, smartGreeting]);
-   
-   // Track smart greeting usage
-   trackSmartGreeting(messageToSend, context);
-   
-   return; // Exit early - no GPT call needed
-  }
-
-  // 💾 Debt Update Detection - handle direct data manipulation
-  if (isDebtUpdateRequest(messageToSend)) {
-   console.log('🔍 [AI Debt Manager] Detected debt update request:', messageToSend);
-   await processDebtUpdate(messageToSend);
-   return; // Exit early - no coaching GPT call needed
-  }
-
-  // Call GPT with context for complex inputs
-  const context = buildChatContext();
-  userMessage.startTime = Date.now(); // For duration tracking
-  
-  await callGPT(messageToSend, context);
- }, [inputValue, loading, aiDebtLoading, messages, buildChatContext, callGPT, isDebtUpdateRequest, processDebtUpdate]);
-
- /**
-  * Handle enter key in textarea
-  */
- const handleKeyPress = useCallback((e) => {
-  if (e.key === 'Enter' && !e.shiftKey) {
-   e.preventDefault();
-   sendMessage();
-  }
- }, [sendMessage]);
-
- /**
-  * Provide feedback on GPT message
-  */
- const provideFeedback = useCallback((messageId, isPositive) => {
-  setMessagesFeedback(prev => ({
-   ...prev,
-   [messageId]: isPositive
-  }));
-
-  trackChatEvent('chat_feedback', {
-   sessionId,
-   messageId,
-   thumbsUp: isPositive,
-   messageType: 'gpt',
-   feedbackPositive: isPositive,
-   hasFeedback: true,
-   debtCount: debts.length,
-   totalDebt,
-   journeyState: calculateDebtJourneyState(debts, paymentHistory, projections).type,
-   chatDurationMs: Date.now() - chatStartTime
-  });
- }, []);
-
- /**
-  * Copy message to clipboard
-  */
- const copyMessage = useCallback(async (content) => {
-  try {
-   await navigator.clipboard.writeText(content);
-   // Could add a toast notification here
-  } catch (error) {
-   console.error('Failed to copy message:', error);
-  }
- }, []);
-
- /**
-  * Clear chat history
-  */
- const clearChat = useCallback(() => {
-  // Track conversation end before clearing
-  if (messages.length > 0) {
-   const conversationDuration = Date.now() - chatStartTime;
-   const userMessages = messages.filter(m => m.type === 'user').length;
-   const aiMessages = messages.filter(m => m.type === 'gpt').length;
-   const positiveFeedback = Object.values(messagesFeedback).filter(Boolean).length;
-   const negativeFeedback = Object.values(messagesFeedback).filter(f => f === false).length;
-   const topics = extractTopics(messages);
-   
-   debtAnalytics.trackConversationFlow({
-    sessionId,
-    conversationLength: messages.length,
-    userMessages,
-    aiMessages,
-    durationMs: conversationDuration,
-    topics,
-    satisfaction: positiveFeedback > negativeFeedback ? 'positive' : negativeFeedback > positiveFeedback ? 'negative' : 'neutral',
-    outcome: 'user_cleared_chat'
-   });
-  }
-  
-  setMessages([]);
-  setChatStarted(false);
-  setMessagesFeedback({});
-  resetGPT();
-  initializeChat();
- }, [messages, messagesFeedback, chatStartTime, sessionId, resetGPT, initializeChat]);
-
- // Initialize chat on mount
- useEffect(() => {
-  initializeChat();
-  
-  // Track conversation end when component unmounts
-  return () => {
-   if (messages.length > 0) {
-    const conversationDuration = Date.now() - chatStartTime;
-    const userMessages = messages.filter(m => m.type === 'user').length;
-    const aiMessages = messages.filter(m => m.type === 'gpt').length;
-    const positiveFeedback = Object.values(messagesFeedback).filter(Boolean).length;
-    const negativeFeedback = Object.values(messagesFeedback).filter(f => f === false).length;
-    const topics = extractTopics(messages);
-    
-    debtAnalytics.trackConversationFlow({
-     sessionId,
-     conversationLength: messages.length,
-     userMessages,
-     aiMessages,
-     durationMs: conversationDuration,
-     topics,
-     satisfaction: positiveFeedback > negativeFeedback ? 'positive' : negativeFeedback > positiveFeedback ? 'negative' : 'neutral',
-     outcome: 'component_unmount'
+  /**
+   * Build context for GPT with current user debt data
+   */
+  const buildChatContext = useCallback(() => {
+    const context = buildGPTCoachContext(debts, user, {
+      projections,
+      paymentHistory,
+      settings
     });
-   }
-  };
- }, [initializeChat, messages, messagesFeedback, chatStartTime, sessionId]);
 
- return (
-  <div className={`flex flex-col h-full bg-white rounded-lg border border-gray-200 ${className}`}>
-   {/* Chat Header */}
-   <div className="flex items-center justify-between p-4 border-b border-gray-200 bg-gray-50 rounded-t-lg">
-    <div className="flex items-center space-x-3">
-     <div className="bg-blue-100 p-2 rounded-full">
-      <Bot className="w-5 h-5 text-blue-600" />
-     </div>
-     <div>
-      <h3 className="font-semibold text-gray-900">Yuki 🐈‍⬛</h3>
-      <p className="text-sm text-gray-600">
-       {!FLAGS.YUKI_ENABLED ? 'AI Coach disabled - manual planning mode' :
-        debtsLoading ? 'Loading your debt data...' : 
-        isGPTAvailable ? `AI debt coach • ${(debts?.length ?? 0)} debts loaded` : 'Offline mode - basic guidance'}
-      </p>
-     </div>
-    </div>
-    <button
-     onClick={clearChat}
-     className="text-gray-400 hover:text-gray-600 text-sm font-medium"
-    >
-     Clear Chat
-    </button>
-   </div>
+    // Add session-specific context
+    context.sessionInfo = {
+      messagesCount: messages.filter(m => m.type === 'user').length,
+      topicsSoFar: extractTopics(messages)
+    };
 
-   {/* Messages Container */}
-   <div 
-    ref={chatContainerRef}
-    className="flex-1 overflow-y-auto p-4 space-y-4 min-h-0"
-    style={{ maxHeight: '400px' }}
-   >
-    {messages.map((message) => (
-     <ChatMessage
-      key={message.id}
-      message={message}
-      feedback={messagesFeedback[message.id]}
-      onFeedback={provideFeedback}
-      dailyQuota={dailyQuota}
-      hasPremium={hasPremium}
-      onCopy={copyMessage}
-     />
-    ))}
+    // Debug context in development
+    debugContext('coaching', context);
+
+    return context;
+  }, [debts, user, projections, paymentHistory, settings, messages]);
+
+  /**
+   * Handle successful GPT response
+   */
+  function handleGPTResponse(response) {
+    // Safely process the AI response without eval
+    const processedResponse = processAIResponse(response.message || response.content || response);
     
-    {/* Loading indicator */}
-    {loading && (
-     <div className="flex items-center space-x-3">
-      <div className="bg-gray-100 p-2 rounded-full">
-       <Bot className="w-5 h-5 text-gray-600" />
-      </div>
-      <div className="bg-gray-100 rounded-lg px-4 py-3 max-w-xs">
-       <div className="flex items-center space-x-1">
-        <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
-        <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-        <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
-        <span className="text-sm text-gray-600 ml-2">Thinking...</span>
-       </div>
-      </div>
-     </div>
-    )}
+    const gptMessage = {
+      id: `gpt-${Date.now()}`,
+      type: 'gpt',
+      content: processedResponse.content.text || 'I apologize, but I had trouble generating a response. Could you try rephrasing your question?',
+      renderedContent: processedResponse.content.html, // Safe HTML without eval
+      timestamp: new Date().toISOString(),
+      isGPT: true,
+      isSafeRendered: true // Flag to use safe rendering
+    };
 
-
-    <div ref={messagesEndRef} />
-   </div>
-
-   {/* Input Area */}
-   <div className="border-t border-gray-200 p-4">
-    <div className="flex items-end space-x-3">
-     <div className="flex-1">
-      <textarea
-       ref={inputRef}
-       value={inputValue}
-       onChange={(e) => setInputValue(e.target.value)}
-       onKeyPress={handleKeyPress}
-       placeholder="Ask Yuki about your debt strategy, budget tips, or motivation..."
-       className="w-full px-4 py-3 border border-gray-300 rounded-lg resize-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-       rows="2"
-       disabled={loading}
-      />
-     </div>
-     <button
-      onClick={sendMessage}
-      disabled={!inputValue.trim() || loading}
-      className="bg-blue-600 text-white p-3 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-     >
-      <Send className="w-5 h-5" />
-     </button>
-    </div>
+    setMessages(prev => [...prev, gptMessage]);
     
-    {(debts?.length ?? 0) === 0 && (
-     <p className="text-xs text-gray-500 mt-2">
-      💡 Add some debts first to get personalized advice
-     </p>
-    )}
-   </div>
-  </div>
- );
+    // Track successful response
+    trackChatEvent('chat_gpt_responded', {
+      durationMs: Date.now() - gptMessage.startTime,
+      messageLength: gptMessage.content.length
+    });
+  }
+
+  /**
+   * Handle GPT errors
+   */
+  function handleGPTError(error) {
+    console.error('GPT Chat Error:', error);
+    
+    let errorMessage;
+    
+    // Handle specific error types with clear user guidance
+    if (error.message?.includes('401') || error.message?.includes('Please log in')) {
+      errorMessage = {
+        id: `error-${Date.now()}`,
+        type: 'gpt',
+        content: '🔐 Please log in to use the AI Coach.',
+        timestamp: new Date().toISOString(),
+        isGPT: true,
+        isError: true,
+        errorType: '401'
+      };
+    } else if (error.message?.includes('429') || error.message?.includes('quota') || error.message?.includes('limit')) {
+      errorMessage = {
+        id: `error-${Date.now()}`,
+        type: 'gpt', 
+        content: `⚡ Daily AI limit reached (${dailyQuota} messages). Try again tomorrow.${hasPremium ? '' : ' Upgrade for more messages!'}`,
+        timestamp: new Date().toISOString(),
+        isGPT: true,
+        isError: true,
+        errorType: '429'
+      };
+    } else {
+      errorMessage = {
+        id: `error-${Date.now()}`,
+        type: 'gpt',
+        content: "🔧 Can't reach AI right now. Please try again in a moment.",
+        timestamp: new Date().toISOString(),
+        isGPT: true,
+        isError: true,
+        errorType: 'network'
+      };
+    }
+
+    setMessages(prev => [...prev, errorMessage]);
+    
+    trackChatEvent('chat_error', {
+      errorType: errorMessage.errorType,
+      errorMessage: error.message?.substring(0, 100)
+    });
+  }
+
+  /**
+   * Detect if user message is requesting debt data updates
+   */
+  const isDebtUpdateRequest = useCallback((message) => {
+    const lowerMessage = message.toLowerCase();
+    const updateKeywords = [
+      'update my', 'set my', 'change my', 'my balance is', 'paid off',
+      'balance to', 'new balance', 'current balance', 'i paid', 'clear my',
+      'add debt', 'new debt', 'remove debt', 'delete debt', 'remove my'
+    ];
+    
+    return updateKeywords.some(keyword => lowerMessage.includes(keyword)) ||
+           /\£[\d,]+/.test(message) || // Contains currency amounts
+           /balance.*\d+/.test(lowerMessage) ||
+           /\d+.*balance/.test(lowerMessage);
+  }, []);
+
+  /**
+   * Process debt update via AI
+   */
+  const processDebtUpdate = useCallback(async (message) => {
+    try {
+      // Show processing message
+      const processingMessage = {
+        id: `processing-${Date.now()}`,
+        type: 'gpt',
+        content: '💭 Processing your debt update...',
+        timestamp: new Date().toISOString(),
+        isGPT: true,
+        isProcessing: true
+      };
+      setMessages(prev => [...prev, processingMessage]);
+
+      const result = await updateDebtsViaAI(message);
+      
+      // Remove processing message and add result
+      setMessages(prev => prev.filter(m => !m.isProcessing));
+      
+      if (result?.success) {
+        const successMessage = {
+          id: `debt-update-${Date.now()}`,
+          type: 'gpt',
+          content: `✅ ${result.summary || `${result.action} ${result.debts?.length || 0} debt(s)`}`,
+          timestamp: new Date().toISOString(),
+          isGPT: true,
+          isDebtUpdate: true
+        };
+        setMessages(prev => [...prev, successMessage]);
+
+        // Track debt update
+        debtAnalytics.trackBalanceUpdate(
+          result.debts?.reduce((sum, d) => sum + (d.balance || 0), 0) || 0,
+          result.debts?.reduce((sum, d) => sum + (d.balance || 0), 0) || 0,
+          'ai_chat_update'
+        );
+      } else {
+        throw new Error('Update failed');
+      }
+    } catch (error) {
+      console.error('AI debt update error:', error);
+      setMessages(prev => prev.filter(m => !m.isProcessing));
+      
+      const errorMessage = {
+        id: `error-${Date.now()}`,
+        type: 'gpt',
+        content: `❌ I couldn't update your debt data: ${error.message}. Try being more specific about which debt and what amount.`,
+        timestamp: new Date().toISOString(),
+        isGPT: true,
+        isError: true
+      };
+      setMessages(prev => [...prev, errorMessage]);
+    }
+  }, [updateDebtsViaAI]);
+
+  /**
+   * Send user message and get GPT response
+   */
+  const sendMessage = useCallback(async () => {
+    if (!inputValue.trim() || loading || aiDebtLoading) return;
+
+    const userMessage = {
+      id: `user-${Date.now()}`,
+      type: 'user',
+      content: inputValue.trim(),
+      timestamp: new Date().toISOString(),
+      isGPT: false
+    };
+
+    // Add user message immediately
+    setMessages(prev => [...prev, userMessage]);
+    
+    // Track user message
+    trackChatEvent('chat_message_sent', {
+      content: inputValue.substring(0, 100), // First 100 chars for privacy
+      wordCount: inputValue.trim().split(/\s+/).length,
+      messageNumber: messages.filter(m => m.type === 'user').length + 1
+    });
+
+    const messageToSend = sanitizeInput(inputValue);
+    setInputValue('');
+
+    // 🛡️ Security Check - protect against attacks
+    const securityCheck = checkAISecurity(messageToSend, {
+      conversationHistory: messages.slice(-5) // Last 5 messages for escalation detection
+    });
+
+    if (!securityCheck.allowed) {
+      const securityMessage = {
+        id: `security-${Date.now()}`,
+        type: 'gpt',
+        content: securityCheck.reason + (securityCheck.safeAlternative ? `\n\n${securityCheck.safeAlternative}` : ''),
+        timestamp: new Date().toISOString(),
+        isGPT: true,
+        isSecurityResponse: true
+      };
+
+      setMessages(prev => [...prev, securityMessage]);
+      
+      // Log security event
+      logSecurityEvent('blocked_harmful_input', {
+        risks: securityCheck.risks,
+        riskLevel: securityCheck.risk,
+        inputLength: messageToSend.length
+      });
+
+      trackChatEvent('security_blocked', {
+        risks: securityCheck.risks,
+        riskLevel: securityCheck.risk,
+        reason: securityCheck.reason
+      });
+
+      return; // Exit early - security blocked
+    }
+
+    // 🎯 Intent Router - handle specific commands before GPT processing
+    const intentResponse = await processUserIntent(messageToSend, { 
+      userId: user?.id, 
+      debts, 
+      totalDebt 
+    });
+    
+    if (intentResponse) {
+      const responseMessage = {
+        id: `gpt-${Date.now()}`,
+        type: 'gpt',
+        content: intentResponse.message,
+        timestamp: new Date().toISOString(),
+        isGPT: true,
+        isIntentResponse: true,
+        requiresConfirmation: intentResponse.requiresConfirmation,
+        suggestReload: intentResponse.suggestReload
+      };
+      
+      setMessages(prev => [...prev, responseMessage]);
+      
+      // Handle special actions
+      if (intentResponse.suggestReload) {
+        setTimeout(() => {
+          if (window.confirm('Data cleared! Reload page to see the clean state?')) {
+            window.location.reload();
+          }
+        }, 1000);
+      }
+      
+      trackChatEvent('intent_handled', {
+        intent: messageToSend,
+        action: intentResponse.action || 'unknown',
+        success: intentResponse.success
+      });
+      
+      return; // Exit early - intent was handled
+    }
+
+    // 🔥 Smart Greeting Filter - handle casual inputs without hitting GPT API
+    if (shouldUseSmartGreeting(messageToSend)) {
+      const context = buildChatContext();
+      const smartGreeting = createSmartGreetingResponse(messageToSend, context);
+      
+      // Add smart greeting response
+      setMessages(prev => [...prev, smartGreeting]);
+      
+      // Track smart greeting usage
+      trackSmartGreeting(messageToSend, context);
+      
+      return; // Exit early - no GPT call needed
+    }
+
+    // 💾 Debt Update Detection - handle direct data manipulation
+    if (isDebtUpdateRequest(messageToSend)) {
+      console.log('🔍 [AI Debt Manager] Detected debt update request:', messageToSend);
+      await processDebtUpdate(messageToSend);
+      return; // Exit early - no coaching GPT call needed
+    }
+
+    // Call GPT with context for complex inputs
+    const context = buildChatContext();
+    userMessage.startTime = Date.now(); // For duration tracking
+    
+    await callGPT(messageToSend, context);
+  }, [inputValue, loading, aiDebtLoading, messages, buildChatContext, callGPT, isDebtUpdateRequest, processDebtUpdate]);
+
+  /**
+   * Handle enter key in textarea
+   */
+  const handleKeyPress = useCallback((e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
+    }
+  }, [sendMessage]);
+
+  /**
+   * Provide feedback on GPT message
+   */
+  const provideFeedback = useCallback((messageId, isPositive) => {
+    setMessagesFeedback(prev => ({
+      ...prev,
+      [messageId]: isPositive
+    }));
+
+    trackChatEvent('chat_feedback', {
+      messageId,
+      thumbsUp: isPositive,
+      messageType: 'gpt'
+    });
+  }, []);
+
+  /**
+   * Copy message to clipboard
+   */
+  const copyMessage = useCallback(async (content) => {
+    try {
+      await navigator.clipboard.writeText(content);
+      // Could add a toast notification here
+    } catch (error) {
+      console.error('Failed to copy message:', error);
+    }
+  }, []);
+
+  /**
+   * Clear chat history
+   */
+  const clearChat = useCallback(() => {
+    setMessages([]);
+    setChatStarted(false);
+    setMessagesFeedback({});
+    resetGPT();
+    initializeChat();
+  }, [resetGPT, initializeChat]);
+
+  // Initialize chat on mount
+  useEffect(() => {
+    initializeChat();
+  }, [initializeChat]);
+
+  return (
+    <div className={`flex flex-col h-full bg-white rounded-lg border border-gray-200 ${className}`}>
+      {/* Chat Header */}
+      <div className="flex items-center justify-between p-4 border-b border-gray-200 bg-gray-50 rounded-t-lg">
+        <div className="flex items-center space-x-3">
+          <div className="bg-blue-100 p-2 rounded-full">
+            <Bot className="w-5 h-5 text-blue-600" />
+          </div>
+          <div>
+            <h3 className="font-semibold text-gray-900">Yuki 🐈‍⬛</h3>
+            <p className="text-sm text-gray-600">
+              {debtsLoading ? 'Loading your debt data...' : 
+               isGPTAvailable ? `Your AI debt coach (${debts.length} debts loaded)` : 'Offline mode - basic guidance'}
+            </p>
+          </div>
+        </div>
+        <button
+          onClick={clearChat}
+          className="text-gray-400 hover:text-gray-600 text-sm font-medium"
+        >
+          Clear Chat
+        </button>
+      </div>
+
+      {/* Messages Container */}
+      <div 
+        ref={chatContainerRef}
+        className="flex-1 overflow-y-auto p-4 space-y-4 min-h-0"
+        style={{ maxHeight: '400px' }}
+      >
+        {messages.map((message) => (
+          <ChatMessage
+            key={message.id}
+            message={message}
+            feedback={messagesFeedback[message.id]}
+            onFeedback={provideFeedback}
+            dailyQuota={dailyQuota}
+            hasPremium={hasPremium}
+            onCopy={copyMessage}
+          />
+        ))}
+        
+        {/* Loading indicator */}
+        {loading && (
+          <div className="flex items-center space-x-3">
+            <div className="bg-gray-100 p-2 rounded-full">
+              <Bot className="w-5 h-5 text-gray-600" />
+            </div>
+            <div className="bg-gray-100 rounded-lg px-4 py-3 max-w-xs">
+              <div className="flex items-center space-x-1">
+                <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
+                <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                <span className="text-sm text-gray-600 ml-2">Thinking...</span>
+              </div>
+            </div>
+          </div>
+        )}
+
+
+        <div ref={messagesEndRef} />
+      </div>
+
+      {/* Input Area */}
+      <div className="border-t border-gray-200 p-4">
+        <div className="flex items-end space-x-3">
+          <div className="flex-1">
+            <textarea
+              ref={inputRef}
+              value={inputValue}
+              onChange={(e) => setInputValue(e.target.value)}
+              onKeyPress={handleKeyPress}
+              placeholder="Ask Yuki about your debt strategy, budget tips, or motivation..."
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg resize-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              rows="2"
+              disabled={loading}
+            />
+          </div>
+          <button
+            onClick={sendMessage}
+            disabled={!inputValue.trim() || loading}
+            className="bg-blue-600 text-white p-3 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            <Send className="w-5 h-5" />
+          </button>
+        </div>
+        
+        {debts.length === 0 && (
+          <p className="text-xs text-gray-500 mt-2">
+            💡 Add some debts first to get personalized advice
+          </p>
+        )}
+      </div>
+    </div>
+  );
 };
 
 /**
  * Individual chat message component
  */
 const ChatMessage = ({ message, feedback, onFeedback, onCopy, dailyQuota, hasPremium }) => {
- const isGPT = message.isGPT;
- const isSystem = message.type === 'system';
+  const isGPT = message.isGPT;
+  const isSystem = message.type === 'system';
 
- return (
-  <div className={`flex items-start space-x-3 ${isGPT ? '' : 'flex-row-reverse space-x-reverse'}`}>
-   {/* Avatar */}
-   <div className={`flex-shrink-0 p-2 rounded-full ${
-    isGPT 
-     ? 'bg-blue-100' 
-     : 'bg-gray-100'
-   }`}>
-    {isGPT ? (
-     <Bot className="w-5 h-5 text-blue-600" />
-    ) : (
-     <User className="w-5 h-5 text-gray-600" />
-    )}
-   </div>
-
-   {/* Message Content */}
-   <div className={`flex-1 max-w-xs sm:max-w-md ${isGPT ? '' : 'text-right'}`}>
-    <div className={`rounded-lg px-4 py-3 ${
-     isGPT 
-      ? `bg-gray-100 ${message.isFallback ? 'border border-yellow-200' : message.isQuotaError ? 'border border-orange-200 bg-orange-50' : ''}` 
-      : 'bg-blue-600 text-white'
-    }`}>
-     {/* Safe render content without eval or innerHTML */}
-     <p className="text-sm whitespace-pre-wrap">{message.content}</p>
-     
-     {message.isFallback && (
-      <p className="text-xs text-yellow-600 mt-2">
-       ⚠️ Offline response - limited functionality
-      </p>
-     )}
-     
-     {message.isQuotaError && !message.isPro && (
-      <div className="mt-3 space-y-2">
-       <a
-        href="/pricing"
-        className="inline-block px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors"
-       >
-        🚀 Upgrade to Pro
-       </a>
-       <p className="text-xs text-gray-600">
-        {hasPremium ? `Beta users get ${dailyQuota} messages/day.` : 'Free users get 40 messages/day. Upgrade for more!'}
-       </p>
+  return (
+    <div className={`flex items-start space-x-3 ${isGPT ? '' : 'flex-row-reverse space-x-reverse'}`}>
+      {/* Avatar */}
+      <div className={`flex-shrink-0 p-2 rounded-full ${
+        isGPT 
+          ? 'bg-blue-100' 
+          : 'bg-gray-100'
+      }`}>
+        {isGPT ? (
+          <Bot className="w-5 h-5 text-blue-600" />
+        ) : (
+          <User className="w-5 h-5 text-gray-600" />
+        )}
       </div>
-     )}
-    </div>
 
-    {/* Message Actions (only for GPT messages) */}
-    {isGPT && !isSystem && (
-     <div className="flex items-center justify-start space-x-2 mt-2">
-      <button
-       onClick={() => onFeedback(message.id, true)}
-       className={`p-1 rounded ${
-        feedback === true 
-         ? 'text-green-600 bg-green-50' 
-         : 'text-gray-400 hover:text-green-600'
-       }`}
-      >
-       <ThumbsUp className="w-4 h-4" />
-      </button>
-      <button
-       onClick={() => onFeedback(message.id, false)}
-       className={`p-1 rounded ${
-        feedback === false 
-         ? 'text-red-600 bg-red-50' 
-         : 'text-gray-400 hover:text-red-600'
-       }`}
-      >
-       <ThumbsDown className="w-4 h-4" />
-      </button>
-      <button
-       onClick={() => onCopy(message.content)}
-       className="text-gray-400 hover:text-gray-600 p-1 rounded"
-      >
-       <Copy className="w-4 h-4" />
-      </button>
-      <span className="text-xs text-gray-400">
-       {new Date(message.timestamp).toLocaleTimeString([], { 
-        hour: '2-digit', 
-        minute: '2-digit' 
-       })}
-      </span>
-     </div>
-    )}
-   </div>
-  </div>
- );
+      {/* Message Content */}
+      <div className={`flex-1 max-w-xs sm:max-w-md ${isGPT ? '' : 'text-right'}`}>
+        <div className={`rounded-lg px-4 py-3 ${
+          isGPT 
+            ? `bg-gray-100 ${message.isFallback ? 'border border-yellow-200' : message.isQuotaError ? 'border border-orange-200 bg-orange-50' : ''}` 
+            : 'bg-blue-600 text-white'
+        }`}>
+          {/* Safe render content without eval or innerHTML */}
+          <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+          
+          {message.isFallback && (
+            <p className="text-xs text-yellow-600 mt-2">
+              ⚠️ Offline response - limited functionality
+            </p>
+          )}
+          
+          {message.isQuotaError && !message.isPro && (
+            <div className="mt-3 space-y-2">
+              <a
+                href="/pricing"
+                className="inline-block px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                🚀 Upgrade to Pro
+              </a>
+              <p className="text-xs text-gray-600">
+                {hasPremium ? `Beta users get ${dailyQuota} messages/day.` : 'Free users get 40 messages/day. Upgrade for more!'}
+              </p>
+            </div>
+          )}
+        </div>
+
+        {/* Message Actions (only for GPT messages) */}
+        {isGPT && !isSystem && (
+          <div className="flex items-center justify-start space-x-2 mt-2">
+            <button
+              onClick={() => onFeedback(message.id, true)}
+              className={`p-1 rounded ${
+                feedback === true 
+                  ? 'text-green-600 bg-green-50' 
+                  : 'text-gray-400 hover:text-green-600'
+              }`}
+            >
+              <ThumbsUp className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => onFeedback(message.id, false)}
+              className={`p-1 rounded ${
+                feedback === false 
+                  ? 'text-red-600 bg-red-50' 
+                  : 'text-gray-400 hover:text-red-600'
+              }`}
+            >
+              <ThumbsDown className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => onCopy(message.content)}
+              className="text-gray-400 hover:text-gray-600 p-1 rounded"
+            >
+              <Copy className="w-4 h-4" />
+            </button>
+            <span className="text-xs text-gray-400">
+              {new Date(message.timestamp).toLocaleTimeString([], { 
+                hour: '2-digit', 
+                minute: '2-digit' 
+              })}
+            </span>
+          </div>
+        )}
+      </div>
+    </div>
+  );
 };
 
 /**
  * Helper functions
  */
 function extractTopics(messages) {
- // Simple topic extraction from user messages
- const userMessages = messages.filter(m => m.type === 'user');
- const topics = [];
- 
- userMessages.forEach(msg => {
-  const content = msg.content.toLowerCase();
-  if (content.includes('budget')) topics.push('budgeting');
-  if (content.includes('payment') || content.includes('pay')) topics.push('payments');
-  if (content.includes('strategy')) topics.push('strategy');
-  if (content.includes('motivation') || content.includes('help')) topics.push('motivation');
- });
- 
- return [...new Set(topics)]; // Remove duplicates
+  // Simple topic extraction from user messages
+  const userMessages = messages.filter(m => m.type === 'user');
+  const topics = [];
+  
+  userMessages.forEach(msg => {
+    const content = msg.content.toLowerCase();
+    if (content.includes('budget')) topics.push('budgeting');
+    if (content.includes('payment') || content.includes('pay')) topics.push('payments');
+    if (content.includes('strategy')) topics.push('strategy');
+    if (content.includes('motivation') || content.includes('help')) topics.push('motivation');
+  });
+  
+  return [...new Set(topics)]; // Remove duplicates
 }
 
 
 function trackChatEvent(eventName, data) {
- // PostHog analytics tracking
- debtAnalytics.trackAICoachMessage(eventName, data);
- 
- // Legacy Google Analytics tracking
- if (window.gtag) {
-  window.gtag('event', eventName, data);
- }
- 
- // Console logging for development
- if (process.env.NODE_ENV === 'development') {
-  console.log(`📊 [Chat Analytics] ${eventName}:`, data);
- }
+  // PostHog analytics tracking
+  debtAnalytics.trackAICoachMessage(eventName, data);
+  
+  // Legacy Google Analytics tracking
+  if (window.gtag) {
+    window.gtag('event', eventName, data);
+  }
+  
+  // Console logging for development
+  if (process.env.NODE_ENV === 'development') {
+    console.log(`📊 [Chat Analytics] ${eventName}:`, data);
+  }
 }
 
 export default GPTCoachChat;

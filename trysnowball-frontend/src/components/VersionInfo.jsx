@@ -7,43 +7,43 @@ import React, { useState } from 'react';
 import { Info } from 'lucide-react';
 
 const VersionInfo = ({ className = '' }) => {
- const [showDetails, setShowDetails] = useState(false);
+  const [showDetails, setShowDetails] = useState(false);
 
- // Get version info from environment or package.json
- const buildDate = process.env.REACT_APP_BUILD_DATE || new Date().toISOString().split('T')[0];
- const commitHash = process.env.REACT_APP_COMMIT_HASH || 'dev-build';
- const version = process.env.REACT_APP_VERSION || '1.0.0';
- 
- // Shortened commit hash for display
- const shortCommit = commitHash.substring(0, 7);
- 
- return (
-  <div className={`relative inline-block ${className}`}>
-   <button
-    onClick={() => setShowDetails(!showDetails)}
-    className="text-xs text-slate-400 hover:text-slate-600 transition-colors flex items-center space-x-1"
-    title="Build information"
-   >
-    <Info className="h-3 w-3" />
-    <span>v{version}</span>
-   </button>
-   
-   {showDetails && (
-    <div className="absolute bottom-full left-0 mb-2 bg-slate-800 text-white text-xs rounded-lg p-3 shadow-lg whitespace-nowrap z-50">
-     <div className="space-y-1">
-      <div><strong>Version:</strong> {version}</div>
-      <div><strong>Commit:</strong> {shortCommit}</div>
-      <div><strong>Build Date:</strong> {buildDate}</div>
-      {process.env.NODE_ENV === 'development' && (
-       <div className="text-yellow-300"><strong>Environment:</strong> Development</div>
+  // Get version info from environment or package.json
+  const buildDate = process.env.REACT_APP_BUILD_DATE || new Date().toISOString().split('T')[0];
+  const commitHash = process.env.REACT_APP_COMMIT_HASH || 'dev-build';
+  const version = process.env.REACT_APP_VERSION || '1.0.0';
+  
+  // Shortened commit hash for display
+  const shortCommit = commitHash.substring(0, 7);
+  
+  return (
+    <div className={`relative inline-block ${className}`}>
+      <button
+        onClick={() => setShowDetails(!showDetails)}
+        className="text-xs text-slate-400 hover:text-slate-600 transition-colors flex items-center space-x-1"
+        title="Build information"
+      >
+        <Info className="h-3 w-3" />
+        <span>v{version}</span>
+      </button>
+      
+      {showDetails && (
+        <div className="absolute bottom-full left-0 mb-2 bg-slate-800 text-white text-xs rounded-lg p-3 shadow-lg whitespace-nowrap z-50">
+          <div className="space-y-1">
+            <div><strong>Version:</strong> {version}</div>
+            <div><strong>Commit:</strong> {shortCommit}</div>
+            <div><strong>Build Date:</strong> {buildDate}</div>
+            {process.env.NODE_ENV === 'development' && (
+              <div className="text-yellow-300"><strong>Environment:</strong> Development</div>
+            )}
+          </div>
+          {/* Arrow pointing down */}
+          <div className="absolute top-full left-4 border-l-4 border-r-4 border-t-4 border-l-transparent border-r-transparent border-t-slate-800"></div>
+        </div>
       )}
-     </div>
-     {/* Arrow pointing down */}
-     <div className="absolute top-full left-4 border-l-4 border-r-4 border-t-4 border-l-transparent border-r-transparent border-t-slate-800"></div>
     </div>
-   )}
-  </div>
- );
+  );
 };
 
 export default VersionInfo;

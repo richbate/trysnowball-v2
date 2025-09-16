@@ -7,88 +7,88 @@ import React, { useState, useEffect } from 'react';
 import { Bot, Clock, X, MessageSquare } from 'lucide-react';
 
 const AISyncAlert = ({ lastAIUpdate, aiUpdateSummary, getAIUpdateTimeString, onDismiss }) => {
- const [isVisible, setIsVisible] = useState(false);
- const [timeString, setTimeString] = useState('');
+  const [isVisible, setIsVisible] = useState(false);
+  const [timeString, setTimeString] = useState('');
 
- // Show alert if there's a recent AI update (within last 30 minutes)
- useEffect(() => {
-  if (!lastAIUpdate) {
-   setIsVisible(false);
-   return;
-  }
+  // Show alert if there's a recent AI update (within last 30 minutes)
+  useEffect(() => {
+    if (!lastAIUpdate) {
+      setIsVisible(false);
+      return;
+    }
 
-  const now = new Date();
-  const diffMs = now - lastAIUpdate;
-  const diffMins = Math.floor(diffMs / (1000 * 60));
-  
-  // Show alert for updates within the last 30 minutes
-  const shouldShow = diffMins <= 30;
-  setIsVisible(shouldShow);
-  
-  if (shouldShow) {
-   setTimeString(getAIUpdateTimeString() || '');
-  }
- }, [lastAIUpdate, getAIUpdateTimeString]);
+    const now = new Date();
+    const diffMs = now - lastAIUpdate;
+    const diffMins = Math.floor(diffMs / (1000 * 60));
+    
+    // Show alert for updates within the last 30 minutes
+    const shouldShow = diffMins <= 30;
+    setIsVisible(shouldShow);
+    
+    if (shouldShow) {
+      setTimeString(getAIUpdateTimeString() || '');
+    }
+  }, [lastAIUpdate, getAIUpdateTimeString]);
 
- // Auto-refresh time string every minute
- useEffect(() => {
-  if (!isVisible) return;
+  // Auto-refresh time string every minute
+  useEffect(() => {
+    if (!isVisible) return;
 
-  const interval = setInterval(() => {
-   setTimeString(getAIUpdateTimeString() || '');
-  }, 60000); // Update every minute
+    const interval = setInterval(() => {
+      setTimeString(getAIUpdateTimeString() || '');
+    }, 60000); // Update every minute
 
-  return () => clearInterval(interval);
- }, [isVisible, getAIUpdateTimeString]);
+    return () => clearInterval(interval);
+  }, [isVisible, getAIUpdateTimeString]);
 
- const handleDismiss = () => {
-  setIsVisible(false);
-  onDismiss?.();
- };
+  const handleDismiss = () => {
+    setIsVisible(false);
+    onDismiss?.();
+  };
 
- if (!isVisible) return null;
+  if (!isVisible) return null;
 
- return (
-  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6 transition-all duration-300">
-   <div className="flex items-start justify-between">
-    <div className="flex items-start space-x-3">
-     <div className="bg-blue-100 p-2 rounded-full flex-shrink-0">
-      <Bot className="w-4 h-4 text-blue-600" />
-     </div>
-     <div className="flex-1">
-      <div className="flex items-center space-x-2 mb-1">
-       <h4 className="text-sm font-medium text-blue-900">
-        🤖 Updated by AI
-       </h4>
-       <div className="flex items-center text-xs text-blue-600">
-        <Clock className="w-3 h-3 mr-1" />
-        {timeString}
-       </div>
+  return (
+    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6 transition-all duration-300">
+      <div className="flex items-start justify-between">
+        <div className="flex items-start space-x-3">
+          <div className="bg-blue-100 p-2 rounded-full flex-shrink-0">
+            <Bot className="w-4 h-4 text-blue-600" />
+          </div>
+          <div className="flex-1">
+            <div className="flex items-center space-x-2 mb-1">
+              <h4 className="text-sm font-medium text-blue-900">
+                🤖 Updated by AI
+              </h4>
+              <div className="flex items-center text-xs text-blue-600">
+                <Clock className="w-3 h-3 mr-1" />
+                {timeString}
+              </div>
+            </div>
+            <p className="text-sm text-blue-700">
+              {aiUpdateSummary || 'Your debt data was updated via AI chat'}
+            </p>
+            <div className="mt-2">
+              <button 
+                onClick={() => window.location.href = '/coach'}
+                className="text-xs text-blue-600 hover:text-blue-800 font-medium flex items-center"
+              >
+                <MessageSquare className="w-3 h-3 mr-1" />
+                View AI chat →
+              </button>
+            </div>
+          </div>
+        </div>
+        <button
+          onClick={handleDismiss}
+          className="text-blue-400 hover:text-blue-600 flex-shrink-0"
+          aria-label="Dismiss notification"
+        >
+          <X className="w-4 h-4" />
+        </button>
       </div>
-      <p className="text-sm text-blue-700">
-       {aiUpdateSummary || 'Your debt data was updated via AI chat'}
-      </p>
-      <div className="mt-2">
-       <button 
-        onClick={() => window.location.href = '/coach'}
-        className="text-xs text-blue-600 hover:text-blue-800 font-medium flex items-center"
-       >
-        <MessageSquare className="w-3 h-3 mr-1" />
-        View AI chat →
-       </button>
-      </div>
-     </div>
     </div>
-    <button
-     onClick={handleDismiss}
-     className="text-blue-400 hover:text-blue-600 flex-shrink-0"
-     aria-label="Dismiss notification"
-    >
-     <X className="w-4 h-4" />
-    </button>
-   </div>
-  </div>
- );
+  );
 };
 
 export default AISyncAlert;

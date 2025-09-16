@@ -1,14 +1,12 @@
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { useUserDebts } from '../../hooks/useUserDebts';
-import { useSnowballSettings } from '../../hooks/useSnowballSettings';
-import { usePlanTotals } from '../../hooks/usePlanTotals';
-import { capturePlanView } from '../../utils/analytics';
+import { useDebts } from '../../hooks/useDebts';
+import { usePlanTotals } from '../../hooks/usePlanTotals.ts';
+import { capturePlanView } from '../../utils/analytics.ts';
 import UpdateBalances from '../../components/UpdateBalances';
 import ProgressNotification from '../../components/ProgressNotification';
 import NoDebtsState from '../../components/NoDebtsState';
 import { formatCurrency } from '../../utils/debtFormatting';
-import { calculateCreditUtilization } from '../../utils/debtValidation';
 import Button from '../../components/ui/Button';
 import { Trash2, BarChart3, Plus } from 'lucide-react';
 
@@ -29,7 +27,7 @@ import GoalsTab from './GoalsTab';
 
 // AI-powered commitments
 import CommitmentGenerator from '../../components/CommitmentGenerator';
-import { loadUserProfile } from '../../lib/userProfile';
+import { loadUserProfile } from '../../lib/userProfile.ts';
 import { track } from '../../lib/analytics.js';
 import { calculateSnowballTimeline, calculateAvalancheTimeline } from '../../utils/debtTimelineCalculator';
 
@@ -39,650 +37,647 @@ import DemoModeBanner from '../../components/DemoModeBanner';
 // Lazy loaded components
 const SnowflakesTab = React.lazy(() => import('./SnowflakesTab'));
 
+// Mock theme context for now
+const useTheme = () => ({
+  colors: {
+    background: 'bg-gray-50',
+    surface: 'bg-white',
+    border: 'border-gray-200',
+    text: {
+      primary: 'text-gray-900',
+      secondary: 'text-gray-600',
+      muted: 'text-gray-500'
+    }
+  }
+});
 
 // Define valid tabs once
 const VALID_TABS = ['debts', 'strategy', 'timeline', 'snowflakes', 'goals'];
 const clampTab = (value) => {
- return VALID_TABS.includes(value) ? value : 'debts';
+  return VALID_TABS.includes(value) ? value : 'debts';
 };
 
 const MyPlan = () => {
- const location = useLocation();
- const { totalGBP = 0, minPaymentGBP = 0, count = 0, debts: planTotalsDebts = [], loading: planLoading = true } = usePlanTotals() ?? {};
- const { snowballAmount } = useSnowballSettings();
- const { 
-  debts: dataManagerDebtsRaw, 
-  loading: dataLoading,
-  addDebt,
-  updateDebt,
-  deleteDebt,
-  saveDebt,
-  error,
-  loadDemoData,
-  clearAllData,
-  reorderDebts,
-  refresh
- } = useUserDebts();
- 
- // Ensure dataManagerDebts is always an array (wrapped in useMemo to prevent re-renders)
- const dataManagerDebts = useMemo(() => dataManagerDebtsRaw || [], [dataManagerDebtsRaw]);
- 
- // Initialize activeTab from URL query parameter ONCE
- const initialTab = clampTab(new URLSearchParams(location.search).get('tab'));
- const [activeTab, setActiveTab] = useState(initialTab);
- const [showUpdateBalances, setShowUpdateBalances] = useState(false);
- const [timelineDebtsData, setDebtsData] = useState(null);
- const [showProgressNotification, setShowProgressNotification] = useState(false);
- const [showClearDemoModal, setShowClearDemoModal] = useState(false);
- const [demoDataCleared, setDemoDataCleared] = useState(false);
- 
- // New state for debt management functionality
- const [showAddForm, setShowAddForm] = useState(false);
- const [editingDebt, setEditingDebt] = useState(null);
- const [showPasteInput, setShowPasteInput] = useState(false);
- const [toastMessage, setToastMessage] = useState(null);
- const [historyDebt, setHistoryDebt] = useState(null);
- const [payoffStrategy, setPayoffStrategy] = useState(() => {
-  const saved = localStorage.getItem('SNOWBALL_STRATEGY');
-  if (saved) return saved;
+  const { colors } = useTheme();
+  const location = useLocation();
+  const { total = 0, min = 0, count = 0, timelineDebts: planTotalsDebts = [], loading: planLoading = true } = usePlanTotals() ?? {};
+  const { 
+    debts: dataManagerDebtsRaw, 
+    loading: dataLoading,
+    addDebt,
+    updateDebt,
+    deleteDebt,
+    saveDebt,
+    error,
+    loadDemoData,
+    clearAllData,
+    reorderDebts,
+    refresh
+  } = useDebts();
   
-  // Use profile defaults for new users
-  const profile = loadUserProfile();
+  // Ensure dataManagerDebts is always an array (wrapped in useMemo to prevent re-renders)
+  const dataManagerDebts = useMemo(() => dataManagerDebtsRaw || [], [dataManagerDebtsRaw]);
   
-  if (profile.journeyStage === 'starter') return 'snowball'; // Simple wins
-  if (profile.journeyStage === 'optimizer') return 'avalanche'; // Mathematical efficiency
-  return 'snowball'; // Default fallback
- });
-
- // Milestone sharing hook - use actual timelineDebts from the system
- const { 
-  currentMilestone, 
-  showShareModal, 
-  closeSharingModal 
- } = useMilestoneSharing(dataManagerDebts);
- 
- // FORCE IndexedDB totals - never use legacy localStorage
- const totalDebtTimeline = planLoading ? 0 : (totalGBP || 0);
- const totalMinPaymentsTimeline = planLoading ? 0 : (minPaymentGBP || 0);
- 
- // Credit utilization with overflow protection
- const creditUtilization = useMemo(() => {
-  if (!dataManagerDebts || !Array.isArray(dataManagerDebts)) return 0;
-  const totalCreditLimit = dataManagerDebts.reduce((sum, debt) => sum + (debt.limit || 0), 0);
-  return calculateCreditUtilization(totalDebtTimeline, totalCreditLimit);
- }, [dataManagerDebts, totalDebtTimeline]);
- 
- const hasOnlyDemoData = useMemo(() => {
-  if (!dataManagerDebts || !Array.isArray(dataManagerDebts)) return false;
-  return dataManagerDebts.length > 0 && dataManagerDebts.every(debt => debt.isDemo);
- }, [dataManagerDebts]);
- 
- // Legacy shadow removed - using CP-1 clean data layer
-
- // Capture analytics when plan loads
- React.useEffect(() => {
-  if (!planLoading) {
-   capturePlanView();
-  }
- }, [planLoading]);
-
- // Sync activeTab changes to URL without navigation/remount
- useEffect(() => {
-  const params = new URLSearchParams(location.search);
-  if (params.get('tab') !== activeTab) {
-   params.set('tab', activeTab);
-   window.history.replaceState(null, '', `${location.pathname}?${params.toString()}`);
-  }
- }, [activeTab, location.pathname, location.search]);
-
- // Also trigger milestone detection when local timelineDebtsData changes
- React.useEffect(() => {
-  if (timelineDebtsData && timelineDebtsData.length > 0) {
-   // The timelineDebtsManager saveDebt calls above will trigger the milestone system
-   // via the timelineDebts updates from useDebts
-  }
- }, [timelineDebtsData]);
-
- // Demo data state now handled by CP-1 migration system
-
- // CP-1: Get last update information from unified data layer
- const getLastUpdateInfo = () => {
-  if (planLoading || dataLoading) {
-   return 'Loading your plan…';
-  }
-  if (count === 0 && dataManagerDebts.length === 0) {
-   return 'No timelineDebts yet — add your real information to get started';
-  }
-  return 'Your personalized debt freedom roadmap';
- };
-
- const handleBalanceUpdate = async (updatedDebts) => {
-  setDebtsData(updatedDebts);
+  // Initialize activeTab from URL query parameter ONCE
+  const initialTab = clampTab(new URLSearchParams(location.search).get('tab'));
+  const [activeTab, setActiveTab] = useState(initialTab);
+  const [showUpdateBalances, setShowUpdateBalances] = useState(false);
+  const [timelineDebtsData, setDebtsData] = useState(null);
+  const [showProgressNotification, setShowProgressNotification] = useState(false);
+  const [showClearDemoModal, setShowClearDemoModal] = useState(false);
+  const [demoDataCleared, setDemoDataCleared] = useState(false);
   
-  // CP-1: Use modern debt hooks for proper persistence
-  for (const debt of updatedDebts) {
-   try {
-    console.log('[MyPlan] Saving debt:', debt.name, 'balance:', debt.amount_pennies, 'previous:', debt.previousBalance);
-    await saveDebt({
-     id: debt.id,
-     name: debt.name,
-     balance: debt.amount_pennies,
-     previousBalance: debt.previousBalance,
-     minPayment: debt.min_payment_pennies,
-     interestRate: debt.apr,
-     order: debt.order,
-     originalAmount: debt.originalAmount
-    });
-   } catch (error) {
-    console.error('Error saving debt:', error);
-   }
-  }
-  
-  // Force a small delay to ensure timelineDebtsManager has processed all saves
-  await new Promise(resolve => setTimeout(resolve, 100));
-  
-  // Check if any debt was cleared (balance = 0) - if so, don't show progress notification
-  const hasDebtCleared = updatedDebts.some(debt => 
-   debt.amount_pennies === 0 && debt.previousBalance > 0
-  );
-  
-  if (hasDebtCleared) {
-   console.log('[MyPlan] Debt cleared detected, skipping progress notification');
-   return; // Don't show progress notification for milestone events
-  }
-  
-  // Only show progress notification if no milestone is detected
-  // The milestone system will handle celebration for debt cleared/major milestones
-  setTimeout(() => {
-   if (!showShareModal) {
-    console.log('[MyPlan] Showing progress notification');
-    setShowProgressNotification(true);
-   }
-  }, 500); // Longer delay to let milestone detection run first
- };
+  // New state for debt management functionality
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [editingDebt, setEditingDebt] = useState(null);
+  const [showPasteInput, setShowPasteInput] = useState(false);
+  const [toastMessage, setToastMessage] = useState(null);
+  const [historyDebt, setHistoryDebt] = useState(null);
+  const [payoffStrategy, setPayoffStrategy] = useState(() => {
+    const saved = localStorage.getItem('SNOWBALL_STRATEGY');
+    if (saved) return saved;
+    
+    // Use profile defaults for new users
+    const profile = loadUserProfile();
+    
+    if (profile.journeyStage === 'starter') return 'snowball'; // Simple wins
+    if (profile.journeyStage === 'optimizer') return 'avalanche'; // Mathematical efficiency
+    return 'snowball'; // Default fallback
+  });
 
- const handleClearDemoData = async () => {
-  try {
-   // Clear data from store
-   await clearAllData();
-   
-   // Immediate UI updates - no waiting!
-   setDebtsData([]);
-   setDemoDataCleared(true);
-   setShowClearDemoModal(false);
-   
-   // Navigate to debts tab for better UX
-   setActiveTab('timelineDebts');
-   
-   // Show success message after state updates
-   setTimeout(() => {
-    setToastMessage({
-     message: 'Demo data cleared! Add your real debts to get started.',
-     type: 'success'
+  // Milestone sharing hook - use actual timelineDebts from the system
+  const { 
+    currentMilestone, 
+    showShareModal, 
+    closeSharingModal 
+  } = useMilestoneSharing(dataManagerDebts);
+  
+  // FORCE IndexedDB totals - never use legacy localStorage
+  const totalDebtTimeline = planLoading ? 0 : (total || 0);
+  const totalMinPaymentsTimeline = planLoading ? 0 : (min || 0);
+  
+  // Credit utilization still uses legacy data until we migrate credit limits
+  const creditUtilization = useMemo(() => {
+    if (!dataManagerDebts || !Array.isArray(dataManagerDebts)) return 0;
+    const totalCreditLimit = dataManagerDebts.reduce((sum, debt) => sum + (debt.limit || 0), 0);
+    return totalCreditLimit > 0 ? (totalDebtTimeline / totalCreditLimit) * 100 : 0;
+  }, [dataManagerDebts, totalDebtTimeline]);
+  
+  const hasOnlyDemoData = useMemo(() => {
+    if (!dataManagerDebts || !Array.isArray(dataManagerDebts)) return false;
+    return dataManagerDebts.length > 0 && dataManagerDebts.every(debt => debt.isDemo);
+  }, [dataManagerDebts]);
+  
+  // Legacy shadow removed - using CP-1 clean data layer
+
+  // Capture analytics when plan loads
+  React.useEffect(() => {
+    if (!planLoading) {
+      capturePlanView();
+    }
+  }, [planLoading]);
+
+  // Sync activeTab changes to URL without navigation/remount
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    if (params.get('tab') !== activeTab) {
+      params.set('tab', activeTab);
+      window.history.replaceState(null, '', `${location.pathname}?${params.toString()}`);
+    }
+  }, [activeTab, location.pathname, location.search]);
+
+  // Also trigger milestone detection when local timelineDebtsData changes
+  React.useEffect(() => {
+    if (timelineDebtsData && timelineDebtsData.length > 0) {
+      // The timelineDebtsManager saveDebt calls above will trigger the milestone system
+      // via the timelineDebts updates from useDebts
+    }
+  }, [timelineDebtsData]);
+
+  // Demo data state now handled by CP-1 migration system
+
+  // CP-1: Get last update information from unified data layer
+  const getLastUpdateInfo = () => {
+    if (planLoading || dataLoading) {
+      return 'Loading your plan…';
+    }
+    if (count === 0 && dataManagerDebts.length === 0) {
+      return 'No timelineDebts yet — add your real information to get started';
+    }
+    return 'Your personalized debt freedom roadmap';
+  };
+
+  const handleBalanceUpdate = async (updatedDebts) => {
+    setDebtsData(updatedDebts);
+    
+    // CP-1: Use modern debt hooks for proper persistence
+    for (const debt of updatedDebts) {
+      try {
+        console.log('[MyPlan] Saving debt:', debt.name, 'balance:', debt.balance, 'previous:', debt.previousBalance);
+        await saveDebt({
+          id: debt.id,
+          name: debt.name,
+          balance: debt.balance,
+          previousBalance: debt.previousBalance,
+          minPayment: debt.minPayment,
+          interestRate: debt.interestRate,
+          order: debt.order,
+          originalAmount: debt.originalAmount
+        });
+      } catch (error) {
+        console.error('Error saving debt:', error);
+      }
+    }
+    
+    // Force a small delay to ensure timelineDebtsManager has processed all saves
+    await new Promise(resolve => setTimeout(resolve, 100));
+    
+    // Check if any debt was cleared (balance = 0) - if so, don't show progress notification
+    const hasDebtCleared = updatedDebts.some(debt => 
+      debt.balance === 0 && debt.previousBalance > 0
+    );
+    
+    if (hasDebtCleared) {
+      console.log('[MyPlan] Debt cleared detected, skipping progress notification');
+      return; // Don't show progress notification for milestone events
+    }
+    
+    // Only show progress notification if no milestone is detected
+    // The milestone system will handle celebration for debt cleared/major milestones
+    setTimeout(() => {
+      if (!showShareModal) {
+        console.log('[MyPlan] Showing progress notification');
+        setShowProgressNotification(true);
+      }
+    }, 500); // Longer delay to let milestone detection run first
+  };
+
+  const handleClearDemoData = async () => {
+    try {
+      // Clear data from store
+      await clearAllData();
+      
+      // Immediate UI updates - no waiting!
+      setDebtsData([]);
+      setDemoDataCleared(true);
+      setShowClearDemoModal(false);
+      
+      // Navigate to debts tab for better UX
+      setActiveTab('timelineDebts');
+      
+      // Show success message after state updates
+      setTimeout(() => {
+        setToastMessage({
+          message: 'Demo data cleared! Add your real debts to get started.',
+          type: 'success'
+        });
+        
+        // Focus the add button for accessibility
+        requestAnimationFrame(() => {
+          document.getElementById('add-debt-btn')?.focus();
+        });
+      }, 100);
+    } catch (error) {
+      console.error('Error clearing demo data:', error);
+      setToastMessage({
+        message: 'Error clearing demo data. Please try again.',
+        type: 'error'
+      });
+    }
+  };
+  
+  // Debt management handlers
+  const handleInlineBalanceUpdate = useCallback(async (debtId, newBalance) => {
+    try {
+      const updatedDebt = dataManagerDebts.find(d => d.id === debtId);
+      if (updatedDebt) {
+        await saveDebt({ ...updatedDebt, amount: newBalance });
+      }
+    } catch (error) {
+      console.error('Error updating balance:', error);
+    }
+  }, [dataManagerDebts, saveDebt]);
+
+  const handleFormSave = useCallback(async (debtData, editingDebt) => {
+    if (editingDebt) {
+      await updateDebt(editingDebt.id, debtData);
+      setToastMessage({ message: 'Debt updated successfully!', type: 'success' });
+    } else {
+      await addDebt(debtData);
+      setToastMessage({ message: 'Debt added successfully!', type: 'success' });
+    }
+    setShowAddForm(false);
+    setEditingDebt(null);
+  }, [addDebt, updateDebt]);
+
+  const handleEditDebt = useCallback((debt) => {
+    setEditingDebt(debt);
+    setShowAddForm(true);
+  }, []);
+
+  const handleCloseForm = useCallback(() => {
+    setShowAddForm(false);
+    setEditingDebt(null);
+  }, []);
+
+  const handleAddDebt = useCallback(() => {
+    setEditingDebt(null);
+    setShowAddForm(true);
+  }, []);
+
+  const handleViewHistory = useCallback((debt) => {
+    setHistoryDebt(debt);
+  }, []);
+
+  const handlePasteSuccess = useCallback((importedDebts) => {
+    console.log(`Successfully imported ${importedDebts.length} timelineDebts`);
+    setShowPasteInput(false);
+  }, []);
+
+  const handleDeleteDebt = useCallback((debtId) => {
+    return deleteDebt(debtId);
+  }, [deleteDebt]);
+
+  const handleReorderDebts = useCallback(async (reorderedDebts) => {
+    try {
+      const orderUpdates = reorderedDebts.map((debt, index) => ({
+        id: debt.id,
+        order: index + 1
+      }));
+      
+      await reorderDebts(orderUpdates);
+      setToastMessage({ message: 'Debt order updated successfully!', type: 'success' });
+    } catch (error) {
+      console.error('Error reordering timelineDebts:', error);
+      setToastMessage({ message: 'Failed to update debt order', type: 'error' });
+    }
+  }, [reorderDebts]);
+
+  const handleStrategyChange = useCallback((newStrategy) => {
+    const oldStrategy = payoffStrategy;
+    setPayoffStrategy(newStrategy);
+    localStorage.setItem('SNOWBALL_STRATEGY', newStrategy);
+    setToastMessage({ 
+      message: `Switched to ${newStrategy === 'avalanche' ? 'Avalanche' : 'Snowball'} strategy`, 
+      type: 'success' 
     });
     
-    // Focus the add button for accessibility
-    requestAnimationFrame(() => {
-     document.getElementById('add-debt-btn')?.focus();
+    // Track strategy change with profile context
+    track('strategy_changed', {
+      from_strategy: oldStrategy,
+      to_strategy: newStrategy,
+      user_initiated: true
     });
-   }, 100);
-  } catch (error) {
-   console.error('Error clearing demo data:', error);
-   setToastMessage({
-    message: 'Error clearing demo data. Please try again.',
-    type: 'error'
-   });
-  }
- };
- 
- // Debt management handlers
- const handleInlineBalanceUpdate = useCallback(async (debtId, newBalance) => {
-  try {
-   const updatedDebt = dataManagerDebts.find(d => d.id === debtId);
-   if (updatedDebt) {
-    await saveDebt({ ...updatedDebt, amount: newBalance });
-   }
-  } catch (error) {
-   console.error('Error updating balance:', error);
-  }
- }, [dataManagerDebts, saveDebt]);
+  }, [payoffStrategy]);
 
- const handleFormSave = useCallback(async (debtData, editingDebt) => {
-  if (editingDebt) {
-   await updateDebt(editingDebt.id, debtData);
-   setToastMessage({ message: 'Debt updated successfully!', type: 'success' });
-  } else {
-   await addDebt(debtData);
-   setToastMessage({ message: 'Debt added successfully!', type: 'success' });
-  }
-  setShowAddForm(false);
-  setEditingDebt(null);
- }, [addDebt, updateDebt]);
+  const handleManualShare = useCallback(() => {
+    const shareMessage = `💪 I've added my ${dataManagerDebts.length} debt${dataManagerDebts.length !== 1 ? 's' : ''} to @trysnowballuk and I'm ready to become debt-free! \n\nTaking control of ${formatCurrency(totalDebtTimeline)} - start your debt freedom journey → https://trysnowball.co.uk`;
+    
+    if (navigator.share) {
+      navigator.share({
+        title: `💪 I've added my timelineDebts to TrySnowball!`,
+        text: shareMessage,
+        url: 'https://trysnowball.co.uk'
+      }).catch(console.log);
+    } else {
+      navigator.clipboard.writeText(shareMessage).then(() => {
+        setToastMessage('Share message copied to clipboard! 📋');
+      }).catch(() => {
+        setToastMessage('Ready to share: ' + shareMessage);
+      });
+    }
+  }, [dataManagerDebts.length, totalDebtTimeline]);
 
- const handleEditDebt = useCallback((debt) => {
-  setEditingDebt(debt);
-  setShowAddForm(true);
- }, []);
-
- const handleCloseForm = useCallback(() => {
-  setShowAddForm(false);
-  setEditingDebt(null);
- }, []);
-
- const handleAddDebt = useCallback(() => {
-  setEditingDebt(null);
-  setShowAddForm(true);
- }, []);
-
- const handleViewHistory = useCallback((debt) => {
-  setHistoryDebt(debt);
- }, []);
-
- const handlePasteSuccess = useCallback((importedDebts) => {
-  console.log(`Successfully imported ${importedDebts.length} timelineDebts`);
-  setShowPasteInput(false);
- }, []);
-
- const handleDeleteDebt = useCallback((debtId) => {
-  return deleteDebt(debtId);
- }, [deleteDebt]);
-
- const handleReorderDebts = useCallback(async (reorderedDebts) => {
-  try {
-   const orderUpdates = reorderedDebts.map((debt, index) => ({
-    id: debt.id,
-    order: index + 1
-   }));
-   
-   await reorderDebts(orderUpdates);
-   setToastMessage({ message: 'Debt order updated successfully!', type: 'success' });
-  } catch (error) {
-   console.error('Error reordering timelineDebts:', error);
-   setToastMessage({ message: 'Failed to update debt order', type: 'error' });
-  }
- }, [reorderDebts]);
-
- const handleStrategyChange = useCallback((newStrategy) => {
-  const oldStrategy = payoffStrategy;
-  setPayoffStrategy(newStrategy);
-  localStorage.setItem('SNOWBALL_STRATEGY', newStrategy);
-  setToastMessage({ 
-   message: `Switched to ${newStrategy === 'avalanche' ? 'Avalanche' : 'Snowball'} strategy`, 
-   type: 'success' 
-  });
+  // Use IndexedDB timelineDebts as the single source of truth
+  const currentDebts = (planTotalsDebts || []).length > 0 ? planTotalsDebts : null;
   
-  // Track strategy change with profile context
-  track('strategy_changed', {
-   from_strategy: oldStrategy,
-   to_strategy: newStrategy,
-   user_initiated: true
-  });
+  // Check if we're using demo/baseline data 
+  const isDemoMode = dataManagerDebts.length === 0 || dataManagerDebts.some(debt => debt.isDemo);
+  const usingDemoData = !currentDebts && !demoDataCleared;
   
-  // Track specific event for action completion if switching to avalanche
-  if (newStrategy === 'avalanche') {
-   track('strategy_changed_to_avalanche', {
-    from_strategy: oldStrategy
-   });
-  }
- }, [payoffStrategy]);
+  // Check if there's truly no debt data anywhere
+  const hasNoDebtData = !currentDebts && demoDataCleared;
 
- const handleManualShare = useCallback(() => {
-  const shareMessage = `💪 I've added my ${dataManagerDebts.length} debt${dataManagerDebts.length !== 1 ? 's' : ''} to @trysnowballuk and I'm ready to become debt-free! \n\nTaking control of ${formatCurrency(totalDebtTimeline)} - start your debt freedom journey → https://trysnowball.co.uk`;
-  
-  if (navigator.share) {
-   navigator.share({
-    title: `💪 I've added my timelineDebts to TrySnowball!`,
-    text: shareMessage,
-    url: 'https://trysnowball.co.uk'
-   }).catch(console.log);
-  } else {
-   navigator.clipboard.writeText(shareMessage).then(() => {
-    setToastMessage('Share message copied to clipboard! 📋');
-   }).catch(() => {
-    setToastMessage('Ready to share: ' + shareMessage);
-   });
-  }
- }, [dataManagerDebts.length, totalDebtTimeline]);
+  const tabs = [
+    { id: 'debts', label: 'My Debts & Progress', icon: '💳' },
+    { id: 'strategy', label: 'Strategy', icon: '🎯' },
+    { id: 'timeline', label: 'Your Forecast', icon: '📅' },
+    { id: 'snowflakes', label: 'Snowflakes', icon: '❄️' },
+    { id: 'goals', label: 'Monthly Goals', icon: '✨' },
+  ];
 
- // Use IndexedDB timelineDebts as the single source of truth
- const currentDebts = (planTotalsDebts || []).length > 0 ? planTotalsDebts : null;
- 
- // Check if we're using demo/baseline data 
- const isDemoMode = dataManagerDebts.length === 0 || dataManagerDebts.some(debt => debt.isDemo);
- const usingDemoData = !currentDebts && !demoDataCleared;
- 
- // Check if there's truly no debt data anywhere
- const hasNoDebtData = !currentDebts && demoDataCleared;
-
- const tabs = [
-  { id: 'debts', label: 'My Debts & Progress', icon: '💳' },
-  { id: 'strategy', label: 'Strategy', icon: '🎯' },
-  { id: 'timeline', label: 'Your Forecast', icon: '📅' },
-  { id: 'snowflakes', label: 'Snowflakes', icon: '❄️' },
-  { id: 'goals', label: 'Monthly Goals', icon: '✨' },
- ];
-
- // If there's truly no debt data anywhere, show main no-data state
- if (hasNoDebtData) {
-  return (
-   <div className="min-h-screen bg-gradient-to-br from-primary via-accent to-primary">
-    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-     {/* Main elevated card container */}
-     <div className="bg-white/90 backdrop-blur-lg rounded-3xl shadow-xl p-8">
-     <NoDebtsState 
-      title="Add Your Debts Now"
-      subtitle="Get started on your debt freedom journey by adding your debt information. We'll help you create a personalized plan to pay everything off faster."
-      icon="💳"
-      showSecondaryActions={true}
-      onAdd={() => setShowAddForm(true)}
-      onTryDemo={async () => {
-       try {
-        // Load UK demo set
-        await loadDemoData('uk');
-        // Bring the user back to the main tab and ensure UI updates
-        setActiveTab('debts');
-        setDemoDataCleared(false);
-        // Force refresh after demo load
-        refresh();
-       } catch (e) {
-        console.error('[Demo] load failed', e);
-        alert('Failed to load demo data. Please try again.');
-       }
-      }}
-     />
-     
-     {/* Debt Form Modal - available even when no data */}
-     {showAddForm && (
-      <DebtFormModal
-       isOpen={showAddForm}
-       onClose={() => setShowAddForm(false)}
-       onSave={handleFormSave}
-       debt={editingDebt}
-      />
-     )}
-     </div>
-   </div>
-   </div>
-  );
- }
-
- // Show loading state while data is being fetched
- if (dataLoading) {
-  return (
-   <div className="min-h-screen bg-gradient-to-br from-primary via-accent to-primary flex items-center justify-center">
-    <div className="bg-white/90 backdrop-blur-lg rounded-3xl shadow-xl p-12 text-center">
-     <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-     <p className="text-gray-700 font-medium">Loading your debt plan...</p>
-    </div>
-   </div>
-  );
- }
-
- return (
-  <div className="min-h-screen bg-gradient-to-br from-primary via-accent to-primary">
-   <DemoModeBanner />
-   
-   {/* Main elevated container */}
-   <div className="px-4 py-6">
-    <div className="max-w-6xl mx-auto">
-     <div className="bg-white/90 backdrop-blur-lg rounded-3xl shadow-xl p-8">
-    {/* Page Header */}
-    <div className={`${colors.surface} rounded-lg shadow-sm p-6 mb-8`}>
-     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0">
-      <div className="flex-1">
-       <h1 className={`text-3xl font-bold ${colors.text.primary} mb-2`}>
-        My Plan
-       </h1>
-       <p className={`${colors.text.secondary} text-lg`}>
-        Your personalized debt freedom roadmap
-       </p>
-       <p className={`${colors.text.muted} text-sm mt-1`}>
-        {getLastUpdateInfo()}
-       </p>
+  // If there's truly no debt data anywhere, show main no-data state
+  if (hasNoDebtData) {
+    return (
+      <div className={`min-h-screen ${colors.background}`}>
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <NoDebtsState 
+            title="Add Your Debts Now"
+            subtitle="Get started on your debt freedom journey by adding your debt information. We'll help you create a personalized plan to pay everything off faster."
+            icon="💳"
+            showSecondaryActions={true}
+            onAdd={() => setShowAddForm(true)}
+            onTryDemo={async () => {
+              try {
+                // Load UK demo set
+                await loadDemoData('uk');
+                // Bring the user back to the main tab and ensure UI updates
+                setActiveTab('debts');
+                setDemoDataCleared(false);
+                // Force refresh after demo load
+                refresh();
+              } catch (e) {
+                console.error('[Demo] load failed', e);
+                alert('Failed to load demo data. Please try again.');
+              }
+            }}
+          />
+          
+          {/* Debt Form Modal - available even when no data */}
+          {showAddForm && (
+            <DebtFormModal
+              isOpen={showAddForm}
+              onClose={() => setShowAddForm(false)}
+              onSave={handleFormSave}
+              debt={editingDebt}
+            />
+          )}
+        </div>
       </div>
-      <div className="flex items-center justify-between sm:justify-end space-x-4">
-       {/* Add Yuki CTA button */}
-       <Link to="/ai/coach">
-        <Button
-         variant="special"
-         size="sm"
-         className="bg-gradient-to-r from-purple-500 to-pink-500 text-white hover:from-purple-600 hover:to-pink-600"
-        >
-         💬 Chat with Yuki
-        </Button>
-       </Link>
-       
-       {usingDemoData ? (
-        <Button
-         data-testid="clear-demo-data-btn"
-         onClick={() => setShowClearDemoModal(true)}
-         variant="destructive"
-         size="sm"
-         leftIcon={Trash2}
-        >
-         <span className="hidden sm:inline">Clear Demo Data</span>
-         <span className="sm:hidden">Clear Demo</span>
-        </Button>
-       ) : currentDebts ? (
-        <Button
-         data-testid="update-balances-btn"
-         onClick={() => setShowUpdateBalances(true)}
-         variant="primary"
-         size="sm"
-         leftIcon={BarChart3}
-        >
-         <span className="hidden sm:inline">Update Balances</span>
-         <span className="sm:hidden">Update</span>
-        </Button>
-       ) : (
-        <Button
-         data-testid="add-timelineDebts-btn"
-         onClick={handleAddDebt}
-         variant="primary"
-         size="sm"
-         leftIcon={Plus}
-        >
-         <span className="hidden sm:inline">Add Debts</span>
-         <span className="sm:hidden">Add</span>
-        </Button>
-       )}
-       <div className="text-4xl sm:text-6xl">🎯</div>
+    );
+  }
+
+  // Show loading state while data is being fetched
+  if (dataLoading) {
+    return (
+      <div className={`min-h-screen ${colors.background} flex items-center justify-center`}>
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className={colors.text.secondary}>Loading your debt plan...</p>
+        </div>
       </div>
-     </div>
-    </div>
+    );
+  }
 
-    {/* Tab Navigation */}
-    <div className={`${colors.surface} rounded-lg shadow-sm mb-8`}>
-     <div className="flex border-b border-gray-200">
-      {tabs.map((tab) => (
-       <button
-        key={tab.id}
-        data-testid={`tab-${tab.id}`}
-        onClick={() => setActiveTab(tab.id)}
-        className={`flex-1 px-6 py-4 text-sm font-medium transition-colors flex items-center justify-center space-x-2 ${
-         activeTab === tab.id
-          ? 'border-b-2 border-primary text-primary bg-primary/5'
-          : `${colors.text.secondary} hover:${colors.text.primary} hover:bg-gray-50`
-        }`}
-       >
-        <span className="text-lg">{tab.icon}</span>
-        <span>{tab.label}</span>
-       </button>
-      ))}
-     </div>
+  return (
+    <div className={`min-h-screen ${colors.background}`}>
+      <DemoModeBanner />
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Page Header */}
+        <div className={`${colors.surface} rounded-lg shadow-sm p-6 mb-8`}>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0">
+            <div className="flex-1">
+              <h1 className={`text-3xl font-bold ${colors.text.primary} mb-2`}>
+                My Plan
+              </h1>
+              <p className={`${colors.text.secondary} text-lg`}>
+                Your personalized debt freedom roadmap
+              </p>
+              <p className={`${colors.text.muted} text-sm mt-1`}>
+                {getLastUpdateInfo()}
+              </p>
+            </div>
+            <div className="flex items-center justify-between sm:justify-end space-x-4">
+              {/* Add Yuki CTA button */}
+              <Link to="/ai/coach">
+                <Button
+                  variant="special"
+                  size="sm"
+                  className="bg-gradient-to-r from-purple-500 to-pink-500 text-white hover:from-purple-600 hover:to-pink-600"
+                >
+                  💬 Chat with Yuki
+                </Button>
+              </Link>
+              
+              {usingDemoData ? (
+                <Button
+                  data-testid="clear-demo-data-btn"
+                  onClick={() => setShowClearDemoModal(true)}
+                  variant="destructive"
+                  size="sm"
+                  leftIcon={Trash2}
+                >
+                  <span className="hidden sm:inline">Clear Demo Data</span>
+                  <span className="sm:hidden">Clear Demo</span>
+                </Button>
+              ) : currentDebts ? (
+                <Button
+                  data-testid="update-balances-btn"
+                  onClick={() => setShowUpdateBalances(true)}
+                  variant="primary"
+                  size="sm"
+                  leftIcon={BarChart3}
+                >
+                  <span className="hidden sm:inline">Update Balances</span>
+                  <span className="sm:hidden">Update</span>
+                </Button>
+              ) : (
+                <Button
+                  data-testid="add-timelineDebts-btn"
+                  onClick={handleAddDebt}
+                  variant="primary"
+                  size="sm"
+                  leftIcon={Plus}
+                >
+                  <span className="hidden sm:inline">Add Debts</span>
+                  <span className="sm:hidden">Add</span>
+                </Button>
+              )}
+              <div className="text-4xl sm:text-6xl">🎯</div>
+            </div>
+          </div>
+        </div>
 
-     {/* Tab Content */}
-     <div className="p-6">
-      {activeTab === 'debts' && (
-       <DebtsTab 
-        loading={dataLoading}
-       />
-      )}
-      {activeTab === 'strategy' && (
-       <StrategyTab 
-        colors={colors} 
-        timelineDebtsData={currentDebts} 
-        demoDataCleared={demoDataCleared} 
-        hasNoDebtData={hasNoDebtData}
-        currentStrategy={payoffStrategy}
-        onStrategyChange={handleStrategyChange}
-       />
-      )}
-      {activeTab === 'timeline' && (
-       <TimelineTab 
-        colors={colors} 
-        timelineDebtsData={currentDebts} 
-        demoDataCleared={demoDataCleared} 
-        hasNoDebtData={hasNoDebtData} 
-        dataManagerDebts={dataManagerDebts} 
-        planTotalsDebts={planTotalsDebts} 
-        planLoading={planLoading}
-        payoffStrategy={payoffStrategy}
-        onTabChange={setActiveTab}
-       />
-      )}
-      {activeTab === 'snowflakes' && (
-       <React.Suspense fallback={<div className="p-8 text-center">Loading snowflakes...</div>}>
-        <SnowflakesTab 
-         calculateTimeline={(strategy, inputs) => {
-          if (strategy === 'snowball') {
-           return calculateSnowballTimeline(
-            inputs.debts || [],
-            snowballAmount || 0,
-            inputs.snowflakesMap
-           );
-          } else {
-           return calculateAvalancheTimeline(
-            inputs.debts || [],
-            snowballAmount || 0,
-            inputs.snowflakesMap
-           );
-          }
-         }}
-         inputs={{
-          payoffStrategy
-         }}
-         snowballAmount={snowballAmount}
+        {/* Tab Navigation */}
+        <div className={`${colors.surface} rounded-lg shadow-sm mb-8`}>
+          <div className="flex border-b border-gray-200">
+            {tabs.map((tab) => (
+              <button
+                key={tab.id}
+                data-testid={`tab-${tab.id}`}
+                onClick={() => setActiveTab(tab.id)}
+                className={`flex-1 px-6 py-4 text-sm font-medium transition-colors flex items-center justify-center space-x-2 ${
+                  activeTab === tab.id
+                    ? 'border-b-2 border-primary text-primary bg-primary/5'
+                    : `${colors.text.secondary} hover:${colors.text.primary} hover:bg-gray-50`
+                }`}
+              >
+                <span className="text-lg">{tab.icon}</span>
+                <span>{tab.label}</span>
+              </button>
+            ))}
+          </div>
+
+          {/* Tab Content */}
+          <div className="p-6">
+            {activeTab === 'debts' && (
+              <DebtsTab 
+                loading={dataLoading}
+              />
+            )}
+            {activeTab === 'strategy' && (
+              <StrategyTab 
+                colors={colors} 
+                timelineDebtsData={currentDebts} 
+                demoDataCleared={demoDataCleared} 
+                hasNoDebtData={hasNoDebtData}
+                currentStrategy={payoffStrategy}
+                onStrategyChange={handleStrategyChange}
+              />
+            )}
+            {activeTab === 'timeline' && (
+              <TimelineTab 
+                colors={colors} 
+                timelineDebtsData={currentDebts} 
+                demoDataCleared={demoDataCleared} 
+                hasNoDebtData={hasNoDebtData} 
+                dataManagerDebts={dataManagerDebts} 
+                planTotalsDebts={planTotalsDebts} 
+                planLoading={planLoading}
+                payoffStrategy={payoffStrategy}
+                onTabChange={setActiveTab}
+              />
+            )}
+            {activeTab === 'snowflakes' && (
+              <React.Suspense fallback={<div className="p-8 text-center">Loading snowflakes...</div>}>
+                <SnowflakesTab 
+                  calculateTimeline={(strategy, inputs) => {
+                    if (strategy === 'snowball') {
+                      return calculateSnowballTimeline(
+                        inputs.debts || [],
+                        inputs.monthlyBudget || 0,
+                        inputs.snowflakesMap
+                      );
+                    } else {
+                      return calculateAvalancheTimeline(
+                        inputs.debts || [],
+                        inputs.monthlyBudget || 0,
+                        inputs.snowflakesMap
+                      );
+                    }
+                  }}
+                  inputs={{
+                    payoffStrategy
+                  }}
+                  monthlyBudget={0}
+                />
+              </React.Suspense>
+            )}
+            {activeTab === 'goals' && <GoalsTab />}
+          </div>
+        </div>
+      </div>
+
+      {/* Update Balances Modal */}
+      {showUpdateBalances && (
+        <UpdateBalances
+          onClose={() => setShowUpdateBalances(false)}
+          onUpdate={handleBalanceUpdate}
         />
-       </React.Suspense>
       )}
-      {activeTab === 'goals' && <GoalsTab />}
-     </div>
-    </div>
-     </div>
-    </div>
-   </div>
 
-   {/* Update Balances Modal */}
-   {showUpdateBalances && (
-    <UpdateBalances
-     onClose={() => setShowUpdateBalances(false)}
-     onUpdate={handleBalanceUpdate}
-    />
-   )}
+      {/* Progress Notification */}
+      {showProgressNotification && currentDebts && (
+        <ProgressNotification
+          totalProgress={currentDebts.reduce((sum, debt) => {
+            const previous = debt.previousBalance || debt.originalAmount || debt.balance || 0;
+            const current = debt.balance || 0;
+            return sum + (previous - current);
+          }, 0)}
+          onDismiss={() => setShowProgressNotification(false)}
+        />
+      )}
 
-   {/* Progress Notification */}
-   {showProgressNotification && currentDebts && (
-    <ProgressNotification
-     totalProgress={currentDebts.reduce((sum, debt) => {
-      const previous = debt.previousBalance || debt.originalAmount || debt.amount_pennies || 0;
-      const current = debt.amount_pennies || 0;
-      return sum + (previous - current);
-     }, 0)}
-     onDismiss={() => setShowProgressNotification(false)}
-    />
-   )}
-
-   {/* Milestone Sharing Modal */}
-   <ShareMilestoneModal
-    isOpen={showShareModal}
-    onClose={closeSharingModal}
-    milestone={currentMilestone}
-   />
-
-   {/* Clear Demo Data Modal */}
-   {showClearDemoModal && (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-     <div className={`${colors.surface} rounded-lg shadow-xl max-w-md w-full p-6`}>
-      <h3 className={`text-xl font-bold ${colors.text.primary} mb-4`}>Clear Demo Data</h3>
-      <p className={`${colors.text.secondary} mb-6`}>
-       This will remove all demo debt information and progress data. You'll be able to start fresh with your real debt information.
-      </p>
-      <div className="flex space-x-4">
-       <Button
-        onClick={handleClearDemoData}
-        variant="destructive"
-        size="md"
-        className="flex-1"
-       >
-        Clear Demo Data
-       </Button>
-       <Button
-        onClick={() => setShowClearDemoModal(false)}
-        variant="muted"
-        size="md"
-        className="flex-1"
-       >
-        Cancel
-       </Button>
-      </div>
-     </div>
-    </div>
-   )}
-
-   {/* Debt Management Modals */}
-   <DebtFormModal
-    isOpen={showAddForm}
-    onClose={handleCloseForm}
-    onSave={handleFormSave}
-    editingDebt={editingDebt}
-    loading={dataLoading}
-   />
-
-   {/* History Viewer Modal */}
-   <DebtHistoryViewer
-    debt={historyDebt}
-    isOpen={!!historyDebt}
-    onClose={() => setHistoryDebt(null)}
-   />
-
-   {/* AI Debt Import Modal */}
-   {showPasteInput && (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-     <div className="bg-white rounded-lg shadow-xl max-w-6xl w-full max-h-[95vh] overflow-y-auto">
-      <DebtPasteInput
-       onSuccess={handlePasteSuccess}
-       onCancel={() => setShowPasteInput(false)}
-       existingDebts={dataManagerDebts}
+      {/* Milestone Sharing Modal */}
+      <ShareMilestoneModal
+        isOpen={showShareModal}
+        onClose={closeSharingModal}
+        milestone={currentMilestone}
       />
-     </div>
-    </div>
-   )}
 
-   {/* Toast Notification */}
-   {toastMessage && (
-    <SimpleToast
-     message={toastMessage.message || toastMessage}
-     type={toastMessage.type || 'success'}
-     onClose={() => setToastMessage(null)}
-    />
-   )}
+      {/* Clear Demo Data Modal */}
+      {showClearDemoModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className={`${colors.surface} rounded-lg shadow-xl max-w-md w-full p-6`}>
+            <h3 className={`text-xl font-bold ${colors.text.primary} mb-4`}>Clear Demo Data</h3>
+            <p className={`${colors.text.secondary} mb-6`}>
+              This will remove all demo debt information and progress data. You'll be able to start fresh with your real debt information.
+            </p>
+            <div className="flex space-x-4">
+              <Button
+                onClick={handleClearDemoData}
+                variant="destructive"
+                size="md"
+                className="flex-1"
+              >
+                Clear Demo Data
+              </Button>
+              <Button
+                onClick={() => setShowClearDemoModal(false)}
+                variant="muted"
+                size="md"
+                className="flex-1"
+              >
+                Cancel
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
-   {/* Error Display */}
-   {error && (
-    <div className="bg-red-50 border border-red-200 rounded-md p-4">
-     <div className="flex">
-      <svg className="h-5 w-5 text-red-400" fill="currentColor" viewBox="0 0 20 20">
-       <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-      </svg>
-      <div className="ml-3">
-       <p className="text-sm text-red-800">{error}</p>
-      </div>
-     </div>
+      {/* Debt Management Modals */}
+      <DebtFormModal
+        isOpen={showAddForm}
+        onClose={handleCloseForm}
+        onSave={handleFormSave}
+        editingDebt={editingDebt}
+        loading={dataLoading}
+      />
+
+      {/* History Viewer Modal */}
+      <DebtHistoryViewer
+        debt={historyDebt}
+        isOpen={!!historyDebt}
+        onClose={() => setHistoryDebt(null)}
+      />
+
+      {/* AI Debt Import Modal */}
+      {showPasteInput && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-6xl w-full max-h-[95vh] overflow-y-auto">
+            <DebtPasteInput
+              onSuccess={handlePasteSuccess}
+              onCancel={() => setShowPasteInput(false)}
+              existingDebts={dataManagerDebts}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Toast Notification */}
+      {toastMessage && (
+        <SimpleToast
+          message={toastMessage.message || toastMessage}
+          type={toastMessage.type || 'success'}
+          onClose={() => setToastMessage(null)}
+        />
+      )}
+
+      {/* Error Display */}
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-md p-4">
+          <div className="flex">
+            <svg className="h-5 w-5 text-red-400" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+            </svg>
+            <div className="ml-3">
+              <p className="text-sm text-red-800">{error}</p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
-   )}
-  </div>
- );
+  );
 };
 
 export default MyPlan;

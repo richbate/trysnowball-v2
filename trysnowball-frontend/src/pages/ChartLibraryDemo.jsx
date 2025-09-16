@@ -1,20 +1,20 @@
 import React, { useState, useMemo } from 'react';
-import { useUserDebts } from '../hooks/useUserDebts';
+import { useDebts } from '../hooks/useDebts';
 import { formatCurrency } from '../utils/debtFormatting';
 import Button from '../components/ui/Button';
 
 // Current Recharts implementation
 import { 
- LineChart, 
- Line, 
- XAxis, 
- YAxis, 
- CartesianGrid, 
- Tooltip, 
- Legend, 
- ResponsiveContainer,
- AreaChart,
- Area 
+  LineChart, 
+  Line, 
+  XAxis, 
+  YAxis, 
+  CartesianGrid, 
+  Tooltip, 
+  Legend, 
+  ResponsiveContainer,
+  AreaChart,
+  Area 
 } from 'recharts';
 
 // Nivo implementation
@@ -28,15 +28,15 @@ import { VictoryChart, VictoryLine, VictoryAxis, VictoryArea } from 'victory';
 
 // Chart.js implementation
 import {
- Chart as ChartJS,
- CategoryScale,
- LinearScale,
- PointElement,
- LineElement,
- Title,
- Tooltip as ChartTooltip,
- Legend as ChartLegend,
- Filler,
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Title,
+  Tooltip as ChartTooltip,
+  Legend as ChartLegend,
+  Filler,
 } from 'chart.js';
 import { Line as ChartJSLine } from 'react-chartjs-2';
 
@@ -45,751 +45,751 @@ import ReactEChartsCore from 'echarts-for-react/lib/core';
 import * as echarts from 'echarts/core';
 import { LineChart as ELineChart } from 'echarts/charts';
 import {
- GridComponent,
- TooltipComponent,
- TitleComponent,
- LegendComponent,
+  GridComponent,
+  TooltipComponent,
+  TitleComponent,
+  LegendComponent,
 } from 'echarts/components';
 import { CanvasRenderer } from 'echarts/renderers';
 
 // Register Chart.js components
 ChartJS.register(
- CategoryScale,
- LinearScale,
- PointElement,
- LineElement,
- Title,
- ChartTooltip,
- ChartLegend,
- Filler
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Title,
+  ChartTooltip,
+  ChartLegend,
+  Filler
 );
 
 // Register ECharts components
 echarts.use([ELineChart, GridComponent, TooltipComponent, TitleComponent, LegendComponent, CanvasRenderer]);
 
 const ChartLibraryDemo = () => {
- const { debts } = useUserDebts();
- const [extraPayment, setExtraPayment] = useState(100);
- const [selectedLibrary, setSelectedLibrary] = useState('recharts');
- const [nivoView, setNivoView] = useState('forecast'); // 'forecast' or 'payments'
- const [viewMode, setViewMode] = useState('absolute'); // 'absolute' or 'percent'
+  const { debts } = useDebts();
+  const [extraPayment, setExtraPayment] = useState(100);
+  const [selectedLibrary, setSelectedLibrary] = useState('recharts');
+  const [nivoView, setNivoView] = useState('forecast'); // 'forecast' or 'payments'
+  const [viewMode, setViewMode] = useState('absolute'); // 'absolute' or 'percent'
 
- // Generate sample data for comparison
- const chartData = useMemo(() => {
-  const data = [];
-  let totalBalance = debts.reduce((sum, debt) => sum + (debt.amount_pennies || 0), 0) || 25000;
-  
-  for (let month = 0; month <= 24; month++) {
-   const minimumReduction = totalBalance * 0.02;
-   const snowballReduction = totalBalance * 0.04 + extraPayment;
-   
-   data.push({
-    month: `Month ${month}`,
-    minimumOnly: Math.max(0, totalBalance - (minimumReduction * month)),
-    snowball: Math.max(0, totalBalance - (snowballReduction * month)),
-   });
-  }
-  
-  return data;
- }, [debts, extraPayment]);
-
- // Transform data for Nivo format
- const nivoData = useMemo(() => {
-  return [
-   {
-    id: 'minimumOnly',
-    data: chartData.map((item, index) => ({
-     x: index,
-     y: item.minimumOnly
-    }))
-   },
-   {
-    id: 'snowball',
-    data: chartData.map((item, index) => ({
-     x: index,
-     y: item.snowball
-    }))
-   }
-  ];
- }, [chartData]);
-
- // Transform data for Victory format
- const victoryData = useMemo(() => {
-  return {
-   minimumOnly: chartData.map((item, index) => ({ x: index, y: item.minimumOnly })),
-   snowball: chartData.map((item, index) => ({ x: index, y: item.snowball }))
-  };
- }, [chartData]);
-
- // Transform data for Chart.js format
- const chartjsData = useMemo(() => {
-  return {
-   labels: chartData.map((_, index) => `Month ${index}`),
-   datasets: [
-    {
-     label: 'Minimum Payments Only',
-     data: chartData.map(item => item.minimumOnly),
-     borderColor: '#f59e0b',
-     backgroundColor: 'rgba(245, 158, 11, 0.1)',
-     fill: true,
-     tension: 0.4,
-    },
-    {
-     label: 'Snowball Method',
-     data: chartData.map(item => item.snowball),
-     borderColor: '#10b981',
-     backgroundColor: 'rgba(16, 185, 129, 0.1)',
-     fill: true,
-     tension: 0.4,
-    }
-   ]
-  };
- }, [chartData]);
-
- // Transform data for ECharts format
- const echartsOption = useMemo(() => {
-  return {
-   title: {
-    text: 'Debt Payoff Timeline',
-    left: 'center'
-   },
-   tooltip: {
-    trigger: 'axis',
-    formatter: (params) => {
-     let result = `Month ${params[0].axisValue}<br/>`;
-     params.forEach(param => {
-      result += `${param.seriesName}: ${formatCurrency(param.value)}<br/>`;
-     });
-     return result;
-    }
-   },
-   legend: {
-    data: ['Minimum Payments Only', 'Snowball Method'],
-    bottom: 0
-   },
-   grid: {
-    left: '3%',
-    right: '4%',
-    bottom: '10%',
-    containLabel: true
-   },
-   xAxis: {
-    type: 'category',
-    data: chartData.map((_, index) => `${index}`)
-   },
-   yAxis: {
-    type: 'value',
-    axisLabel: {
-     formatter: (value) => formatCurrency(value)
-    }
-   },
-   series: [
-    {
-     name: 'Minimum Payments Only',
-     type: 'line',
-     data: chartData.map(item => item.minimumOnly),
-     smooth: true,
-     areaStyle: { opacity: 0.1 },
-     itemStyle: { color: '#f59e0b' }
-    },
-    {
-     name: 'Snowball Method',
-     type: 'line',
-     data: chartData.map(item => item.snowball),
-     smooth: true,
-     areaStyle: { opacity: 0.1 },
-     itemStyle: { color: '#10b981' }
-    }
-   ],
-   animationDuration: 1000,
-   animationEasing: 'cubicOut'
-  };
- }, [chartData]);
-
- // Transform stacked data for Nivo Stream format
- const nivoStackedData = useMemo(() => {
-  const sampleDebts = [
-   { name: 'Credit Card 1', balance: 5000 },
-   { name: 'Credit Card 2', balance: 3500 }, 
-   { name: 'Personal Loan', balance: 8000 },
-   { name: 'Store Card', balance: 1200 },
-  ];
-
-  return Array.from({ length: 13 }, (_, month) => {
-   const monthData = { month };
-   sampleDebts.forEach(debt => {
-    const reduction = Math.max(0, debt.amount_pennies - (debt.amount_pennies * 0.08 * month));
-    monthData[debt.name] = reduction;
-   });
-   return monthData;
-  });
- }, []);
-
- // Sample debt breakdown for stacked charts
- const stackedData = useMemo(() => {
-  const sampleDebts = [
-   { name: 'Credit Card 1', balance: 5000, color: '#3b82f6' },
-   { name: 'Credit Card 2', balance: 3500, color: '#10b981' },
-   { name: 'Personal Loan', balance: 8000, color: '#f59e0b' },
-   { name: 'Store Card', balance: 1200, color: '#ef4444' },
-  ];
-  
-  const data = [];
-  for (let month = 0; month <= 12; month++) {
-   const monthData = { month };
-   sampleDebts.forEach(debt => {
-    const reduction = Math.max(0, debt.amount_pennies - (debt.amount_pennies * 0.08 * month));
-    monthData[debt.name] = reduction;
-   });
-   data.push(monthData);
-  }
-  
-  return { data, debts: sampleDebts };
- }, []);
-
- // Generate payments bar data
- const paymentsBarData = useMemo(() => {
-  const sampleTimeline = generateSamplePaymentData(extraPayment);
-  const barRowsAbs = toPaymentsBarRows(sampleTimeline);
-  const barRowsPct = toPercentRows(barRowsAbs);
-  const barData = viewMode === "absolute" ? barRowsAbs : barRowsPct;
-  console.log('Bar chart data:', barData);
-  return barData;
- }, [extraPayment, viewMode]);
-
- const libraries = [
-  { id: 'recharts', name: 'Recharts (Current)', description: 'Safe, reliable, React-first' },
-  { id: 'nivo', name: 'Nivo', description: 'Beautiful defaults, great animations' },
-  { id: 'victory', name: 'Victory', description: 'Composable, smooth animations' },
-  { id: 'chartjs', name: 'Chart.js', description: 'Familiar, lightweight, good animations' },
-  { id: 'echarts', name: 'ECharts', description: 'Powerful, cinematic animations' },
- ];
-
- const RechartsDemo = () => (
-  <div className="space-y-6">
-   <div className="bg-white p-6 rounded-lg border">
-    <h3 className="text-lg font-semibold mb-4">Recharts - Line Chart</h3>
-    <ResponsiveContainer width="100%" height={300}>
-     <LineChart data={chartData}>
-      <CartesianGrid strokeDasharray="3 3" />
-      <XAxis dataKey="month" />
-      <YAxis tickFormatter={(value) => formatCurrency(value)} />
-      <Tooltip formatter={(value) => formatCurrency(value)} />
-      <Legend />
-      <Line 
-       type="monotone" 
-       dataKey="minimumOnly" 
-       stroke="#f59e0b" 
-       strokeWidth={2} 
-       name="Minimum Payments" 
-      />
-      <Line 
-       type="monotone" 
-       dataKey="snowball" 
-       stroke="#10b981" 
-       strokeWidth={2} 
-       name="Snowball Method" 
-      />
-     </LineChart>
-    </ResponsiveContainer>
-   </div>
-
-   <div className="bg-white p-6 rounded-lg border">
-    <h3 className="text-lg font-semibold mb-4">Recharts - Stacked Area</h3>
-    <ResponsiveContainer width="100%" height={300}>
-     <AreaChart data={stackedData.data}>
-      <CartesianGrid strokeDasharray="3 3" />
-      <XAxis dataKey="month" />
-      <YAxis tickFormatter={(value) => formatCurrency(value)} />
-      <Tooltip formatter={(value) => formatCurrency(value)} />
-      <Legend />
-      {stackedData.debts.map(debt => (
-       <Area
-        key={debt.name}
-        type="monotone"
-        dataKey={debt.name}
-        stackId="1"
-        stroke={debt.color}
-        fill={debt.color}
-        fillOpacity={0.6}
-       />
-      ))}
-     </AreaChart>
-    </ResponsiveContainer>
-   </div>
-  </div>
- );
-
- const NivoDemo = () => {
-  // Calculate payoff months for demo
-  const snowballPayoffMonth = nivoData[1]?.data.findIndex(p => p.y <= 0) || -1;
-  const minimumPayoffMonth = nivoData[0]?.data.findIndex(p => p.y <= 0) || -1;
-  
-  const theme = {
-   textColor: '#0f172a',
-   fontSize: 12,
-   grid: { line: { stroke: '#e2e8f0', strokeWidth: 1 } },
-   axis: { ticks: { text: { fontSize: 12 } } },
-   crosshair: { line: { stroke: '#94a3b8', strokeWidth: 1, strokeDasharray: '3 3' } },
-   tooltip: { container: { fontSize: 12, borderRadius: 8 } },
-  };
-
-  const maxY = Math.max(...nivoData.flatMap(s => s.data.map(p => p.y))) * 1.05;
-
-  const markers = [
-   minimumPayoffMonth > 0 && {
-    axis: 'x',
-    value: minimumPayoffMonth,
-    lineStyle: { stroke: '#f59e0b', strokeWidth: 2 },
-    legend: 'Debt-free (Minimums)',
-    legendPosition: 'top-left',
-    textStyle: { fill: '#78350f' },
-   },
-   snowballPayoffMonth > 0 && {
-    axis: 'x',
-    value: snowballPayoffMonth,
-    lineStyle: { stroke: '#10b981', strokeWidth: 2 },
-    legend: 'Debt-free (Snowball)',
-    legendPosition: 'top-left',
-    textStyle: { fill: '#065f46' },
-   },
-  ].filter(Boolean);
-
-  return (
-   <div className="space-y-6">
-    <div className="bg-white p-6 rounded-lg border">
-     <div className="flex justify-between items-center mb-4">
-      <h3 className="text-lg font-semibold">Nivo - Production-Ready Timeline</h3>
+  // Generate sample data for comparison
+  const chartData = useMemo(() => {
+    const data = [];
+    let totalBalance = debts.reduce((sum, debt) => sum + (debt.balance || 0), 0) || 25000;
+    
+    for (let month = 0; month <= 24; month++) {
+      const minimumReduction = totalBalance * 0.02;
+      const snowballReduction = totalBalance * 0.04 + extraPayment;
       
-      {/* View Toggle */}
-      <div className="flex gap-2">
-       <button 
-        className={`px-3 py-1 text-sm rounded transition-colors ${
-         nivoView === 'forecast' 
-          ? 'bg-blue-600 text-white' 
-          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-        }`}
-        onClick={() => setNivoView('forecast')}
-       >
-        Forecast (Lines)
-       </button>
-       <button 
-        className={`px-3 py-1 text-sm rounded transition-colors ${
-         nivoView === 'payments' 
-          ? 'bg-blue-600 text-white' 
-          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-        }`}
-        onClick={() => setNivoView('payments')}
-       >
-        Payments (Bars)
-       </button>
-      </div>
-     </div>
-     
-     {/* Delta headline */}
-     {nivoView === 'forecast' && snowballPayoffMonth > 0 && minimumPayoffMonth > 0 && snowballPayoffMonth < minimumPayoffMonth && (
-      <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
-       <div className="text-lg font-semibold text-green-800">
-        🎉 Snowball gets you debt-free {minimumPayoffMonth - snowballPayoffMonth} months sooner, 
-        saving £{Math.round((minimumPayoffMonth - snowballPayoffMonth) * 150).toLocaleString('en-GB')} in interest.
-       </div>
-      </div>
-     )}
+      data.push({
+        month: `Month ${month}`,
+        minimumOnly: Math.max(0, totalBalance - (minimumReduction * month)),
+        snowball: Math.max(0, totalBalance - (snowballReduction * month)),
+      });
+    }
+    
+    return data;
+  }, [debts, extraPayment]);
 
-     {/* Payments Bar Description */}
-     {nivoView === 'payments' && (
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
-       <div className="flex justify-between items-start">
-        <div>
-         <div className="text-lg font-semibold text-blue-800">
-          📊 Monthly Payment Breakdown
-         </div>
-         <div className="text-sm text-blue-600 mt-1">
-          See how your monthly payments split between Interest, Minimum Principal, and Extra Snowball payments.
-          Adjust the extra payment slider to see the dramatic effect on debt payoff speed.
-         </div>
+  // Transform data for Nivo format
+  const nivoData = useMemo(() => {
+    return [
+      {
+        id: 'minimumOnly',
+        data: chartData.map((item, index) => ({
+          x: index,
+          y: item.minimumOnly
+        }))
+      },
+      {
+        id: 'snowball',
+        data: chartData.map((item, index) => ({
+          x: index,
+          y: item.snowball
+        }))
+      }
+    ];
+  }, [chartData]);
+
+  // Transform data for Victory format
+  const victoryData = useMemo(() => {
+    return {
+      minimumOnly: chartData.map((item, index) => ({ x: index, y: item.minimumOnly })),
+      snowball: chartData.map((item, index) => ({ x: index, y: item.snowball }))
+    };
+  }, [chartData]);
+
+  // Transform data for Chart.js format
+  const chartjsData = useMemo(() => {
+    return {
+      labels: chartData.map((_, index) => `Month ${index}`),
+      datasets: [
+        {
+          label: 'Minimum Payments Only',
+          data: chartData.map(item => item.minimumOnly),
+          borderColor: '#f59e0b',
+          backgroundColor: 'rgba(245, 158, 11, 0.1)',
+          fill: true,
+          tension: 0.4,
+        },
+        {
+          label: 'Snowball Method',
+          data: chartData.map(item => item.snowball),
+          borderColor: '#10b981',
+          backgroundColor: 'rgba(16, 185, 129, 0.1)',
+          fill: true,
+          tension: 0.4,
+        }
+      ]
+    };
+  }, [chartData]);
+
+  // Transform data for ECharts format
+  const echartsOption = useMemo(() => {
+    return {
+      title: {
+        text: 'Debt Payoff Timeline',
+        left: 'center'
+      },
+      tooltip: {
+        trigger: 'axis',
+        formatter: (params) => {
+          let result = `Month ${params[0].axisValue}<br/>`;
+          params.forEach(param => {
+            result += `${param.seriesName}: ${formatCurrency(param.value)}<br/>`;
+          });
+          return result;
+        }
+      },
+      legend: {
+        data: ['Minimum Payments Only', 'Snowball Method'],
+        bottom: 0
+      },
+      grid: {
+        left: '3%',
+        right: '4%',
+        bottom: '10%',
+        containLabel: true
+      },
+      xAxis: {
+        type: 'category',
+        data: chartData.map((_, index) => `${index}`)
+      },
+      yAxis: {
+        type: 'value',
+        axisLabel: {
+          formatter: (value) => formatCurrency(value)
+        }
+      },
+      series: [
+        {
+          name: 'Minimum Payments Only',
+          type: 'line',
+          data: chartData.map(item => item.minimumOnly),
+          smooth: true,
+          areaStyle: { opacity: 0.1 },
+          itemStyle: { color: '#f59e0b' }
+        },
+        {
+          name: 'Snowball Method',
+          type: 'line',
+          data: chartData.map(item => item.snowball),
+          smooth: true,
+          areaStyle: { opacity: 0.1 },
+          itemStyle: { color: '#10b981' }
+        }
+      ],
+      animationDuration: 1000,
+      animationEasing: 'cubicOut'
+    };
+  }, [chartData]);
+
+  // Transform stacked data for Nivo Stream format
+  const nivoStackedData = useMemo(() => {
+    const sampleDebts = [
+      { name: 'Credit Card 1', balance: 5000 },
+      { name: 'Credit Card 2', balance: 3500 }, 
+      { name: 'Personal Loan', balance: 8000 },
+      { name: 'Store Card', balance: 1200 },
+    ];
+
+    return Array.from({ length: 13 }, (_, month) => {
+      const monthData = { month };
+      sampleDebts.forEach(debt => {
+        const reduction = Math.max(0, debt.balance - (debt.balance * 0.08 * month));
+        monthData[debt.name] = reduction;
+      });
+      return monthData;
+    });
+  }, []);
+
+  // Sample debt breakdown for stacked charts
+  const stackedData = useMemo(() => {
+    const sampleDebts = [
+      { name: 'Credit Card 1', balance: 5000, color: '#3b82f6' },
+      { name: 'Credit Card 2', balance: 3500, color: '#10b981' },
+      { name: 'Personal Loan', balance: 8000, color: '#f59e0b' },
+      { name: 'Store Card', balance: 1200, color: '#ef4444' },
+    ];
+    
+    const data = [];
+    for (let month = 0; month <= 12; month++) {
+      const monthData = { month };
+      sampleDebts.forEach(debt => {
+        const reduction = Math.max(0, debt.balance - (debt.balance * 0.08 * month));
+        monthData[debt.name] = reduction;
+      });
+      data.push(monthData);
+    }
+    
+    return { data, debts: sampleDebts };
+  }, []);
+
+  // Generate payments bar data
+  const paymentsBarData = useMemo(() => {
+    const sampleTimeline = generateSamplePaymentData(extraPayment);
+    const barRowsAbs = toPaymentsBarRows(sampleTimeline);
+    const barRowsPct = toPercentRows(barRowsAbs);
+    const barData = viewMode === "absolute" ? barRowsAbs : barRowsPct;
+    console.log('Bar chart data:', barData);
+    return barData;
+  }, [extraPayment, viewMode]);
+
+  const libraries = [
+    { id: 'recharts', name: 'Recharts (Current)', description: 'Safe, reliable, React-first' },
+    { id: 'nivo', name: 'Nivo', description: 'Beautiful defaults, great animations' },
+    { id: 'victory', name: 'Victory', description: 'Composable, smooth animations' },
+    { id: 'chartjs', name: 'Chart.js', description: 'Familiar, lightweight, good animations' },
+    { id: 'echarts', name: 'ECharts', description: 'Powerful, cinematic animations' },
+  ];
+
+  const RechartsDemo = () => (
+    <div className="space-y-6">
+      <div className="bg-white p-6 rounded-lg border">
+        <h3 className="text-lg font-semibold mb-4">Recharts - Line Chart</h3>
+        <ResponsiveContainer width="100%" height={300}>
+          <LineChart data={chartData}>
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis dataKey="month" />
+            <YAxis tickFormatter={(value) => formatCurrency(value)} />
+            <Tooltip formatter={(value) => formatCurrency(value)} />
+            <Legend />
+            <Line 
+              type="monotone" 
+              dataKey="minimumOnly" 
+              stroke="#f59e0b" 
+              strokeWidth={2} 
+              name="Minimum Payments" 
+            />
+            <Line 
+              type="monotone" 
+              dataKey="snowball" 
+              stroke="#10b981" 
+              strokeWidth={2} 
+              name="Snowball Method" 
+            />
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
+
+      <div className="bg-white p-6 rounded-lg border">
+        <h3 className="text-lg font-semibold mb-4">Recharts - Stacked Area</h3>
+        <ResponsiveContainer width="100%" height={300}>
+          <AreaChart data={stackedData.data}>
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis dataKey="month" />
+            <YAxis tickFormatter={(value) => formatCurrency(value)} />
+            <Tooltip formatter={(value) => formatCurrency(value)} />
+            <Legend />
+            {stackedData.debts.map(debt => (
+              <Area
+                key={debt.name}
+                type="monotone"
+                dataKey={debt.name}
+                stackId="1"
+                stroke={debt.color}
+                fill={debt.color}
+                fillOpacity={0.6}
+              />
+            ))}
+          </AreaChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  );
+
+  const NivoDemo = () => {
+    // Calculate payoff months for demo
+    const snowballPayoffMonth = nivoData[1]?.data.findIndex(p => p.y <= 0) || -1;
+    const minimumPayoffMonth = nivoData[0]?.data.findIndex(p => p.y <= 0) || -1;
+    
+    const theme = {
+      textColor: '#0f172a',
+      fontSize: 12,
+      grid: { line: { stroke: '#e2e8f0', strokeWidth: 1 } },
+      axis: { ticks: { text: { fontSize: 12 } } },
+      crosshair: { line: { stroke: '#94a3b8', strokeWidth: 1, strokeDasharray: '3 3' } },
+      tooltip: { container: { fontSize: 12, borderRadius: 8 } },
+    };
+
+    const maxY = Math.max(...nivoData.flatMap(s => s.data.map(p => p.y))) * 1.05;
+
+    const markers = [
+      minimumPayoffMonth > 0 && {
+        axis: 'x',
+        value: minimumPayoffMonth,
+        lineStyle: { stroke: '#f59e0b', strokeWidth: 2 },
+        legend: 'Debt-free (Minimums)',
+        legendPosition: 'top-left',
+        textStyle: { fill: '#78350f' },
+      },
+      snowballPayoffMonth > 0 && {
+        axis: 'x',
+        value: snowballPayoffMonth,
+        lineStyle: { stroke: '#10b981', strokeWidth: 2 },
+        legend: 'Debt-free (Snowball)',
+        legendPosition: 'top-left',
+        textStyle: { fill: '#065f46' },
+      },
+    ].filter(Boolean);
+
+    return (
+      <div className="space-y-6">
+        <div className="bg-white p-6 rounded-lg border">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-lg font-semibold">Nivo - Production-Ready Timeline</h3>
+            
+            {/* View Toggle */}
+            <div className="flex gap-2">
+              <button 
+                className={`px-3 py-1 text-sm rounded transition-colors ${
+                  nivoView === 'forecast' 
+                    ? 'bg-blue-600 text-white' 
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+                onClick={() => setNivoView('forecast')}
+              >
+                Forecast (Lines)
+              </button>
+              <button 
+                className={`px-3 py-1 text-sm rounded transition-colors ${
+                  nivoView === 'payments' 
+                    ? 'bg-blue-600 text-white' 
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+                onClick={() => setNivoView('payments')}
+              >
+                Payments (Bars)
+              </button>
+            </div>
+          </div>
+          
+          {/* Delta headline */}
+          {nivoView === 'forecast' && snowballPayoffMonth > 0 && minimumPayoffMonth > 0 && snowballPayoffMonth < minimumPayoffMonth && (
+            <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
+              <div className="text-lg font-semibold text-green-800">
+                🎉 Snowball gets you debt-free {minimumPayoffMonth - snowballPayoffMonth} months sooner, 
+                saving £{Math.round((minimumPayoffMonth - snowballPayoffMonth) * 150).toLocaleString('en-GB')} in interest.
+              </div>
+            </div>
+          )}
+
+          {/* Payments Bar Description */}
+          {nivoView === 'payments' && (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+              <div className="flex justify-between items-start">
+                <div>
+                  <div className="text-lg font-semibold text-blue-800">
+                    📊 Monthly Payment Breakdown
+                  </div>
+                  <div className="text-sm text-blue-600 mt-1">
+                    See how your monthly payments split between Interest, Minimum Principal, and Extra Snowball payments.
+                    Adjust the extra payment slider to see the dramatic effect on debt payoff speed.
+                  </div>
+                </div>
+                
+                {/* Percentage Toggle */}
+                <div className="flex gap-1 ml-4">
+                  <button 
+                    className={`px-2 py-1 text-xs rounded transition-colors ${
+                      viewMode === 'absolute' 
+                        ? 'bg-blue-600 text-white' 
+                        : 'bg-blue-100 text-blue-600 hover:bg-blue-200'
+                    }`}
+                    onClick={() => setViewMode('absolute')}
+                  >
+                    £
+                  </button>
+                  <button 
+                    className={`px-2 py-1 text-xs rounded transition-colors ${
+                      viewMode === 'percent' 
+                        ? 'bg-blue-600 text-white' 
+                        : 'bg-blue-100 text-blue-600 hover:bg-blue-200'
+                    }`}
+                    onClick={() => setViewMode('percent')}
+                  >
+                    %
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {nivoView === 'forecast' ? (
+            <div style={{ height: 420 }}>
+              <ResponsiveLine
+                data={nivoData}
+                theme={theme}
+                margin={{ top: 24, right: 24, bottom: 48, left: 72 }}
+                curve="monotoneX"
+                enableArea={true}
+                areaOpacity={0.12}
+                enablePoints={false}
+                useMesh={true}
+                animate={true}
+                motionConfig="gentle"
+                colors={['#f59e0b', '#10b981']}
+                xScale={{ type: 'linear', min: 0, max: 'auto' }}
+                yScale={{ type: 'linear', min: 0, max: maxY, stacked: false }}
+                axisBottom={{
+                  tickSize: 0,
+                  tickPadding: 8,
+                  legend: 'Months',
+                  legendOffset: 36,
+                  legendPosition: 'middle',
+                }}
+                axisLeft={{
+                  tickSize: 0,
+                  tickPadding: 8,
+                  format: formatCurrency,
+                }}
+                gridXValues={false}
+                gridYValues={true}
+                legends={[
+                  {
+                    anchor: 'bottom',
+                    direction: 'row',
+                    translateY: 40,
+                    itemWidth: 180,
+                    itemHeight: 16,
+                    symbolSize: 10,
+                    toggleSerie: true,
+                  },
+                ]}
+                enableCrosshair={true}
+                crosshairType="x"
+                markers={markers}
+                tooltip={({ point }) => {
+                  const month = point.data.xFormatted;
+                  const bal = formatCurrency(point.data.y);
+                  const serie = point.serieId;
+                  return (
+                    <div style={{ padding: 8 }}>
+                      <div style={{ fontWeight: 700 }}>{serie}</div>
+                      <div>Month {month}</div>
+                      <div>Remaining balance: <strong>{bal}</strong></div>
+                    </div>
+                  );
+                }}
+              />
+            </div>
+          ) : (
+            <div>
+              <div className="text-xs text-gray-500 mb-2">
+                Debug: {paymentsBarData.length} payment records
+              </div>
+              <SnowballPaymentsBar 
+                data={paymentsBarData} 
+                height={420}
+                viewMode={viewMode}
+              />
+            </div>
+          )}
         </div>
         
-        {/* Percentage Toggle */}
-        <div className="flex gap-1 ml-4">
-         <button 
-          className={`px-2 py-1 text-xs rounded transition-colors ${
-           viewMode === 'absolute' 
-            ? 'bg-blue-600 text-white' 
-            : 'bg-blue-100 text-blue-600 hover:bg-blue-200'
-          }`}
-          onClick={() => setViewMode('absolute')}
-         >
-          £
-         </button>
-         <button 
-          className={`px-2 py-1 text-xs rounded transition-colors ${
-           viewMode === 'percent' 
-            ? 'bg-blue-600 text-white' 
-            : 'bg-blue-100 text-blue-600 hover:bg-blue-200'
-          }`}
-          onClick={() => setViewMode('percent')}
-         >
-          %
-         </button>
-        </div>
-       </div>
-      </div>
-     )}
-
-     {nivoView === 'forecast' ? (
-      <div style={{ height: 420 }}>
-       <ResponsiveLine
-        data={nivoData}
-        theme={theme}
-        margin={{ top: 24, right: 24, bottom: 48, left: 72 }}
-        curve="monotoneX"
-        enableArea={true}
-        areaOpacity={0.12}
-        enablePoints={false}
-        useMesh={true}
-        animate={true}
-        motionConfig="gentle"
-        colors={['#f59e0b', '#10b981']}
-        xScale={{ type: 'linear', min: 0, max: 'auto' }}
-        yScale={{ type: 'linear', min: 0, max: maxY, stacked: false }}
-        axisBottom={{
-         tickSize: 0,
-         tickPadding: 8,
-         legend: 'Months',
-         legendOffset: 36,
-         legendPosition: 'middle',
-        }}
-        axisLeft={{
-         tickSize: 0,
-         tickPadding: 8,
-         format: formatCurrency,
-        }}
-        gridXValues={false}
-        gridYValues={true}
-        legends={[
-         {
-          anchor: 'bottom',
-          direction: 'row',
-          translateY: 40,
-          itemWidth: 180,
-          itemHeight: 16,
-          symbolSize: 10,
-          toggleSerie: true,
-         },
-        ]}
-        enableCrosshair={true}
-        crosshairType="x"
-        markers={markers}
-        tooltip={({ point }) => {
-         const month = point.data.xFormatted;
-         const bal = formatCurrency(point.data.y);
-         const serie = point.serieId;
-         return (
-          <div style={{ padding: 8 }}>
-           <div style={{ fontWeight: 700 }}>{serie}</div>
-           <div>Month {month}</div>
-           <div>Remaining balance: <strong>{bal}</strong></div>
+        <div className="bg-white p-6 rounded-lg border">
+          <h3 className="text-lg font-semibold mb-4">Nivo - Stacked Stream (Debt Melting Effect)</h3>
+          <div style={{ height: 400 }}>
+            <ResponsiveStream
+              data={nivoStackedData}
+              keys={['Credit Card 1', 'Credit Card 2', 'Personal Loan', 'Store Card']}
+              margin={{ top: 50, right: 110, bottom: 50, left: 60 }}
+              axisTop={null}
+              axisRight={null}
+              axisBottom={{
+                orient: 'bottom',
+                tickSize: 5,
+                tickPadding: 5,
+                tickRotation: 0,
+                legend: 'Months',
+                legendOffset: 36
+              }}
+              axisLeft={{
+                orient: 'left',
+                tickSize: 5,
+                tickPadding: 5,
+                tickRotation: 0,
+                legend: 'Balance',
+                legendOffset: -40,
+                format: value => formatCurrency(value)
+              }}
+              offsetType="silhouette"
+              colors={['#3b82f6', '#10b981', '#f59e0b', '#ef4444']}
+              fillOpacity={0.8}
+              borderWidth={2}
+              borderColor={{ theme: 'background' }}
+              enableGridX={true}
+              enableGridY={false}
+              animate={true}
+              motionConfig="wobbly"
+              legends={[
+                {
+                  anchor: 'bottom-right',
+                  direction: 'column',
+                  translateX: 100,
+                  itemWidth: 80,
+                  itemHeight: 20,
+                  itemTextColor: '#999',
+                  symbolSize: 12,
+                  symbolShape: 'circle',
+                  effects: [
+                    {
+                      on: 'hover',
+                      style: {
+                        itemTextColor: '#000'
+                      }
+                    }
+                  ]
+                }
+              ]}
+            />
           </div>
-         );
-        }}
-       />
+          <div className="mt-4 p-3 bg-blue-50 rounded-lg">
+            <p className="text-sm text-blue-800">
+              <strong>Debt Melting Effect:</strong> Watch individual debts "melt away" as they get paid off. 
+              Each colored band represents a different debt shrinking over time.
+            </p>
+          </div>
+        </div>
       </div>
-     ) : (
-      <div>
-       <div className="text-xs text-gray-500 mb-2">
-        Debug: {paymentsBarData.length} payment records
-       </div>
-       <SnowballPaymentsBar 
-        data={paymentsBarData} 
-        height={420}
-        viewMode={viewMode}
-       />
-      </div>
-     )}
-    </div>
-    
-    <div className="bg-white p-6 rounded-lg border">
-     <h3 className="text-lg font-semibold mb-4">Nivo - Stacked Stream (Debt Melting Effect)</h3>
-     <div style={{ height: 400 }}>
-      <ResponsiveStream
-       data={nivoStackedData}
-       keys={['Credit Card 1', 'Credit Card 2', 'Personal Loan', 'Store Card']}
-       margin={{ top: 50, right: 110, bottom: 50, left: 60 }}
-       axisTop={null}
-       axisRight={null}
-       axisBottom={{
-        orient: 'bottom',
-        tickSize: 5,
-        tickPadding: 5,
-        tickRotation: 0,
-        legend: 'Months',
-        legendOffset: 36
-       }}
-       axisLeft={{
-        orient: 'left',
-        tickSize: 5,
-        tickPadding: 5,
-        tickRotation: 0,
-        legend: 'Balance',
-        legendOffset: -40,
-        format: value => formatCurrency(value)
-       }}
-       offsetType="silhouette"
-       colors={['#3b82f6', '#10b981', '#f59e0b', '#ef4444']}
-       fillOpacity={0.8}
-       borderWidth={2}
-       borderColor={{ theme: 'background' }}
-       enableGridX={true}
-       enableGridY={false}
-       animate={true}
-       motionConfig="wobbly"
-       legends={[
-        {
-         anchor: 'bottom-right',
-         direction: 'column',
-         translateX: 100,
-         itemWidth: 80,
-         itemHeight: 20,
-         itemTextColor: '#999',
-         symbolSize: 12,
-         symbolShape: 'circle',
-         effects: [
-          {
-           on: 'hover',
-           style: {
-            itemTextColor: '#000'
-           }
-          }
-         ]
-        }
-       ]}
-      />
-     </div>
-     <div className="mt-4 p-3 bg-blue-50 rounded-lg">
-      <p className="text-sm text-blue-800">
-       <strong>Debt Melting Effect:</strong> Watch individual debts "melt away" as they get paid off. 
-       Each colored band represents a different debt shrinking over time.
-      </p>
-     </div>
-    </div>
-   </div>
-  );
- };
+    );
+  };
 
- const VictoryDemo = () => (
-  <div className="space-y-6">
-   <div className="bg-white p-6 rounded-lg border">
-    <h3 className="text-lg font-semibold mb-4">Victory - Line Chart</h3>
-    <div style={{ height: 400 }}>
-     <VictoryChart
-      theme={{
-       axis: { style: { tickLabels: { fontSize: 12 } } },
-       dependentAxis: { style: { tickLabels: { fontSize: 12 } } }
-      }}
-      padding={{ left: 80, top: 20, right: 50, bottom: 60 }}
-     >
-      <VictoryAxis dependentAxis tickFormat={(x) => formatCurrency(x)} />
-      <VictoryAxis />
-      <VictoryArea
-       data={victoryData.minimumOnly}
-       style={{ data: { fill: "rgba(245, 158, 11, 0.2)", stroke: "#f59e0b", strokeWidth: 2 } }}
-       animate={{ duration: 1000 }}
-      />
-      <VictoryArea
-       data={victoryData.snowball}
-       style={{ data: { fill: "rgba(16, 185, 129, 0.2)", stroke: "#10b981", strokeWidth: 2 } }}
-       animate={{ duration: 1000 }}
-      />
-      <VictoryLine
-       data={victoryData.minimumOnly}
-       style={{ data: { stroke: "#f59e0b", strokeWidth: 2 } }}
-       animate={{ duration: 1000 }}
-      />
-      <VictoryLine
-       data={victoryData.snowball}
-       style={{ data: { stroke: "#10b981", strokeWidth: 2 } }}
-       animate={{ duration: 1000 }}
-      />
-     </VictoryChart>
-    </div>
-    <div className="flex justify-center space-x-4 mt-4 text-sm">
-     <div className="flex items-center">
-      <div className="w-4 h-0.5 bg-amber-500 mr-2"></div>
-      <span>Minimum Payments Only</span>
-     </div>
-     <div className="flex items-center">
-      <div className="w-4 h-0.5 bg-green-500 mr-2"></div>
-      <span>Snowball Method</span>
-     </div>
-    </div>
-   </div>
-  </div>
- );
-
- const ChartJSDemo = () => (
-  <div className="space-y-6">
-   <div className="bg-white p-6 rounded-lg border">
-    <h3 className="text-lg font-semibold mb-4">Chart.js - Line Chart</h3>
-    <div style={{ height: 400, position: 'relative' }}>
-     <ChartJSLine
-      data={chartjsData}
-      options={{
-       responsive: true,
-       maintainAspectRatio: false,
-       plugins: {
-        legend: {
-         position: 'bottom',
-        },
-        title: {
-         display: false,
-        },
-       },
-       scales: {
-        y: {
-         beginAtZero: true,
-         ticks: {
-          callback: function(value) {
-           return formatCurrency(value);
-          }
-         }
-        },
-        x: {
-         title: {
-          display: true,
-          text: 'Months'
-         }
-        }
-       },
-       interaction: {
-        intersect: false,
-        mode: 'index',
-       },
-       elements: {
-        point: {
-         radius: 0,
-         hoverRadius: 4
-        }
-       },
-       animation: {
-        duration: 1000,
-        easing: 'easeOutCubic'
-       }
-      }}
-     />
-    </div>
-   </div>
-  </div>
- );
-
- const EChartsDemo = () => (
-  <div className="space-y-6">
-   <div className="bg-white p-6 rounded-lg border">
-    <h3 className="text-lg font-semibold mb-4">ECharts - Animated Timeline</h3>
-    <div style={{ height: 400 }}>
-     <ReactEChartsCore
-      echarts={echarts}
-      option={echartsOption}
-      style={{ height: '100%', width: '100%' }}
-      notMerge={true}
-      lazyUpdate={true}
-     />
-    </div>
-   </div>
-  </div>
- );
-
- const renderDemo = () => {
-  switch (selectedLibrary) {
-   case 'recharts': return <RechartsDemo />;
-   case 'nivo': return <NivoDemo />;
-   case 'victory': return <VictoryDemo />;
-   case 'chartjs': return <ChartJSDemo />;
-   case 'echarts': return <EChartsDemo />;
-   default: return <RechartsDemo />;
-  }
- };
-
- return (
-  <div className="min-h-screen bg-gray-50">
-   <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-    <div className="mb-8">
-     <h1 className="text-3xl font-bold text-gray-900 mb-2">Chart Library Comparison</h1>
-     <p className="text-lg text-gray-600">
-      Preview different chart libraries for the debt forecast simulator
-     </p>
-    </div>
-
-    {/* Controls */}
-    <div className="bg-white rounded-lg shadow-sm p-6 mb-8">
-     <div className="space-y-4">
-      <div>
-       <label className="block text-sm font-medium text-gray-700 mb-2">
-        Extra Payment: {formatCurrency(extraPayment)}
-       </label>
-       <input
-        type="range"
-        min="0"
-        max="500"
-        step="25"
-        value={extraPayment}
-        onChange={(e) => setExtraPayment(Number(e.target.value))}
-        className="w-full"
-       />
-      </div>
-      
-      <div>
-       <label className="block text-sm font-medium text-gray-700 mb-2">
-        Chart Library
-       </label>
-       <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-3">
-        {libraries.map(lib => (
-         <Button
-          key={lib.id}
-          onClick={() => setSelectedLibrary(lib.id)}
-          variant={selectedLibrary === lib.id ? 'primary' : 'muted'}
-          size="sm"
-          className="text-center p-3"
-         >
-          <div className="font-medium">{lib.name}</div>
-          <div className="text-xs opacity-75 mt-1">{lib.description}</div>
-         </Button>
-        ))}
-       </div>
-      </div>
-     </div>
-    </div>
-
-    {/* Chart Preview */}
+  const VictoryDemo = () => (
     <div className="space-y-6">
-     {renderDemo()}
+      <div className="bg-white p-6 rounded-lg border">
+        <h3 className="text-lg font-semibold mb-4">Victory - Line Chart</h3>
+        <div style={{ height: 400 }}>
+          <VictoryChart
+            theme={{
+              axis: { style: { tickLabels: { fontSize: 12 } } },
+              dependentAxis: { style: { tickLabels: { fontSize: 12 } } }
+            }}
+            padding={{ left: 80, top: 20, right: 50, bottom: 60 }}
+          >
+            <VictoryAxis dependentAxis tickFormat={(x) => formatCurrency(x)} />
+            <VictoryAxis />
+            <VictoryArea
+              data={victoryData.minimumOnly}
+              style={{ data: { fill: "rgba(245, 158, 11, 0.2)", stroke: "#f59e0b", strokeWidth: 2 } }}
+              animate={{ duration: 1000 }}
+            />
+            <VictoryArea
+              data={victoryData.snowball}
+              style={{ data: { fill: "rgba(16, 185, 129, 0.2)", stroke: "#10b981", strokeWidth: 2 } }}
+              animate={{ duration: 1000 }}
+            />
+            <VictoryLine
+              data={victoryData.minimumOnly}
+              style={{ data: { stroke: "#f59e0b", strokeWidth: 2 } }}
+              animate={{ duration: 1000 }}
+            />
+            <VictoryLine
+              data={victoryData.snowball}
+              style={{ data: { stroke: "#10b981", strokeWidth: 2 } }}
+              animate={{ duration: 1000 }}
+            />
+          </VictoryChart>
+        </div>
+        <div className="flex justify-center space-x-4 mt-4 text-sm">
+          <div className="flex items-center">
+            <div className="w-4 h-0.5 bg-amber-500 mr-2"></div>
+            <span>Minimum Payments Only</span>
+          </div>
+          <div className="flex items-center">
+            <div className="w-4 h-0.5 bg-green-500 mr-2"></div>
+            <span>Snowball Method</span>
+          </div>
+        </div>
+      </div>
     </div>
+  );
 
-    {/* Comparison Notes */}
-    <div className="mt-8 bg-blue-50 border border-blue-200 rounded-lg p-6">
-     <h3 className="text-lg font-semibold text-blue-900 mb-3">📝 Comparison Notes</h3>
-     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm">
-      <div>
-       <h4 className="font-medium text-blue-800 mb-2">For Production Stability:</h4>
-       <ul className="space-y-1 text-blue-700">
-        <li>• Recharts - Current, battle-tested</li>
-        <li>• Chart.js - Most widely used</li>
-        <li>• Victory - Good React integration</li>
-       </ul>
+  const ChartJSDemo = () => (
+    <div className="space-y-6">
+      <div className="bg-white p-6 rounded-lg border">
+        <h3 className="text-lg font-semibold mb-4">Chart.js - Line Chart</h3>
+        <div style={{ height: 400, position: 'relative' }}>
+          <ChartJSLine
+            data={chartjsData}
+            options={{
+              responsive: true,
+              maintainAspectRatio: false,
+              plugins: {
+                legend: {
+                  position: 'bottom',
+                },
+                title: {
+                  display: false,
+                },
+              },
+              scales: {
+                y: {
+                  beginAtZero: true,
+                  ticks: {
+                    callback: function(value) {
+                      return formatCurrency(value);
+                    }
+                  }
+                },
+                x: {
+                  title: {
+                    display: true,
+                    text: 'Months'
+                  }
+                }
+              },
+              interaction: {
+                intersect: false,
+                mode: 'index',
+              },
+              elements: {
+                point: {
+                  radius: 0,
+                  hoverRadius: 4
+                }
+              },
+              animation: {
+                duration: 1000,
+                easing: 'easeOutCubic'
+              }
+            }}
+          />
+        </div>
       </div>
-      <div>
-       <h4 className="font-medium text-blue-800 mb-2">For Demo "Wow" Factor:</h4>
-       <ul className="space-y-1 text-blue-700">
-        <li>• ECharts - Cinematic animations</li>
-        <li>• Nivo - Beautiful out of the box</li>
-        <li>• Custom D3 - Ultimate flexibility</li>
-       </ul>
-      </div>
-     </div>
     </div>
-   </div>
-  </div>
- );
+  );
+
+  const EChartsDemo = () => (
+    <div className="space-y-6">
+      <div className="bg-white p-6 rounded-lg border">
+        <h3 className="text-lg font-semibold mb-4">ECharts - Animated Timeline</h3>
+        <div style={{ height: 400 }}>
+          <ReactEChartsCore
+            echarts={echarts}
+            option={echartsOption}
+            style={{ height: '100%', width: '100%' }}
+            notMerge={true}
+            lazyUpdate={true}
+          />
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderDemo = () => {
+    switch (selectedLibrary) {
+      case 'recharts': return <RechartsDemo />;
+      case 'nivo': return <NivoDemo />;
+      case 'victory': return <VictoryDemo />;
+      case 'chartjs': return <ChartJSDemo />;
+      case 'echarts': return <EChartsDemo />;
+      default: return <RechartsDemo />;
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">Chart Library Comparison</h1>
+          <p className="text-lg text-gray-600">
+            Preview different chart libraries for the debt forecast simulator
+          </p>
+        </div>
+
+        {/* Controls */}
+        <div className="bg-white rounded-lg shadow-sm p-6 mb-8">
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Extra Payment: {formatCurrency(extraPayment)}
+              </label>
+              <input
+                type="range"
+                min="0"
+                max="500"
+                step="25"
+                value={extraPayment}
+                onChange={(e) => setExtraPayment(Number(e.target.value))}
+                className="w-full"
+              />
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Chart Library
+              </label>
+              <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-3">
+                {libraries.map(lib => (
+                  <Button
+                    key={lib.id}
+                    onClick={() => setSelectedLibrary(lib.id)}
+                    variant={selectedLibrary === lib.id ? 'primary' : 'muted'}
+                    size="sm"
+                    className="text-center p-3"
+                  >
+                    <div className="font-medium">{lib.name}</div>
+                    <div className="text-xs opacity-75 mt-1">{lib.description}</div>
+                  </Button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Chart Preview */}
+        <div className="space-y-6">
+          {renderDemo()}
+        </div>
+
+        {/* Comparison Notes */}
+        <div className="mt-8 bg-blue-50 border border-blue-200 rounded-lg p-6">
+          <h3 className="text-lg font-semibold text-blue-900 mb-3">📝 Comparison Notes</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm">
+            <div>
+              <h4 className="font-medium text-blue-800 mb-2">For Production Stability:</h4>
+              <ul className="space-y-1 text-blue-700">
+                <li>• Recharts - Current, battle-tested</li>
+                <li>• Chart.js - Most widely used</li>
+                <li>• Victory - Good React integration</li>
+              </ul>
+            </div>
+            <div>
+              <h4 className="font-medium text-blue-800 mb-2">For Demo "Wow" Factor:</h4>
+              <ul className="space-y-1 text-blue-700">
+                <li>• ECharts - Cinematic animations</li>
+                <li>• Nivo - Beautiful out of the box</li>
+                <li>• Custom D3 - Ultimate flexibility</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 };
 
 export default ChartLibraryDemo;

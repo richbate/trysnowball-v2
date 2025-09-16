@@ -9,49 +9,49 @@ import { useEffect, useState, useCallback } from 'react';
 import { debtsManager } from '../lib/debtsManager';
 
 const FALLBACK = {
- theme: 'system',
- currency: 'GBP',
- reminders: true,
- locale: 'en-GB',
- defaultPlanTab: 'debts'
+  theme: 'system',
+  currency: 'GBP',
+  reminders: true,
+  locale: 'en-GB',
+  defaultPlanTab: 'debts'
 };
 
 export function useSettings() {
- const [settings, setSettings] = useState(FALLBACK);
- const [loading, setLoading] = useState(true);
+  const [settings, setSettings] = useState(FALLBACK);
+  const [loading, setLoading] = useState(true);
 
- useEffect(() => {
-  let alive = true;
-  (async () => {
-   try {
-    const s = await debtsManager.getSettings();
-    if (alive) {
-     setSettings(s);
-     setLoading(false);
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const s = await debtsManager.getSettings();
+        if (alive) {
+          setSettings(s);
+          setLoading(false);
+        }
+      } catch (error) {
+        console.error('[useSettings] Failed to load settings:', error);
+        if (alive) {
+          setSettings(FALLBACK);
+          setLoading(false);
+        }
+      }
+    })();
+    return () => { alive = false; };
+  }, []);
+
+  const update = useCallback(async (patch) => {
+    try {
+      const next = await debtsManager.setSettings(patch);
+      if (next) {
+        setSettings(next);
+      }
+      return next;
+    } catch (error) {
+      console.error('[useSettings] Failed to update settings:', error);
+      return null;
     }
-   } catch (error) {
-    console.error('[useSettings] Failed to load settings:', error);
-    if (alive) {
-     setSettings(FALLBACK);
-     setLoading(false);
-    }
-   }
-  })();
-  return () => { alive = false; };
- }, []);
+  }, []);
 
- const update = useCallback(async (patch) => {
-  try {
-   const next = await debtsManager.setSettings(patch);
-   if (next) {
-    setSettings(next);
-   }
-   return next;
-  } catch (error) {
-   console.error('[useSettings] Failed to update settings:', error);
-   return null;
-  }
- }, []);
-
- return { settings, update, loading };
+  return { settings, update, loading };
 }

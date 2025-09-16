@@ -16,7 +16,7 @@ export default function CombinedBurnUpCard({
  totalExtraPounds = 0,
  strategy = 'snowball',
  customFocusId = null,
- title = "Total Debt Elimination Timeline" 
+ title = "Debt Burndown Progress - All Debts Combined" 
 }) {
  const [allPaymentHistories, setAllPaymentHistories] = React.useState({});
  const [loading, setLoading] = React.useState(true);
@@ -105,24 +105,13 @@ export default function CombinedBurnUpCard({
   );
  }
 
- // Calculate weighted average APR for interest estimation
- const totalDebtCents = debts.reduce((sum, d) => sum + (d.amount_pennies || 0), 0);
- const weightedAPR = totalDebtCents > 0
-  ? debts.reduce((sum, d) => {
-     const apr = d.apr || d.interest || d.rate || 15; // Default to 15% if no APR provided
-     const weight = (d.amount_pennies || 0) / totalDebtCents;
-     return sum + (apr * weight);
-    }, 0) / 100
-  : 0.15; // Default 15% APR
-
- // Prepare chart data focused on debt elimination timeline
+ // Prepare chart data with remaining debt calculation
  const actualData = burnUpModel.points.map((point, index) => ({
   ...point,
   formattedDate: formatChartDate(point.date),
   type: 'actual',
   isPayment: index > 0,
-  remainingDebt: Math.max(0, burnUpModel.goalPounds - point.paid), // Debt elimination progress
-  interestPaid: point.paid * weightedAPR // Use weighted average APR for interest portion
+  remainingDebt: Math.max(0, burnUpModel.goalPounds - point.paid) // Calculate remaining debt
  }));
 
  const projectedData = (projection?.projectedPoints || []).map(point => ({
@@ -130,8 +119,7 @@ export default function CombinedBurnUpCard({
   formattedDate: formatChartDate(point.date),
   type: 'projected',
   isPayment: true,
-  remainingDebt: Math.max(0, burnUpModel.goalPounds - point.paid), // Debt elimination progress
-  interestPaid: point.paid * weightedAPR // Use weighted average APR for interest portion
+  remainingDebt: Math.max(0, burnUpModel.goalPounds - point.paid) // Calculate remaining debt
  }));
 
  // Combine for continuous line
@@ -154,20 +142,20 @@ export default function CombinedBurnUpCard({
  const totalCurrentBalance = debts.reduce((sum, debt) => sum + fromCents(debt.amount_pennies || 0), 0);
  const totalMinPayments = debts.reduce((sum, debt) => sum + fromCents(debt.min_payment_pennies || 0), 0);
 
- // Simplified tooltip focused on debt elimination
+ // Enhanced tooltip for combined view
  const CustomTooltip = ({ active, payload, label }) => {
   if (active && payload && payload.length) {
    const data = payload[0].payload;
    return (
     <div className="bg-white p-3 border rounded-lg shadow-lg">
      <p className="font-medium">{formatChartDate(data.date)}</p>
+     <p className="text-green-600">
+      <span className="font-medium">Total Paid: </span>
+      {formatChartCurrency(data.paid)}
+     </p>
      <p className="text-red-600">
       <span className="font-medium">Remaining Debt: </span>
       {formatChartCurrency(data.remainingDebt)}
-     </p>
-     <p className="text-yellow-600">
-      <span className="font-medium">Interest Paid: </span>
-      {formatChartCurrency(data.interestPaid)}
      </p>
      {data.type === 'projected' && (
       <p className="text-sm text-gray-500">Projected</p>
@@ -213,28 +201,28 @@ export default function CombinedBurnUpCard({
        label={{ value: "Total Goal", position: "topRight", fontSize: 11 }}
       />
       
-      {/* Interest paid line (actual) - increasing line */}
+      {/* Actual payments line (step after) */}
       <Line
-       dataKey="interestPaid"
-       stroke="#F59E0B"
+       dataKey="paid"
+       stroke="#059669"
        strokeWidth={3}
        type="stepAfter"
-       dot={{ fill: '#F59E0B', strokeWidth: 2, r: 4 }}
-       activeDot={{ r: 6, fill: '#F59E0B' }}
+       dot={{ fill: '#059669', strokeWidth: 2, r: 4 }}
+       activeDot={{ r: 6, fill: '#059669' }}
        isAnimationActive={false}
        connectNulls={false}
        data={actualData}
       />
-
-      {/* Interest paid projection (dashed) */}
+      
+      {/* Projected payments line (dashed) */}
       {projectedData.length > 0 && (
        <Line
-        dataKey="interestPaid"
-        stroke="#FCD34D"
+        dataKey="paid"
+        stroke="#34D399"
         strokeWidth={2}
         strokeDasharray="5 5"
         type="stepAfter"
-        dot={{ fill: '#FCD34D', strokeWidth: 1, r: 3 }}
+        dot={{ fill: '#34D399', strokeWidth: 1, r: 3 }}
         isAnimationActive={false}
         connectNulls={false}
         data={projectedData}
@@ -315,15 +303,6 @@ export default function CombinedBurnUpCard({
      </div>
     </div>
    )}
-
-   {/* Total Repayment Summary */}
-   <div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
-    <div className="text-sm text-blue-800">
-     <span className="font-medium">💰 Total Repayment:</span> Over {projection?.projectedEndDate ?
-      Math.ceil((new Date(projection.projectedEndDate) - new Date()) / (1000 * 60 * 60 * 24 * 30.44)) : '—'
-     } months, you'll repay {formatChartCurrency(totalCurrentBalance)} debt + {formatChartCurrency(goalAmount * weightedAPR)} estimated interest = {formatChartCurrency(totalCurrentBalance + (goalAmount * weightedAPR))} total
-    </div>
-   </div>
 
    {paidAmount === 0 && (
     <div className="mt-4 p-3 bg-gray-50 rounded-lg">

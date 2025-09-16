@@ -723,11 +723,6 @@ const StripeCheckoutAPI = {
         });
       }
 
-      // Use environment price ID to prevent prod/test mix-ups
-      const LIVE_PRICE_ID = env.STRIPE_PRICE_PRO || priceId;
-      
-      console.log(`🎫 Creating checkout for price ${LIVE_PRICE_ID} (user: ${userId})`);
-
       // Create Stripe checkout session
       const checkoutSession = await fetch('https://api.stripe.com/v1/checkout/sessions', {
         method: 'POST',
@@ -737,13 +732,10 @@ const StripeCheckoutAPI = {
         },
         body: new URLSearchParams({
           'payment_method_types[0]': 'card',
-          'line_items[0][price]': LIVE_PRICE_ID,
+          'line_items[0][price]': priceId,
           'line_items[0][quantity]': '1',
           'mode': 'subscription',
-          'customer_creation': 'if_required',
           'customer_email': customerEmail,
-          'metadata[user_id]': userId,
-          'subscription_data[metadata][user_id]': userId,
           'success_url': successUrl,
           'cancel_url': cancelUrl,
           'allow_promotion_codes': 'true',
@@ -1117,32 +1109,7 @@ export default {
       }
     }
 
-    // GET /api/me/plan - Returns user's billing status (single source of truth)
-    if (pathname === '/api/me/plan' && request.method === 'GET') {
-      try {
-        const user = await getUserFromCookie(request, env);
-        if (!user) {
-          return json({ is_paid: false, source: 'none', reason: 'Not authenticated' }, 200, { 'Access-Control-Allow-Origin': '*' });
-        }
-        
-        const row = await env.DB.prepare('SELECT is_pro, beta_access FROM users WHERE email=?')
-          .bind(user.email).first();
-        
-        if (!row) {
-          return json({ is_paid: false, source: 'none', reason: 'User not found' }, 200, { 'Access-Control-Allow-Origin': '*' });
-        }
-        
-        const is_paid = !!(row.beta_access || row.is_pro);
-        const source = row.beta_access ? 'beta' : (row.is_pro ? 'stripe' : 'none');
-        
-        return json({ is_paid, source }, 200, { 'Access-Control-Allow-Origin': '*' });
-      } catch (error) {
-        console.error('[/api/me/plan] Error:', error);
-        return json({ is_paid: false, source: 'none', reason: 'Database error' }, 200, { 'Access-Control-Allow-Origin': '*' });
-      }
-    }
-
-    // GET /api/account/entitlement - Returns user's Pro/Free status (legacy compatibility)
+    // GET /api/account/entitlement - Returns user's Pro/Free status
     if (pathname === '/api/account/entitlement' && request.method === 'GET') {
       try {
         const user = await getUserFromCookie(request, env);

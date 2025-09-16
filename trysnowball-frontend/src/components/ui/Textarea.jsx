@@ -2,52 +2,52 @@ import React, { forwardRef } from 'react';
 import clsx from 'clsx';
 
 const Textarea = forwardRef(({ 
- error = false,
- disabled = false,
- rows = 4,
- className = '',
- ...props 
+  error = false,
+  disabled = false,
+  rows = 4,
+  className = '',
+  ...props 
 }, ref) => {
- const baseStyles = `
-  w-full px-3 py-2 text-sm border rounded-button transition-all duration-200
-  focus:outline-none focus:ring-2 focus:ring-offset-0
-  disabled:cursor-not-allowed resize-vertical
- `;
+  const baseStyles = `
+    w-full px-3 py-2 text-sm border rounded-lg transition-all duration-200
+    focus:outline-none focus:ring-2 focus:ring-offset-0
+    disabled:cursor-not-allowed resize-vertical
+  `;
 
- // Use CSS variables for consistent theming
- const textareaStyles = {
-  backgroundColor: disabled ? 'var(--form-field-bg-disabled)' : 
-           error ? 'var(--form-field-bg-error)' : 'var(--form-field-bg)',
-  borderColor: disabled ? 'var(--form-field-border-disabled)' :
-         error ? 'var(--form-field-border-error)' : 'var(--form-field-border)',
-  color: disabled ? 'var(--form-field-text-disabled)' : 
-      error ? 'var(--form-field-text-error)' : 'var(--form-field-text)',
-  '--tw-ring-color': error ? 'var(--form-field-border-error)' : 'var(--form-field-border-focus)'
- };
+  // Use CSS variables for consistent theming
+  const textareaStyles = {
+    backgroundColor: disabled ? 'var(--form-field-bg-disabled)' : 
+                     error ? 'var(--form-field-bg-error)' : 'var(--form-field-bg)',
+    borderColor: disabled ? 'var(--form-field-border-disabled)' :
+                 error ? 'var(--form-field-border-error)' : 'var(--form-field-border)',
+    color: disabled ? 'var(--form-field-text-disabled)' : 
+           error ? 'var(--form-field-text-error)' : 'var(--form-field-text)',
+    '--tw-ring-color': error ? 'var(--form-field-border-error)' : 'var(--form-field-border-focus)'
+  };
 
- const placeholderStyles = `
-  placeholder:opacity-100
- `;
+  const placeholderStyles = `
+    placeholder:opacity-100
+  `;
 
- return (
-  <textarea
-   ref={ref}
-   rows={rows}
-   disabled={disabled}
-   className={clsx(
-    baseStyles,
-    placeholderStyles,
-    'hover:border-border ',
-    disabled && 'hover:border-border ',
-    className
-   )}
-   style={{
-    ...textareaStyles,
-    '--tw-placeholder-color': 'var(--form-field-placeholder)'
-   }}
-   {...props}
-  />
- );
+  return (
+    <textarea
+      ref={ref}
+      rows={rows}
+      disabled={disabled}
+      className={clsx(
+        baseStyles,
+        placeholderStyles,
+        'hover:border-gray-400 dark:hover:border-gray-500',
+        disabled && 'hover:border-gray-200 dark:hover:border-gray-700',
+        className
+      )}
+      style={{
+        ...textareaStyles,
+        '--tw-placeholder-color': 'var(--form-field-placeholder)'
+      }}
+      {...props}
+    />
+  );
 });
 
 Textarea.displayName = 'Textarea';

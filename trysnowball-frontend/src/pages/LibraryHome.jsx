@@ -3,56 +3,56 @@ import { Link } from "react-router-dom";
 import { ARTICLES } from "../data/articlesIndex";
 
 const groupBy = (arr, key) =>
- arr.reduce((acc, item) => ((acc[item[key]] ||= []).push(item), acc), {});
+  arr.reduce((acc, item) => ((acc[item[key]] ||= []).push(item), acc), {});
 
 // util
 function setMeta(name, content) {
- let tag = document.querySelector(`meta[name="${name}"]`);
- if (!tag) {
-  tag = document.createElement("meta");
-  tag.setAttribute("name", name);
-  document.head.appendChild(tag);
- }
- tag.setAttribute("content", content);
+  let tag = document.querySelector(`meta[name="${name}"]`);
+  if (!tag) {
+    tag = document.createElement("meta");
+    tag.setAttribute("name", name);
+    document.head.appendChild(tag);
+  }
+  tag.setAttribute("content", content);
 }
 
 export default function LibraryHome() {
- // SEO (no Helmet)
- useEffect(() => {
-  document.title = "Library — TrySnowball";
-  setMeta("description", "Guides and strategies to help you get out of debt faster.");
- }, []);
+  // SEO (no Helmet)
+  useEffect(() => {
+    document.title = "Library — TrySnowball";
+    setMeta("description", "Guides and strategies to help you get out of debt faster.");
+  }, []);
 
- const grouped = useMemo(() => groupBy(ARTICLES, "category"), []);
- const categories = Object.keys(grouped);
+  const grouped = useMemo(() => groupBy(ARTICLES, "category"), []);
+  const categories = Object.keys(grouped);
 
- return (
-  <div className="mx-auto max-w-3xl px-4 py-10">
-   <h1 className="text-3xl font-extrabold tracking-tight">Library</h1>
-   <p className="mt-2 text-slate-600">
-    Practical, short articles on strategies and how‑tos. No fluff.
-   </p>
+  return (
+    <div className="mx-auto max-w-3xl px-4 py-10">
+      <h1 className="text-3xl font-extrabold tracking-tight">Library</h1>
+      <p className="mt-2 text-slate-600">
+        Practical, short articles on strategies and how‑tos. No fluff.
+      </p>
 
-   <div className="mt-8 space-y-8">
-    {categories.map(cat => (
-     <section key={cat}>
-      <h2 className="text-xl font-bold">{cat}</h2>
-      <ul className="mt-3 space-y-3">
-       {grouped[cat].map(a => (
-        <li key={a.slug} className="rounded-lg border border-slate-200 p-4 hover:bg-slate-50">
-         <Link to={`/library/${a.slug}`} className="block">
-          <div className="flex items-center justify-between">
-           <h3 className="text-lg font-semibold">{a.title}</h3>
-           <span className="text-xs text-slate-500">{a.updated}</span>
-          </div>
-          <p className="mt-1 text-slate-600">{a.summary}</p>
-         </Link>
-        </li>
-       ))}
-      </ul>
-     </section>
-    ))}
-   </div>
-  </div>
- );
+      <div className="mt-8 space-y-8">
+        {categories.map(cat => (
+          <section key={cat}>
+            <h2 className="text-xl font-bold">{cat}</h2>
+            <ul className="mt-3 space-y-3">
+              {grouped[cat].map(a => (
+                <li key={a.slug} className="rounded-lg border border-slate-200 p-4 hover:bg-slate-50">
+                  <Link to={`/library/${a.slug}`} className="block">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-lg font-semibold">{a.title}</h3>
+                      <span className="text-xs text-slate-500">{a.updated}</span>
+                    </div>
+                    <p className="mt-1 text-slate-600">{a.summary}</p>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </section>
+        ))}
+      </div>
+    </div>
+  );
 }

@@ -4,55 +4,55 @@
  */
 
 export const GPT_CONFIG = {
- // Model selection - upgraded to GPT-4o for better reasoning and tone
- model: "gpt-4o",
+  // Model selection - upgraded to GPT-4o for better reasoning and tone
+  model: "gpt-4o",
 
- // Token limits by agent type for cost control
- max_tokens: {
-  coach: 750,     // Coaching requires a bit more room for useful dialogue
-  ingest: 700,    // Table parsing and JSON cleanup - needs structure
-  share: 150,     // Social message generation - short and punchy
-  commitments: 300,  // Monthly commitment generation - structured but motivating
-  general: 500    // Default fallback
- },
+  // Token limits by agent type for cost control
+  max_tokens: {
+    coach: 750,         // Coaching requires a bit more room for useful dialogue
+    ingest: 700,        // Table parsing and JSON cleanup - needs structure
+    share: 150,         // Social message generation - short and punchy
+    commitments: 300,   // Monthly commitment generation - structured but motivating
+    general: 500        // Default fallback
+  },
 
- // API parameters for consistent behavior
- temperature: 0.3,     // Low temperature for focused, consistent responses
- top_p: 1,        // Nucleus sampling - full vocabulary
- frequency_penalty: 0,  // No repetition penalty
- presence_penalty: 0,   // No topic avoidance
+  // API parameters for consistent behavior
+  temperature: 0.3,         // Low temperature for focused, consistent responses
+  top_p: 1,                // Nucleus sampling - full vocabulary
+  frequency_penalty: 0,    // No repetition penalty
+  presence_penalty: 0,     // No topic avoidance
 
- // Cost and usage settings
- costPer1KTokens: {
-  input: 0.005,  // GPT-4o input token cost
-  output: 0.010 // GPT-4o output token cost
- },
+  // Cost and usage settings
+  costPer1KTokens: {
+    input: 0.005,   // GPT-4o input token cost
+    output: 0.010  // GPT-4o output token cost
+  },
 
- // Usage limits (optional future implementation)
- limits: {
-  dailyTokenLimit: 50000,   // Per user daily limit
-  monthlyTokenLimit: 500000, // Per user monthly limit
-  warningThreshold: 0.8    // Warn at 80% of limit
- },
+  // Usage limits (optional future implementation)
+  limits: {
+    dailyTokenLimit: 50000,     // Per user daily limit
+    monthlyTokenLimit: 500000,  // Per user monthly limit
+    warningThreshold: 0.8       // Warn at 80% of limit
+  },
 
- // Debugging controls
- debug: {
-  enabled: process.env.REACT_APP_GPT_DEBUG === 'true',
-  logMessages: true,
-  logCost: true
- },
+  // Debugging controls
+  debug: {
+    enabled: process.env.REACT_APP_GPT_DEBUG === 'true',
+    logMessages: true,
+    logCost: true
+  },
 
- // Tone profiles for future whitelabel use
- toneProfiles: {
-  default: 'UK-confident',
-  friendly: 'Warm but direct',
-  clinical: 'Data-driven and neutral',
-  tiktok: 'Punchy and shareable'
- },
+  // Tone profiles for future whitelabel use
+  toneProfiles: {
+    default: 'UK-confident',
+    friendly: 'Warm but direct',
+    clinical: 'Data-driven and neutral',
+    tiktok: 'Punchy and shareable'
+  },
 
- // Centralised system prompts by agent type
- systemPrompts: {
-  coach: `You are a UK-based debt coach for TrySnowball.
+  // Centralised system prompts by agent type
+  systemPrompts: {
+    coach: `You are a UK-based debt coach for TrySnowball.
 
 DATA HANDLING:
 - When user provides debt data updates (JSON/table), acknowledge and store without giving advice
@@ -79,15 +79,15 @@ TONE:
 EXAMPLE:
 "Target Barclaycard — £1,247 at 24.9% APR. With £200 extra, you'll clear it in 7 months and save £156 in interest. Then roll that full amount into Halifax."`,
 
-  commitments: `
+    commitments: `
 You generate monthly debt commitment goals.
 Each response should include 3–5 short, specific action items.
 Use checkboxes (✓) and motivational tone.
 Focus on behavior change, consistency, and visible progress.
 Do not greet the user or explain what you're doing — just give the plan.
-  `.trim(),
+    `.trim(),
 
-  ingest: `You are a structured financial data parser for TrySnowball, a debt management app.
+    ingest: `You are a structured financial data parser for TrySnowball, a debt management app.
 
 PRIMARY TASK: Convert pasted debt tables into clean, validated JSON.
 
@@ -109,18 +109,18 @@ RULES:
 
 OUTPUT FORMAT:
 {
- "success": true,
- "debts": [
-  { "name": string, "balance": number, "minPayment"?: number, "interestRate"?: number, "order"?: number }
- ],
- "questions": [string],
- "warnings": [string],
- "confidence": number (0–100)
+  "success": true,
+  "debts": [
+    { "name": string, "balance": number, "minPayment"?: number, "interestRate"?: number, "order"?: number }
+  ],
+  "questions": [string],
+  "warnings": [string],
+  "confidence": number (0–100)
 }
 
 Be strict. Don't guess. Ask questions when clarity is needed. Stay in data processing mode.`,
 
-  share: `You write social celebration posts for debt payoff wins.
+    share: `You write social celebration posts for debt payoff wins.
 
 STYLE:
 - Brief: 1–2 lines max
@@ -133,7 +133,7 @@ EXAMPLES:
 - "Started at £12k. Down to £7.5k. Still pushing."
 - "DEBT FREE. That final payment hit today."`,
 
-  general: `You are a helpful, plain-English assistant for TrySnowball.
+    general: `You are a helpful, plain-English assistant for TrySnowball.
 
 TASK:
 - Answer user questions about payoff strategies
@@ -145,76 +145,76 @@ TONE:
 - Non-judgemental
 - British tone (use £ not $)
 - Keep responses short and useful`
- }
+  }
 };
 
 /**
  * Get token limit for specific agent type
  */
 export function getTokenLimit(agentType = 'general') {
- return GPT_CONFIG.max_tokens[agentType] || GPT_CONFIG.max_tokens.general;
+  return GPT_CONFIG.max_tokens[agentType] || GPT_CONFIG.max_tokens.general;
 }
 
 /**
  * Get system prompt for agent type
  */
 export function getSystemPrompt(agentType = 'general') {
- return GPT_CONFIG.systemPrompts[agentType] || GPT_CONFIG.systemPrompts.general;
+  return GPT_CONFIG.systemPrompts[agentType] || GPT_CONFIG.systemPrompts.general;
 }
 
 /**
  * Build GPT request payload with proper limits
  */
 export function buildGPTPayload(messages, agentType = 'general', customOptions = {}) {
- return {
-  model: GPT_CONFIG.model,
-  messages,
-  max_tokens: getTokenLimit(agentType),
-  temperature: customOptions.temperature || GPT_CONFIG.temperature,
-  top_p: customOptions.top_p || GPT_CONFIG.top_p,
-  frequency_penalty: customOptions.frequency_penalty || GPT_CONFIG.frequency_penalty,
-  presence_penalty: customOptions.presence_penalty || GPT_CONFIG.presence_penalty,
-  ...customOptions // Allow override of any parameter
- };
+  return {
+    model: GPT_CONFIG.model,
+    messages,
+    max_tokens: getTokenLimit(agentType),
+    temperature: customOptions.temperature || GPT_CONFIG.temperature,
+    top_p: customOptions.top_p || GPT_CONFIG.top_p,
+    frequency_penalty: customOptions.frequency_penalty || GPT_CONFIG.frequency_penalty,
+    presence_penalty: customOptions.presence_penalty || GPT_CONFIG.presence_penalty,
+    ...customOptions // Allow override of any parameter
+  };
 }
 
 /**
  * Estimate cost for a request (accurate for GPT-4o)
  */
 export function estimateRequestCost(inputTokens, outputTokens = null) {
- const estimatedOutputTokens = outputTokens || Math.round(inputTokens * 0.3);
- const inputCost = (inputTokens / 1000) * GPT_CONFIG.costPer1KTokens.input;
- const outputCost = (estimatedOutputTokens / 1000) * GPT_CONFIG.costPer1KTokens.output;
- return inputCost + outputCost;
+  const estimatedOutputTokens = outputTokens || Math.round(inputTokens * 0.3);
+  const inputCost = (inputTokens / 1000) * GPT_CONFIG.costPer1KTokens.input;
+  const outputCost = (estimatedOutputTokens / 1000) * GPT_CONFIG.costPer1KTokens.output;
+  return inputCost + outputCost;
 }
 
 /**
  * Validate environment variables are set
  */
 export function validateGPTEnvironment() {
- const endpoint = process.env.REACT_APP_GPT_ENDPOINT;
- const apiKey = process.env.REACT_APP_GPT_API_KEY;
+  const endpoint = process.env.REACT_APP_GPT_ENDPOINT;
+  const apiKey = process.env.REACT_APP_GPT_API_KEY;
 
- if (!endpoint || !apiKey) {
-  console.warn('GPT Environment not configured:', {
-   hasEndpoint: !!endpoint,
-   hasApiKey: !!apiKey
-  });
-  return false;
- }
+  if (!endpoint || !apiKey) {
+    console.warn('GPT Environment not configured:', {
+      hasEndpoint: !!endpoint,
+      hasApiKey: !!apiKey
+    });
+    return false;
+  }
 
- return true;
+  return true;
 }
 
 /**
  * Get API configuration
  */
 export function getAPIConfig() {
- return {
-  endpoint: process.env.REACT_APP_GPT_ENDPOINT,
-  apiKey: process.env.REACT_APP_GPT_API_KEY,
-  isConfigured: validateGPTEnvironment()
- };
+  return {
+    endpoint: process.env.REACT_APP_GPT_ENDPOINT,
+    apiKey: process.env.REACT_APP_GPT_API_KEY,
+    isConfigured: validateGPTEnvironment()
+  };
 }
 
 export default GPT_CONFIG;

@@ -1,143 +1,47 @@
 import * as React from 'react';
-import { localDebtStore } from '../data/localDebtStore';
+import { localDebtStore } from '../data/localDebtStore.ts';
 
-type Debt = {
- amount_pennies?: number;    // backend shape
- balance_cents?: number;   // legacy shape (if any)
- min_payment_pennies?: number; // optional
- apr?: number;      // optional
- balance?: number;      // legacy GBP shape
- minPayment?: number;     // legacy GBP shape
- interestRate?: number;    // legacy percentage shape
+type TotalsState = {
+  total: number;
+  min: number;
+  count: number;
+  debts: any[];
+  loading: boolean;
 };
 
-type Aggregate = {
- total_cents?: number;
- min_payment_pennies?: number;
- weighted_apr?: number;
-};
-
-type TotalsResult = {
- totalCents: number;
- totalGBP: number;
- minPaymentCents: number;
- minPaymentGBP: number;
- weightedApr: number;
- count: number;
- debts: Debt[];
- loading: boolean;
-};
-
-function calculateTotalsFromDebts(debts: Debt[]): Omit<TotalsResult, 'count' | 'debts' | 'loading'> {
- let totalCents = 0;
- let minPaymentCents = 0;
- let aprWeightedSum = 0;
-
- for (const d of debts) {
-  // Handle multiple possible data shapes
-  const amtCents = d.amount_pennies ?? d.balance_cents ?? (d.balance ? Math.round(d.balance * 100) : 0);
-  const mpCents = d.min_payment_pennies ?? (d.minPayment ? Math.round(d.minPayment * 100) : 0);
-  const aprPercent = d.apr ?? d.interestRate ?? 0;
-  
-  totalCents += amtCents;
-  minPaymentCents += mpCents;
-  
-  if (amtCents > 0 && aprPercent > 0) {
-   aprWeightedSum += (aprPercent / 100) * (amtCents / 100); // APR * £balance
-  }
- }
-
- const weightedAprDecimal = totalCents > 0 ? (aprWeightedSum / (totalCents / 100)) : 0; // decimal, e.g. 0.199
- const weightedApr = weightedAprDecimal; // Now in percentage format directly
-
- return {
-  totalCents,
-  totalGBP: totalCents / 100,
-  minPaymentCents,
-  minPaymentGBP: minPaymentCents / 100,
-  weightedApr,
- };
-}
-
-export function usePlanTotals(input?: Debt[] | Aggregate): TotalsResult {
- const [state, setState] = React.useState<TotalsResult>({
-  totalCents: 0,
-  totalGBP: 0,
-  minPaymentCents: 0,
-  minPaymentGBP: 0,
-  weightedApr: 0,
-  count: 0,
-  debts: [],
-  loading: true,
- });
-
- // If input is provided, use it directly (synchronous)
- const directResult = React.useMemo(() => {
-  if (!input) return null;
-  
-  // If it's an aggregate object
-  if (!Array.isArray(input)) {
-   const totalCents = input.total_cents ?? 0;
-   const minPaymentCents = input.min_payment_pennies ?? 0;
-   const weightedApr = input.weighted_apr ?? 0;
-   return {
-    totalCents,
-    totalGBP: totalCents / 100,
-    minPaymentCents,
-    minPaymentGBP: minPaymentCents / 100,
-    weightedApr,
-    count: 1, // aggregate represents multiple debts
+export function usePlanTotals(): TotalsState {
+  const [state, setState] = React.useState<TotalsState>({
+    total: 0,
+    min: 0,
+    count: 0,
     debts: [],
-    loading: false,
-   };
-  }
+    loading: true,
+  });
 
-  // Otherwise calculate from debts array
-  const totals = calculateTotalsFromDebts(input);
-  return {
-   ...totals,
-   count: input.length,
-   debts: input,
-   loading: false,
-  };
- }, [input]);
+  React.useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const rows = await localDebtStore.listDebts();
+        const norm = rows.map((d: any) => ({
+          ...d,
+          balance: d.balance ?? (d.balance_cents != null ? d.balance_cents / 100 : 0),
+          minPayment: d.minPayment ?? (d.min_payment_cents != null ? d.min_payment_cents / 100 : 0),
+        }));
+        const total = norm.reduce((s, d) => s + (d.balance || 0), 0);
+        const min = norm.reduce((s, d) => s + (d.minPayment || 0), 0);
+        if (!alive) return;
+        setState({ total, min, count: norm.length, debts: norm, loading: false });
+      } catch (e) {
+        console.warn('[usePlanTotals] Failed to load debts, using safe defaults:', e);
+        if (!alive) return;
+        setState({ total: 0, min: 0, count: 0, debts: [], loading: false });
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, []);
 
- // Load from store when no input provided (async)
- React.useEffect(() => {
-  if (input) return; // Don't load if input provided
-  
-  let alive = true;
-  (async () => {
-   try {
-    const rows = await localDebtStore.listDebts();
-    const totals = calculateTotalsFromDebts(rows);
-    if (!alive) return;
-    setState({
-     ...totals,
-     count: rows.length,
-     debts: rows,
-     loading: false,
-    });
-   } catch (e) {
-    console.warn('[usePlanTotals] Failed to load debts, using safe defaults:', e);
-    if (!alive) return;
-    setState({
-     totalCents: 0,
-     totalGBP: 0,
-     minPaymentCents: 0,
-     minPaymentGBP: 0,
-     weightedApr: 0,
-     count: 0,
-     debts: [],
-     loading: false,
-    });
-   }
-  })();
-  return () => {
-   alive = false;
-  };
- }, [input]);
-
- // Return direct result if input provided, otherwise return state
- return directResult || state;
+  return state;
 }

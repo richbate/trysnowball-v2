@@ -6,13 +6,12 @@
 
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useUserDebts } from '../hooks/useUserDebts';
-import { computeDebtTotals } from '../selectors/debtTotals';
+import { useTheme } from '../contexts/ThemeContext';
+import { useDebts } from '../hooks/useDebts';
 import { useForecastSelectors } from '../hooks/selectors/useForecastSelectors';
 import { useSnowflakeSelectors } from '../hooks/selectors/useSnowflakeSelectors';
 import { useGoalSelectors } from '../hooks/selectors/useGoalSelectors';
 import { useCtaSelectors, getCtaPath, getCtaAnalytics } from '../hooks/selectors/useCtaSelectors';
-import { useInsights } from '../hooks/useInsights';
 
 // Dashboard components
 import HeroForecast from '../components/home/HeroForecast';
@@ -22,320 +21,193 @@ import FocusDebtCard from '../components/home/FocusDebtCard';
 import TeaserSnowflakes from '../components/home/TeaserSnowflakes';
 import TeaserGoals from '../components/home/TeaserGoals';
 import ContextCTA from '../components/home/ContextCTA';
-import InsightBox from '../components/InsightBox';
-import PrivacySecurityBanner from '../components/PrivacySecurityBanner';
 
 const Home = () => {
- const navigate = useNavigate();
- const { debts } = useUserDebts();
- const { totalDebt, totalMinPayments } = computeDebtTotals(debts);
- const [extraPayment, setExtraPayment] = useState(0); // Local boost state
- 
- // Derived selectors
- const forecastData = useForecastSelectors();
- const snowflakeData = useSnowflakeSelectors(); 
- const goalData = useGoalSelectors();
- const ctaData = useCtaSelectors();
- const insights = useInsights(debts, extraPayment);
- 
- // Local boost state (persists on debounce)
- const [localBoost, setLocalBoost] = useState(extraPayment * 100); // Convert to pennies
- const [boostTimer, setBoostTimer] = useState(null);
- const [dismissedInsights, setDismissedInsights] = useState([]);
- 
- // Handle CTA clicks with enhanced analytics
- const handleCtaClick = () => {
-  const { kind } = ctaData;
+  const navigate = useNavigate();
+  const { colors } = useTheme();
+  const { debts, totalDebt, totalMinPayments } = useDebts();
+  const [extraPayment, setExtraPayment] = useState(0); // Local boost state
   
-  // Enhanced analytics tracking
-  if (window.posthog) {
-   const analyticsData = getCtaAnalytics(ctaData, {
-    hasDebts: debts && debts.length > 0,
-    hasBoost: extraPayment > 0,
-    totalDebtPennies: Math.round((totalDebt || 0) * 100),
-    currentBoostPennies: localBoost
-   });
-   
-   window.posthog.capture('home_cta_click', analyticsData);
-  }
+  // Derived selectors
+  const forecastData = useForecastSelectors();
+  const snowflakeData = useSnowflakeSelectors(); 
+  const goalData = useGoalSelectors();
+  const ctaData = useCtaSelectors();
   
-  // Handle special cases
-  if (kind === 'try-boost') {
-   // For try-boost, actually set a boost instead of navigating
-   handleBoostChange(2500); // Default £25
-   return;
-  }
+  // Local boost state (persists on debounce)
+  const [localBoost, setLocalBoost] = useState(extraPayment * 100); // Convert to pennies
+  const [boostTimer, setBoostTimer] = useState(null);
   
-  // Navigate using smart path logic
-  const path = getCtaPath(kind, { 
-   currentBoost: Math.round(localBoost / 100) 
-  });
+  // CTA logic now handled by selector hook
   
-  navigate(path);
- };
- 
- // Handle boost changes with debounce
- const handleBoostChange = (pennies) => {
-  setLocalBoost(pennies);
-  
-  // Clear existing timer
-  if (boostTimer) clearTimeout(boostTimer);
-  
-  // Set new timer to persist after 500ms
-  const timer = setTimeout(() => {
-   setExtraPayment(pennies / 100); // Convert back to pounds
-   
-   // Track analytics
-   if (window.posthog) {
-    window.posthog.capture('home_boost_change', {
-     value_pennies: pennies,
-     delta_months: forecastData.monthsSaved,
-     delta_interest_saved: forecastData.interestSaved
-    });
-   }
-  }, 500);
-  
-  setBoostTimer(timer);
- };
- 
- 
- // Handle focus debt click
- const handleAttackClick = (debtId) => {
-  navigate(`/plan/strategy?focus=${debtId}`);
- };
- 
- // Handle teaser clicks
- const handleTeaserClick = (target) => {
-  if (window.posthog) {
-   window.posthog.capture('home_teaser_click', { target });
-  }
-  navigate(`/plan/${target}`);
- };
- 
- // Cleanup timer on unmount
- useEffect(() => {
-  return () => {
-   if (boostTimer) clearTimeout(boostTimer);
-  };
- }, [boostTimer]);
- 
- // Calculate helper text for boost
- const getBoostHelperText = () => {
-  if (localBoost === 0) return null;
-  const monthsSaved = Math.round(forecastData.monthsSaved || 0);
-  const interestSaved = Math.round(forecastData.interestSaved || 0);
-  
-  if (monthsSaved > 0 && interestSaved > 0) {
-   return `+£${localBoost / 100} → save ≈ £${interestSaved} and ${monthsSaved} months`;
-  } else if (interestSaved > 0) {
-   return `+£${localBoost / 100} → save ≈ £${interestSaved}`;
-  }
-  return null;
- };
- 
- // Rich empty state - show value and previews
- if (!debts || debts.length === 0) {
-  return (
-   <div className="min-h-[80vh] bg-gradient-to-br from-primary via-accent to-primary flex items-center justify-center px-4">
-    <div className="max-w-2xl mx-auto text-center">
-     {/* Segmented Journey Progress Bar */}
-     <div className="mb-8">
-      <p className="text-white/90 text-sm font-medium mb-3">Step 1 of 3: Add Your Debts</p>
-      <div className="flex gap-2 justify-center">
-       <div className="w-20 h-2 bg-white rounded-full shadow-sm" />
-       <div className="w-20 h-2 bg-white/30 rounded-full" />
-       <div className="w-20 h-2 bg-white/30 rounded-full" />
-      </div>
-     </div>
-
-     {/* Emotional Hero Copy */}
-     <h1 className="text-6xl font-black text-white drop-shadow-sm mb-6">
-      Let's Pay Off Your Debt — Fast 🎯
-     </h1>
-     <p className="text-2xl text-white/90 mb-12 font-medium">
-      Add your debts to get a plan, a timeline, and a taste of freedom.
-     </p>
-
-     {/* Glowing CTA Button */}
-     <div className="mb-8">
-      <button
-       onClick={() => navigate('/onboarding')}
-       className="bg-white text-primary font-bold py-5 px-8 rounded-full shadow-2xl transform hover:-translate-y-1 hover:shadow-3xl transition-all duration-300 text-xl hover:scale-105"
-      >
-       🚀 Start My Snowball Plan
-      </button>
-     </div>
-
-     {/* Secondary CTA */}
-     <button
-      onClick={() => navigate('/demo')}
-      className="text-white/90 underline text-lg hover:text-white transition-colors font-medium"
-     >
-      Just curious? Try the demo first
-     </button>
-    </div>
-
-    {/* Feature previews - below hero section */}
-    <div className="absolute bottom-8 left-0 right-0">
-     <div className="max-w-4xl mx-auto px-4">
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-       <div className="rounded-xl bg-white/10 backdrop-blur-sm p-4 text-center">
-        <div className="text-white/80 text-xs font-medium uppercase tracking-wider mb-1">Forecast</div>
-        <div className="text-white text-sm font-bold">See your debt-free date</div>
-       </div>
-       <div className="rounded-xl bg-white/10 backdrop-blur-sm p-4 text-center">
-        <div className="text-white/80 text-xs font-medium uppercase tracking-wider mb-1">Snowflakes</div>
-        <div className="text-white text-sm font-bold">Find extra £'s each month</div>
-       </div>
-       <div className="rounded-xl bg-white/10 backdrop-blur-sm p-4 text-center">
-        <div className="text-white/80 text-xs font-medium uppercase tracking-wider mb-1">AI Coach</div>
-        <div className="text-white text-sm font-bold">Personalised nudges</div>
-       </div>
-      </div>
-
-      {/* Social proof strip */}
-      <div className="text-center mt-6">
-       <div className="text-white/70 text-sm">Trusted by UK families to manage</div>
-       <div className="text-white text-xl font-bold">£2.3M+ in debt</div>
-      </div>
-     </div>
-    </div>
+  // Handle boost changes with debounce
+  const handleBoostChange = (pennies) => {
+    setLocalBoost(pennies);
     
-    {/* Privacy & Security Banner - Fixed bottom-right toast */}
-    <div className="fixed bottom-4 right-4 max-w-sm z-40">
-     <div className="bg-white/90 backdrop-blur rounded-xl shadow-2xl p-4 text-sm border border-gray-200">
-      <div className="flex items-start gap-2">
-       <div className="text-green-600 text-lg">🔐</div>
-       <div>
-        <div className="font-semibold text-gray-900 mb-1">Your data is safe</div>
-        <div className="text-gray-700 text-xs leading-relaxed">
-         Fully encrypted and stored in the EU. Never sold.
+    // Clear existing timer
+    if (boostTimer) clearTimeout(boostTimer);
+    
+    // Set new timer to persist after 500ms
+    const timer = setTimeout(() => {
+      setExtraPayment(pennies / 100); // Convert back to pounds
+      
+      // Track analytics
+      if (window.posthog) {
+        window.posthog.capture('home_boost_change', {
+          value_pennies: pennies,
+          delta_months: forecastData.monthsSaved,
+          delta_interest_saved: forecastData.interestSaved
+        });
+      }
+    }, 500);
+    
+    setBoostTimer(timer);
+  };
+  
+  // Handle CTA clicks with enhanced analytics
+  const handleCtaClick = () => {
+    const { kind } = ctaData;
+    
+    // Enhanced analytics tracking
+    if (window.posthog) {
+      const analyticsData = getCtaAnalytics(ctaData, {
+        hasDebts: debts && debts.length > 0,
+        hasBoost: extraPayment > 0,
+        totalDebtPennies: Math.round((totalDebt || 0) * 100),
+        currentBoostPennies: localBoost
+      });
+      
+      window.posthog.capture('home_cta_click', analyticsData);
+    }
+    
+    // Handle special cases
+    if (kind === 'try-boost') {
+      // For try-boost, actually set a boost instead of navigating
+      handleBoostChange(2500); // Default £25
+      return;
+    }
+    
+    // Navigate using smart path logic
+    const path = getCtaPath(kind, { 
+      currentBoost: Math.round(localBoost / 100) 
+    });
+    
+    navigate(path);
+  };
+  
+  // Handle focus debt click
+  const handleAttackClick = (debtId) => {
+    navigate(`/plan/strategy?focus=${debtId}`);
+  };
+  
+  // Handle teaser clicks
+  const handleTeaserClick = (target) => {
+    if (window.posthog) {
+      window.posthog.capture('home_teaser_click', { target });
+    }
+    navigate(`/plan/${target}`);
+  };
+  
+  // Cleanup timer on unmount
+  useEffect(() => {
+    return () => {
+      if (boostTimer) clearTimeout(boostTimer);
+    };
+  }, [boostTimer]);
+  
+  // Calculate helper text for boost
+  const getBoostHelperText = () => {
+    if (localBoost === 0) return null;
+    const monthsSaved = Math.round(forecastData.monthsSaved || 0);
+    const interestSaved = Math.round(forecastData.interestSaved || 0);
+    
+    if (monthsSaved > 0 && interestSaved > 0) {
+      return `+£${localBoost / 100} → save ≈ £${interestSaved} and ${monthsSaved} months`;
+    } else if (interestSaved > 0) {
+      return `+£${localBoost / 100} → save ≈ £${interestSaved}`;
+    }
+    return null;
+  };
+  
+  // Empty state
+  if (!debts || debts.length === 0) {
+    return (
+      <div className={`min-h-screen ${colors.background} px-4 py-8`}>
+        <div className="max-w-4xl mx-auto">
+          {/* Welcome message */}
+          <div className="text-center py-16">
+            <h1 className="text-4xl font-bold mb-4">Welcome to TrySnowball</h1>
+            <p className="text-lg text-gray-600 mb-8">
+              Let's start by adding your debts to see your path to freedom
+            </p>
+            <ContextCTA kind="add-debts" onClick={handleCtaClick} />
+          </div>
         </div>
-       </div>
       </div>
-     </div>
-    </div>
-   </div>
-  );
- }
- 
- return (
-  <div className="min-h-screen bg-gradient-to-br from-primary via-accent to-primary">
-   {/* Purple gradient background container */}
-   <div className="px-4 py-8">
-    <div className="max-w-4xl mx-auto space-y-6">
-     {/* Main elevated dashboard card */}
-     <div className="bg-white rounded-3xl shadow-2xl p-8 transform -translate-y-6">
-      {/* Hero Forecast */}
-      <HeroForecast
-       debtFreeDateLabel={forecastData.debtFreeDate}
-       monthsSooner={forecastData.monthsSaved}
-       interestSavedApprox={forecastData.interestSaved * 100} // Convert to pennies
-      />
-      
-      {/* Payment Strip */}
-      <div className="mt-8">
-       <PaymentStrip
-        total={(totalDebt || 0) * 100} // Convert to pennies
-        minimums={(totalMinPayments || 0) * 100}
-        boost={localBoost}
-       />
-      </div>
-      
-      {/* Boost Row */}
-      <div className="mt-6 p-6 bg-gradient-to-r from-secondary to-accent/30 rounded-2xl">
-       <BoostRow
-        value={localBoost}
-        presets={[2500, 5000, 10000, 25000]} // £25, £50, £100, £250
-        onChange={handleBoostChange}
-        helperText={getBoostHelperText()}
-       />
-      </div>
-     </div>
-     
-     {/* Insights Section */}
-     {insights.length > 0 && (
-      <div className="bg-white/95 backdrop-blur rounded-2xl p-6 shadow-xl">
-       <h2 className="text-2xl font-bold text-gray-900 mb-4">Your Insights</h2>
-       <div className="space-y-3">
-        {insights
-         .filter(insight => !dismissedInsights.includes(insight.id))
-         .slice(0, 3) // Show max 3 insights
-         .map(insight => (
-          <InsightBox 
-           key={insight.id} 
-           insight={insight}
-           onDismiss={(id) => setDismissedInsights([...dismissedInsights, id])}
+    );
+  }
+  
+  return (
+    <div className={`min-h-screen ${colors.background} px-4 py-8`}>
+      <div className="max-w-4xl mx-auto space-y-6">
+        {/* Hero Forecast */}
+        <HeroForecast
+          debtFreeDateLabel={forecastData.debtFreeDate}
+          monthsSooner={forecastData.monthsSaved}
+          interestSavedApprox={forecastData.interestSaved * 100} // Convert to pennies
+        />
+        
+        {/* Payment Strip */}
+        <PaymentStrip
+          total={(totalDebt || 0) * 100} // Convert to pennies
+          minimums={(totalMinPayments || 0) * 100}
+          boost={localBoost}
+        />
+        
+        {/* Boost Row */}
+        <BoostRow
+          value={localBoost}
+          presets={[2500, 5000, 10000, 25000]} // £25, £50, £100, £250
+          onChange={handleBoostChange}
+          helperText={getBoostHelperText()}
+        />
+        
+        {/* Focus Debt Card */}
+        {forecastData.focusDebt && (
+          <FocusDebtCard
+            debtId={forecastData.focusDebt.id}
+            name={forecastData.focusDebt.name}
+            payoffMonthLabel={forecastData.focusDebt.payoffMonth}
+            onAttackClick={handleAttackClick}
           />
-         ))}
-       </div>
+        )}
+        
+        {/* Teasers Row */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {snowflakeData.hasSnowflakes && (
+            <TeaserSnowflakes
+              totalAmount={snowflakeData.totalAmount}
+              monthsSooner={snowflakeData.monthsSaved}
+              onManageClick={() => handleTeaserClick('snowflakes')}
+            />
+          )}
+          
+          {goalData.hasActiveGoals && goalData.nextMilestone && (
+            <TeaserGoals
+              progressPct={goalData.nextMilestone.progress || 0}
+              targetPennies={(goalData.activeGoals[0]?.target || 0) * 100}
+              onManageClick={() => handleTeaserClick('goals')}
+            />
+          )}
+        </div>
+        
+        {/* Context CTA - sticky on mobile */}
+        <div className="fixed bottom-0 left-0 right-0 md:relative md:bottom-auto p-4 md:p-0">
+          <ContextCTA kind={ctaData.kind} onClick={handleCtaClick} />
+        </div>
       </div>
-     )}
-     
-     {/* Focus Debt Card */}
-     {forecastData.focusDebt && (
-      <div className="bg-white/95 backdrop-blur rounded-2xl shadow-xl">
-       <FocusDebtCard
-        debtId={forecastData.focusDebt.id}
-        name={forecastData.focusDebt.name}
-        payoffMonthLabel={forecastData.focusDebt.payoffMonth}
-        onAttackClick={handleAttackClick}
-       />
-      </div>
-     )}
-     
-     {/* Teasers Row */}
-     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-      {snowflakeData.hasSnowflakes && (
-       <div className="bg-white/95 backdrop-blur rounded-2xl shadow-xl">
-        <TeaserSnowflakes
-         totalAmount={snowflakeData.totalAmount}
-         monthsSooner={snowflakeData.monthsSaved}
-         onManageClick={() => handleTeaserClick('snowflakes')}
-        />
-       </div>
-      )}
-      
-      {goalData.hasActiveGoals && goalData.nextMilestone && (
-       <div className="bg-white/95 backdrop-blur rounded-2xl shadow-xl">
-        <TeaserGoals
-         progressPct={goalData.nextMilestone.progress || 0}
-         targetPennies={(goalData.activeGoals[0]?.target || 0) * 100}
-         onManageClick={() => handleTeaserClick('goals')}
-        />
-       </div>
-      )}
-     </div>
-     
-     {/* Privacy & Security Banner moved to bottom-right toast */}
-     
-     {/* Context CTA - enhanced with purple theme */}
-     <div className="fixed bottom-0 left-0 right-0 md:relative md:bottom-auto p-4 md:p-0">
-      <div className="bg-gradient-to-r from-primary to-accent rounded-2xl shadow-2xl p-1">
-       <div className="bg-white rounded-xl">
-        <ContextCTA kind={ctaData.kind} onClick={handleCtaClick} />
-       </div>
-      </div>
-     </div>
     </div>
-   </div>
-   
-   {/* Privacy & Security Banner - Fixed bottom-right toast */}
-   <div className="fixed bottom-4 right-4 max-w-sm z-40">
-    <div className="bg-white/90 backdrop-blur rounded-xl shadow-2xl p-4 text-sm border border-gray-200">
-     <div className="flex items-start gap-2">
-      <div className="text-green-600 text-lg">🔐</div>
-      <div>
-       <div className="font-semibold text-gray-900 mb-1">Your data is safe</div>
-       <div className="text-gray-700 text-xs leading-relaxed">
-        Fully encrypted and stored in the EU. Never sold.
-       </div>
-      </div>
-     </div>
-    </div>
-   </div>
-  </div>
- );
+  );
 };
 
 export default Home;

@@ -5,313 +5,313 @@
  * read-only fallbacks during the migration period.
  */
 
-import { localDebtStore } from '../data/localDebtStore';
+import { localDebtStore } from '../data/localDebtStore.ts';
 
 /**
  * Install deprecation shims for legacy systems
  */
 export function installDeprecationShims(): void {
- if (typeof window === 'undefined') return;
- 
- console.log('[DeprecationShims] Installing legacy system interceptors...');
- 
- // Intercept localStorage writes for known debt keys
- interceptLocalStorageWrites();
- 
- // Add deprecation warnings to console
- addDeprecationWarnings();
- 
- // Monitor for legacy write attempts
- monitorLegacyWriteAttempts();
+  if (typeof window === 'undefined') return;
+  
+  console.log('[DeprecationShims] Installing legacy system interceptors...');
+  
+  // Intercept localStorage writes for known debt keys
+  interceptLocalStorageWrites();
+  
+  // Add deprecation warnings to console
+  addDeprecationWarnings();
+  
+  // Monitor for legacy write attempts
+  monitorLegacyWriteAttempts();
 }
 
 /**
  * Intercept localStorage writes to prevent legacy data corruption
  */
 function interceptLocalStorageWrites(): void {
- const BLOCKED_KEYS = new Set([
-  'trysnowball-user-data',
-  'trysnowball-user-data-dev-user-123',
-  'debtBalances',
-  'trysnowball_demo_debts',
-  'sb_debts_simple_v1',
-  'debts',
-  'debt-data'
- ]);
- 
- // Store original methods
- const originalSetItem = localStorage.setItem.bind(localStorage);
- const originalRemoveItem = localStorage.removeItem.bind(localStorage);
- const originalClear = localStorage.clear.bind(localStorage);
- 
- // Override setItem
- localStorage.setItem = function(key: string, value: string) {
-  if (BLOCKED_KEYS.has(key)) {
-   // NO-OP: Swallow legacy writes to prevent crashes
-   console.warn(`[LEGACY] Blocked write to ${key} (no-op)`);
-   trackLegacyWriteAttempt('localStorage.setItem', key);
-   return; // swallow to prevent crashes
-  }
+  const BLOCKED_KEYS = new Set([
+    'trysnowball-user-data',
+    'trysnowball-user-data-dev-user-123',
+    'debtBalances',
+    'trysnowball_demo_debts',
+    'sb_debts_simple_v1',
+    'debts',
+    'debt-data'
+  ]);
   
-  // Check for patterns that might be debt-related (minimal whitelist)
-  // Only allow: auth token (Settings now in IndexedDB via CP-1)
-  const allowedExceptions = [
-   'ts_jwt',        // Auth token - legitimate
-  ];
-  const isAllowedException = allowedExceptions.includes(key);
+  // Store original methods
+  const originalSetItem = localStorage.setItem.bind(localStorage);
+  const originalRemoveItem = localStorage.removeItem.bind(localStorage);
+  const originalClear = localStorage.clear.bind(localStorage);
   
-  // PostHog manages its own keys - don't warn about them
-  const isPostHogKey = key.startsWith('ph_') || key.startsWith('_posthog');
+  // Override setItem
+  localStorage.setItem = function(key: string, value: string) {
+    if (BLOCKED_KEYS.has(key)) {
+      // NO-OP: Swallow legacy writes to prevent crashes
+      console.warn(`[LEGACY] Blocked write to ${key} (no-op)`);
+      trackLegacyWriteAttempt('localStorage.setItem', key);
+      return; // swallow to prevent crashes
+    }
+    
+    // Check for patterns that might be debt-related (minimal whitelist)
+    // Only allow: auth token (Settings now in IndexedDB via CP-1)
+    const allowedExceptions = [
+      'ts_jwt',                // Auth token - legitimate
+    ];
+    const isAllowedException = allowedExceptions.includes(key);
+    
+    // PostHog manages its own keys - don't warn about them
+    const isPostHogKey = key.startsWith('ph_') || key.startsWith('_posthog');
+    
+    if (!isAllowedException && !isPostHogKey && (key.includes('debt') || key.includes('trysnowball'))) {
+      console.warn(`[Warning] Suspicious key detected: ${key}. Consider using localDebtStore.`);
+    }
+    
+    return originalSetItem(key, value);
+  };
   
-  if (!isAllowedException && !isPostHogKey && (key.includes('debt') || key.includes('trysnowball'))) {
-   console.warn(`[Warning] Suspicious key detected: ${key}. Consider using localDebtStore.`);
-  }
+  // Override removeItem to prevent accidental deletion during migration
+  localStorage.removeItem = function(key: string) {
+    if (BLOCKED_KEYS.has(key)) {
+      console.warn(`[DEPRECATED] Blocked removal of legacy key: ${key}`);
+      trackLegacyWriteAttempt('localStorage.removeItem', key);
+      return;
+    }
+    return originalRemoveItem(key);
+  };
   
-  return originalSetItem(key, value);
- };
- 
- // Override removeItem to prevent accidental deletion during migration
- localStorage.removeItem = function(key: string) {
-  if (BLOCKED_KEYS.has(key)) {
-   console.warn(`[DEPRECATED] Blocked removal of legacy key: ${key}`);
-   trackLegacyWriteAttempt('localStorage.removeItem', key);
-   return;
-  }
-  return originalRemoveItem(key);
- };
- 
- // Override clear to preserve legacy data during migration
- localStorage.clear = function() {
-  console.warn('[DEPRECATED] localStorage.clear() called - preserving legacy debt keys');
-  
-  // Get all keys
-  const keys = Object.keys(localStorage);
-  
-  // Clear everything except blocked keys
-  for (const key of keys) {
-   if (!BLOCKED_KEYS.has(key) && !key.startsWith('legacy_backup_')) {
-    originalRemoveItem(key);
-   }
-  }
- };
+  // Override clear to preserve legacy data during migration
+  localStorage.clear = function() {
+    console.warn('[DEPRECATED] localStorage.clear() called - preserving legacy debt keys');
+    
+    // Get all keys
+    const keys = Object.keys(localStorage);
+    
+    // Clear everything except blocked keys
+    for (const key of keys) {
+      if (!BLOCKED_KEYS.has(key) && !key.startsWith('legacy_backup_')) {
+        originalRemoveItem(key);
+      }
+    }
+  };
 }
 
 /**
  * Add deprecation warnings for commonly used legacy methods
  */
 function addDeprecationWarnings(): void {
- // Add warnings to window object for global access patterns
- if (typeof window !== 'undefined') {
-  // Common global patterns used in the codebase
-  const legacyAPIs = [
-   'debtManager',
-   'debtsManager',
-   'getDebts',
-   'saveDebt',
-   'loadDebts'
-  ];
-  
-  for (const api of legacyAPIs) {
-   Object.defineProperty(window, api, {
-    get() {
-     console.error(`[DEPRECATED] Attempted access to window.${api}. Use localDebtStore instead.`);
-     trackLegacyWriteAttempt(`window.${api}`, 'access');
-     return undefined;
-    },
-    set(value) {
-     console.error(`[DEPRECATED] Attempted to set window.${api}. This is no longer supported.`);
-     trackLegacyWriteAttempt(`window.${api}`, 'set');
+  // Add warnings to window object for global access patterns
+  if (typeof window !== 'undefined') {
+    // Common global patterns used in the codebase
+    const legacyAPIs = [
+      'debtManager',
+      'debtsManager',
+      'getDebts',
+      'saveDebt',
+      'loadDebts'
+    ];
+    
+    for (const api of legacyAPIs) {
+      Object.defineProperty(window, api, {
+        get() {
+          console.error(`[DEPRECATED] Attempted access to window.${api}. Use localDebtStore instead.`);
+          trackLegacyWriteAttempt(`window.${api}`, 'access');
+          return undefined;
+        },
+        set(value) {
+          console.error(`[DEPRECATED] Attempted to set window.${api}. This is no longer supported.`);
+          trackLegacyWriteAttempt(`window.${api}`, 'set');
+        }
+      });
     }
-   });
   }
- }
 }
 
 /**
  * Monitor and report legacy write attempts
  */
 function monitorLegacyWriteAttempts(): void {
- // Set up periodic check for legacy modifications
- if (process.env.NODE_ENV === 'development') {
-  setInterval(() => {
-   checkForUnauthorizedWrites();
-  }, 5000); // Check every 5 seconds in dev
- }
+  // Set up periodic check for legacy modifications
+  if (process.env.NODE_ENV === 'development') {
+    setInterval(() => {
+      checkForUnauthorizedWrites();
+    }, 5000); // Check every 5 seconds in dev
+  }
 }
 
 /**
  * Check for unauthorized writes that bypassed our interceptors
  */
 function checkForUnauthorizedWrites(): void {
- const LEGACY_KEYS = [
-  'trysnowball-user-data',
-  'debtBalances',
-  'trysnowball_demo_debts'
- ];
- 
- for (const key of LEGACY_KEYS) {
-  const value = localStorage.getItem(key);
-  if (value) {
-   try {
-    const parsed = JSON.parse(value);
-    const checkKey = `_check_${key}`;
-    const lastCheck = localStorage.getItem(checkKey);
-    
-    if (lastCheck !== value) {
-     console.error(`[VIOLATION] Unauthorized write detected to ${key}!`);
-     trackLegacyWriteAttempt('unauthorized', key);
-     
-     // Store check value
-     localStorage.setItem(checkKey, value);
+  const LEGACY_KEYS = [
+    'trysnowball-user-data',
+    'debtBalances',
+    'trysnowball_demo_debts'
+  ];
+  
+  for (const key of LEGACY_KEYS) {
+    const value = localStorage.getItem(key);
+    if (value) {
+      try {
+        const parsed = JSON.parse(value);
+        const checkKey = `_check_${key}`;
+        const lastCheck = localStorage.getItem(checkKey);
+        
+        if (lastCheck !== value) {
+          console.error(`[VIOLATION] Unauthorized write detected to ${key}!`);
+          trackLegacyWriteAttempt('unauthorized', key);
+          
+          // Store check value
+          localStorage.setItem(checkKey, value);
+        }
+      } catch {
+        // Ignore parse errors
+      }
     }
-   } catch {
-    // Ignore parse errors
-   }
   }
- }
 }
 
 /**
  * Track legacy write attempts for analytics
  */
 function trackLegacyWriteAttempt(method: string, key: string): void {
- try {
-  // Always log in development
-  if (process.env.NODE_ENV === 'development') {
-   console.trace(`[LegacyWriteAttempt] ${method} -> ${key}`);
+  try {
+    // Always log in development
+    if (process.env.NODE_ENV === 'development') {
+      console.trace(`[LegacyWriteAttempt] ${method} -> ${key}`);
+    }
+    
+    // Send to analytics
+    if (typeof window !== 'undefined' && (window as any).posthog) {
+      (window as any).posthog.capture('legacy_write_attempt', {
+        method,
+        key,
+        module: detectCallingModule(),
+        timestamp: new Date().toISOString()
+      });
+    }
+  } catch {
+    // Silently fail analytics
   }
-  
-  // Send to analytics
-  if (typeof window !== 'undefined' && (window as any).posthog) {
-   (window as any).posthog.capture('legacy_write_attempt', {
-    method,
-    key,
-    module: detectCallingModule(),
-    timestamp: new Date().toISOString()
-   });
-  }
- } catch {
-  // Silently fail analytics
- }
 }
 
 /**
  * Try to detect which module is attempting the legacy write
  */
 function detectCallingModule(): string {
- try {
-  const stack = new Error().stack;
-  if (stack) {
-   // Parse stack to find calling file
-   const lines = stack.split('\n');
-   // Skip first 3 lines (Error, detectCallingModule, trackLegacyWriteAttempt)
-   for (let i = 3; i < lines.length && i < 8; i++) {
-    const line = lines[i];
-    // Extract file name from stack line
-    const match = line.match(/\/([\w-]+\.(js|jsx|ts|tsx)):/);
-    if (match) {
-     return match[1];
+  try {
+    const stack = new Error().stack;
+    if (stack) {
+      // Parse stack to find calling file
+      const lines = stack.split('\n');
+      // Skip first 3 lines (Error, detectCallingModule, trackLegacyWriteAttempt)
+      for (let i = 3; i < lines.length && i < 8; i++) {
+        const line = lines[i];
+        // Extract file name from stack line
+        const match = line.match(/\/([\w-]+\.(js|jsx|ts|tsx)):/);
+        if (match) {
+          return match[1];
+        }
+      }
     }
-   }
+  } catch {
+    // Ignore errors in stack parsing
   }
- } catch {
-  // Ignore errors in stack parsing
- }
- return 'unknown';
+  return 'unknown';
 }
 
 /**
  * Shim for the old debtsManager to provide read-only access during migration
  */
 export const debtsManagerShim = {
- /**
-  * @deprecated Use localDebtStore.listDebts() instead
-  */
- async getDebts(): Promise<any[]> {
-  console.warn('[DEPRECATED] debtsManager.getDebts() called. Use localDebtStore.listDebts() instead.');
+  /**
+   * @deprecated Use localDebtStore.listDebts() instead
+   */
+  async getDebts(): Promise<any[]> {
+    console.warn('[DEPRECATED] debtsManager.getDebts() called. Use localDebtStore.listDebts() instead.');
+    
+    try {
+      const debts = await localDebtStore.listDebts();
+      // Transform to legacy format for compatibility
+      return debts.map(d => ({
+        ...d,
+        amount: d.balance, // Legacy field name
+        rate: d.interestRate, // Legacy field name
+        min: d.minPayment // Legacy field name
+      }));
+    } catch (error) {
+      console.error('[DebtsManagerShim] Error getting debts:', error);
+      return [];
+    }
+  },
   
-  try {
-   const debts = await localDebtStore.listDebts();
-   // Transform to legacy format for compatibility
-   return debts.map(d => ({
-    ...d,
-    amount: d.balance, // Legacy field name
-    rate: d.interestRate, // Legacy field name
-    min: d.minPayment // Legacy field name
-   }));
-  } catch (error) {
-   console.error('[DebtsManagerShim] Error getting debts:', error);
-   return [];
+  /**
+   * @deprecated Use localDebtStore.upsertDebt() instead
+   */
+  async saveDebt(debt: any): Promise<void> {
+    const error = new Error('[DEPRECATED] debtsManager.saveDebt() is no longer supported. Use localDebtStore.upsertDebt() instead.');
+    
+    if (process.env.NODE_ENV === 'development') {
+      throw error;
+    }
+    
+    console.error(error.message);
+    trackLegacyWriteAttempt('debtsManager.saveDebt', debt.id || 'unknown');
+  },
+  
+  /**
+   * @deprecated Use localDebtStore.deleteDebt() instead
+   */
+  async deleteDebt(id: string): Promise<void> {
+    const error = new Error('[DEPRECATED] debtsManager.deleteDebt() is no longer supported. Use localDebtStore.deleteDebt() instead.');
+    
+    if (process.env.NODE_ENV === 'development') {
+      throw error;
+    }
+    
+    console.error(error.message);
+    trackLegacyWriteAttempt('debtsManager.deleteDebt', id);
+  },
+  
+  /**
+   * @deprecated Use localDebtStore.clearAll() instead
+   */
+  async clearAllData(): Promise<void> {
+    const error = new Error('[DEPRECATED] debtsManager.clearAllData() is no longer supported. Use localDebtStore.clearAll() instead.');
+    
+    if (process.env.NODE_ENV === 'development') {
+      throw error;
+    }
+    
+    console.error(error.message);
+    trackLegacyWriteAttempt('debtsManager.clearAllData', 'all');
+  },
+  
+  /**
+   * @deprecated Use localDebtStore.loadDemoData() instead
+   */
+  async loadDemoData(): Promise<void> {
+    console.warn('[DEPRECATED] debtsManager.loadDemoData() called. Redirecting to localDebtStore...');
+    
+    // Allow this one to work for backward compatibility
+    try {
+      await localDebtStore.loadDemoData();
+    } catch (error) {
+      console.error('[DebtsManagerShim] Error loading demo data:', error);
+      throw error;
+    }
+  },
+  
+  // Provide read-only access to data property for compatibility
+  get data() {
+    console.warn('[DEPRECATED] Accessing debtsManager.data. This is read-only.');
+    return {
+      debts: [],
+      settings: {},
+      projections: null,
+      paymentHistory: []
+    };
   }
- },
- 
- /**
-  * @deprecated Use localDebtStore.upsertDebt() instead
-  */
- async saveDebt(debt: any): Promise<void> {
-  const error = new Error('[DEPRECATED] debtsManager.saveDebt() is no longer supported. Use localDebtStore.upsertDebt() instead.');
-  
-  if (process.env.NODE_ENV === 'development') {
-   throw error;
-  }
-  
-  console.error(error.message);
-  trackLegacyWriteAttempt('debtsManager.saveDebt', debt.id || 'unknown');
- },
- 
- /**
-  * @deprecated Use localDebtStore.deleteDebt() instead
-  */
- async deleteDebt(id: string): Promise<void> {
-  const error = new Error('[DEPRECATED] debtsManager.deleteDebt() is no longer supported. Use localDebtStore.deleteDebt() instead.');
-  
-  if (process.env.NODE_ENV === 'development') {
-   throw error;
-  }
-  
-  console.error(error.message);
-  trackLegacyWriteAttempt('debtsManager.deleteDebt', id);
- },
- 
- /**
-  * @deprecated Use localDebtStore.clearAll() instead
-  */
- async clearAllData(): Promise<void> {
-  const error = new Error('[DEPRECATED] debtsManager.clearAllData() is no longer supported. Use localDebtStore.clearAll() instead.');
-  
-  if (process.env.NODE_ENV === 'development') {
-   throw error;
-  }
-  
-  console.error(error.message);
-  trackLegacyWriteAttempt('debtsManager.clearAllData', 'all');
- },
- 
- /**
-  * @deprecated Use localDebtStore.loadDemoData() instead
-  */
- async loadDemoData(): Promise<void> {
-  console.warn('[DEPRECATED] debtsManager.loadDemoData() called. Redirecting to localDebtStore...');
-  
-  // Allow this one to work for backward compatibility
-  try {
-   await localDebtStore.loadDemoData();
-  } catch (error) {
-   console.error('[DebtsManagerShim] Error loading demo data:', error);
-   throw error;
-  }
- },
- 
- // Provide read-only access to data property for compatibility
- get data() {
-  console.warn('[DEPRECATED] Accessing debtsManager.data. This is read-only.');
-  return {
-   debts: [],
-   settings: {},
-   projections: null,
-   paymentHistory: []
-  };
- }
 };
 
 /**
@@ -320,23 +320,23 @@ export const debtsManagerShim = {
 export const eslintRule = `
 // Add to .eslintrc.js or .eslintrc.json
 {
- "rules": {
-  "no-restricted-imports": ["error", {
-   "paths": [
-    {
-     "name": "../lib/debtsManager",
-     "message": "debtsManager is deprecated. Use localDebtStore from '../data/localDebtStore' instead."
-    },
-    {
-     "name": "./lib/debtsManager",
-     "message": "debtsManager is deprecated. Use localDebtStore from './data/localDebtStore' instead."
-    }
-   ]
-  }],
-  "no-restricted-globals": ["error", {
-   "name": "debtsManager",
-   "message": "Global debtsManager is deprecated. Import localDebtStore instead."
-  }]
- }
+  "rules": {
+    "no-restricted-imports": ["error", {
+      "paths": [
+        {
+          "name": "../lib/debtsManager",
+          "message": "debtsManager is deprecated. Use localDebtStore from '../data/localDebtStore' instead."
+        },
+        {
+          "name": "./lib/debtsManager",
+          "message": "debtsManager is deprecated. Use localDebtStore from './data/localDebtStore' instead."
+        }
+      ]
+    }],
+    "no-restricted-globals": ["error", {
+      "name": "debtsManager",
+      "message": "Global debtsManager is deprecated. Import localDebtStore instead."
+    }]
+  }
 }
 `;

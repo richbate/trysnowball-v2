@@ -1,11 +1,2 @@
-# Auth route fallbacks - redirect common auth paths to home
-/auth/login    /home    302
-/login         /home    302  
-/signup        /home    302
-/auth/signup   /home    302
-
 # SPA fallback - serve index.html for non-existing files only
-# Exclude remaining auth and api routes so they can be handled by the auth worker
-/auth/*  200!
-/api/*   200!
-/*       /index.html   200!
+/*    /index.html   200!

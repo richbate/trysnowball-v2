@@ -6,14 +6,45 @@ echo "🧪 Running documentation smoke test..."
 
 FOUND_ISSUES=0
 
-# Note: Docs pattern scanning disabled - these rules are for source code only
-# Documentation examples (including forbidden patterns) are allowed in docs
-echo "🔍 Checking source code patterns only (docs examples skipped)..."
-echo "✅ Documentation pattern scanning disabled - examples are illustrative only"
+# Check that all code blocks importing debtsManager use safe facade methods
+echo "🔍 Checking debtsManager usage in code blocks..."
+UNSAFE_DEBTS=$(grep -A 10 -B 2 "debtsManager" docs/**/*.md *.md | grep -E "\.data\.|debtsManager\.data" | grep -v "❌\|Don't\|NEVER\|FORBIDDEN" || true)
+if [ -n "$UNSAFE_DEBTS" ]; then
+    echo "❌ Found unsafe debtsManager usage in docs:"
+    echo "$UNSAFE_DEBTS"
+    FOUND_ISSUES=$((FOUND_ISSUES + 1))
+else
+    echo "✅ All debtsManager usage is safe (uses getData/getMetrics)"
+fi
 
-# Warning block checks disabled - docs are for illustration, not enforcement
-echo "🔍 Warning block validation skipped for workflow infra PR..."
-echo "✅ Documentation warnings managed separately from infra workflow"
+# Check that localStorage only appears in "Don't do this" sections
+echo "🔍 Checking localStorage references..."
+UNSAFE_LOCALSTORAGE=$(grep -rE "localStorage\.(setItem|getItem)" docs/**/*.md *.md | grep -v "❌\|Forbidden\|Don't\|NEVER\|// ❌" || true)
+if [ -n "$UNSAFE_LOCALSTORAGE" ]; then
+    echo "❌ Found localStorage usage outside forbidden examples:"
+    echo "$UNSAFE_LOCALSTORAGE"
+    FOUND_ISSUES=$((FOUND_ISSUES + 1))
+else
+    echo "✅ localStorage only appears in forbidden examples"
+fi
+
+# Verify warning blocks are present in critical docs
+echo "🔍 Checking for warning blocks in critical docs..."
+CRITICAL_DOCS=(
+    "README.md"
+    "docs/ARCHITECTURE.md" 
+    "docs/auth/AUTH_DEBUG_GUIDE.md"
+    "WRANGLER.md"
+)
+
+for doc in "${CRITICAL_DOCS[@]}"; do
+    if [ -f "$doc" ]; then
+        if ! grep -q "Do NOT access \`.data\`" "$doc"; then
+            echo "❌ Missing .data warning in: $doc"
+            FOUND_ISSUES=$((FOUND_ISSUES + 1))
+        fi
+    fi
+done
 
 # Check for safe pattern examples
 echo "🔍 Checking for safe pattern examples..."
@@ -40,7 +71,7 @@ fi
 
 # Check that code blocks are properly formatted
 echo "🔍 Checking code block formatting..."
-MALFORMED_BLOCKS=$(grep -rE '\`\`\`javascript|\`\`\`js' docs/**/*.md *.md | grep -v '^[^:]*:\`\`\`' || true)
+MALFORMED_BLOCKS=$(grep -rE "```javascript|```js" docs/**/*.md *.md | grep -v "^[^:]*:```" || true)
 # This is just a warning, not a failure
 if [ -n "$MALFORMED_BLOCKS" ]; then
     echo "⚠️  Found potentially malformed code blocks (check manually)"

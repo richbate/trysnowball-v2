@@ -12,51 +12,51 @@ import { Storage } from '../lib/storage';
  * @returns {object} - Result with success status and message
  */
 export function resetAllUserData(userId = null, options = {}) {
- const { factoryReset = false } = options;
- 
- try {
-  // Clear user-scoped data
-  const storage = new Storage();
-  storage.setKey(userId || null); // guest if null
+  const { factoryReset = false } = options;
   
-  // Remove per-user key
-  localStorage.removeItem(storage.getKey());
-  
-  // Remove legacy mirror key
-  localStorage.removeItem('debtBalances');
-  
-  // Remove other user-specific keys
-  const keysToRemove = [
-   'demo_data_seeded',
-   'demoDataCleared', 
-   'ai_debt_last_update',
-   'onboarding_completed',
-   'user_settings',
-   'payment_history',
-   'debt_projections'
-  ];
-  
-  keysToRemove.forEach(key => {
-   localStorage.removeItem(key);
-  });
-  
-  // Factory reset - clear everything (use with caution)
-  if (factoryReset) {
-   localStorage.clear();
+  try {
+    // Clear user-scoped data
+    const storage = new Storage();
+    storage.setKey(userId || null); // guest if null
+    
+    // Remove per-user key
+    localStorage.removeItem(storage.getKey());
+    
+    // Remove legacy mirror key
+    localStorage.removeItem('debtBalances');
+    
+    // Remove other user-specific keys
+    const keysToRemove = [
+      'demo_data_seeded',
+      'demoDataCleared', 
+      'ai_debt_last_update',
+      'onboarding_completed',
+      'user_settings',
+      'payment_history',
+      'debt_projections'
+    ];
+    
+    keysToRemove.forEach(key => {
+      localStorage.removeItem(key);
+    });
+    
+    // Factory reset - clear everything (use with caution)
+    if (factoryReset) {
+      localStorage.clear();
+    }
+    
+    return { 
+      ok: true, 
+      message: "All your local data has been cleared." 
+    };
+    
+  } catch (error) {
+    console.error('Data reset failed:', error);
+    return { 
+      ok: false, 
+      message: "I couldn't clear your data. Try again from Settings → Reset." 
+    };
   }
-  
-  return { 
-   ok: true, 
-   message: "All your local data has been cleared." 
-  };
-  
- } catch (error) {
-  console.error('Data reset failed:', error);
-  return { 
-   ok: false, 
-   message: "I couldn't clear your data. Try again from Settings → Reset." 
-  };
- }
 }
 
 /**
@@ -65,27 +65,27 @@ export function resetAllUserData(userId = null, options = {}) {
  * @returns {boolean} - True if user has data that can be reset
  */
 export function hasUserDataToReset(userId = null) {
- try {
-  const storage = new Storage();
-  storage.setKey(userId || null);
-  
-  // Check if main user key has data
-  const userData = localStorage.getItem(storage.getKey());
-  if (userData && userData !== 'null' && userData !== '[]') {
-   return true;
+  try {
+    const storage = new Storage();
+    storage.setKey(userId || null);
+    
+    // Check if main user key has data
+    const userData = localStorage.getItem(storage.getKey());
+    if (userData && userData !== 'null' && userData !== '[]') {
+      return true;
+    }
+    
+    // Check legacy debt balances
+    const legacyData = localStorage.getItem('debtBalances');
+    if (legacyData && legacyData !== 'null' && legacyData !== '[]') {
+      return true;
+    }
+    
+    return false;
+  } catch (error) {
+    console.error('Error checking user data:', error);
+    return false;
   }
-  
-  // Check legacy debt balances
-  const legacyData = localStorage.getItem('debtBalances');
-  if (legacyData && legacyData !== 'null' && legacyData !== '[]') {
-   return true;
-  }
-  
-  return false;
- } catch (error) {
-  console.error('Error checking user data:', error);
-  return false;
- }
 }
 
 /**
@@ -95,42 +95,42 @@ export function hasUserDataToReset(userId = null) {
  * @returns {object} - Response for the AI
  */
 export async function handleResetDataCommand(command, context) {
- const { confirmed = false } = command;
- const { userId } = context;
- 
- // Require confirmation for destructive operations
- if (!confirmed) {
-  return {
-   success: false,
-   requiresConfirmation: true,
-   message: "This will remove all your local data on this device. Type 'confirm reset' to proceed."
-  };
- }
- 
- // Check if user has data to reset
- if (!hasUserDataToReset(userId)) {
-  return {
-   success: true,
-   message: "You don't have any local data to clear."
-  };
- }
- 
- // Perform the reset
- const result = resetAllUserData(userId);
- 
- if (result.ok) {
-  // Suggest page reload for fresh state
-  return {
-   success: true,
-   message: `${result.message} Refresh the page to see the clean state.`,
-   suggestReload: true
-  };
- } else {
-  return {
-   success: false,
-   message: result.message
-  };
- }
+  const { confirmed = false } = command;
+  const { userId } = context;
+  
+  // Require confirmation for destructive operations
+  if (!confirmed) {
+    return {
+      success: false,
+      requiresConfirmation: true,
+      message: "This will remove all your local data on this device. Type 'confirm reset' to proceed."
+    };
+  }
+  
+  // Check if user has data to reset
+  if (!hasUserDataToReset(userId)) {
+    return {
+      success: true,
+      message: "You don't have any local data to clear."
+    };
+  }
+  
+  // Perform the reset
+  const result = resetAllUserData(userId);
+  
+  if (result.ok) {
+    // Suggest page reload for fresh state
+    return {
+      success: true,
+      message: `${result.message} Refresh the page to see the clean state.`,
+      suggestReload: true
+    };
+  } else {
+    return {
+      success: false,
+      message: result.message
+    };
+  }
 }
 
 export default { resetAllUserData, hasUserDataToReset, handleResetDataCommand };

@@ -3,11 +3,11 @@
  */
 
 export { 
- getFocusedDebtIdFromSearch,
- buildDebtBalanceSeries,
- buildFocusSearchString,
- getDebtLabelById,
- getFocusedDebtPayoffDate,
- withFocus,
- filterDebtsForFocus
+  getFocusedDebtIdFromSearch,
+  buildDebtBalanceSeries,
+  buildFocusSearchString,
+  getDebtLabelById,
+  getFocusedDebtPayoffDate,
+  withFocus,
+  filterDebtsForFocus
 } from './focus';

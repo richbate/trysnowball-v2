@@ -27,13 +27,13 @@ EXAMPLE USER INPUTS:
 
 RESPONSE FORMAT (JSON only):
 {
- "milestone_detected": true/false,
- "type": "debt_cleared|milestone_hit|all_debts_cleared|progress_update",
- "debt_name": "extracted debt name if applicable",
- "amount": estimated_amount_if_mentioned,
- "confidence": 0.8,
- "celebration_message": "🎉 I just cleared my Halifax overdraft!",
- "share_worthy": true/false
+  "milestone_detected": true/false,
+  "type": "debt_cleared|milestone_hit|all_debts_cleared|progress_update",
+  "debt_name": "extracted debt name if applicable",
+  "amount": estimated_amount_if_mentioned,
+  "confidence": 0.8,
+  "celebration_message": "🎉 I just cleared my Halifax overdraft!",
+  "share_worthy": true/false
 }
 
 RULES:
@@ -88,27 +88,27 @@ EMOJIS: Use 1-2 relevant ones, not excessive
  * @returns {Promise<string>} Generated share message
  */
 export const generateCustomShareMessage = async (milestone, referralLink) => {
- try {
-  // For now, return a template-based message
-  // TODO: Integrate with actual GPT API when available
-  
-  const templates = {
-   debt_cleared: `🎉 Just cleared my ${milestone.debtName}! ${milestone.amount ? `£${milestone.amount.toLocaleString()} gone forever! ` : ''}If you're tackling debt too, @trysnowballuk has been a game-changer. Try it → ${referralLink}`,
-   
-   milestone_hit: `🎯 Just hit a major milestone - ${milestone.message.replace('🎯 ', '')} The snowball method really works. Check out @trysnowballuk if you want to map out your debt-free journey → ${referralLink}`,
-   
-   all_debts_cleared: `🎊 DEBT FREE! Made my final payment today. @trysnowballuk helped me plan every step of this journey. Your turn? → ${referralLink}`,
-   
-   progress_update: `💪 Making real progress on my debt freedom journey! @trysnowballuk keeps me motivated and on track. Join me? → ${referralLink}`
-  };
-  
-  return templates[milestone.type] || templates.progress_update;
-  
- } catch (error) {
-  console.warn('Failed to generate custom share message:', error);
-  // Fallback to basic template
-  return `🎉 Making progress on my debt freedom journey with @trysnowballuk! ${referralLink}`;
- }
+  try {
+    // For now, return a template-based message
+    // TODO: Integrate with actual GPT API when available
+    
+    const templates = {
+      debt_cleared: `🎉 Just cleared my ${milestone.debtName}! ${milestone.amount ? `£${milestone.amount.toLocaleString()} gone forever! ` : ''}If you're tackling debt too, @trysnowballuk has been a game-changer. Try it → ${referralLink}`,
+      
+      milestone_hit: `🎯 Just hit a major milestone - ${milestone.message.replace('🎯 ', '')} The snowball method really works. Check out @trysnowballuk if you want to map out your debt-free journey → ${referralLink}`,
+      
+      all_debts_cleared: `🎊 DEBT FREE! Made my final payment today. @trysnowballuk helped me plan every step of this journey. Your turn? → ${referralLink}`,
+      
+      progress_update: `💪 Making real progress on my debt freedom journey! @trysnowballuk keeps me motivated and on track. Join me? → ${referralLink}`
+    };
+    
+    return templates[milestone.type] || templates.progress_update;
+    
+  } catch (error) {
+    console.warn('Failed to generate custom share message:', error);
+    // Fallback to basic template
+    return `🎉 Making progress on my debt freedom journey with @trysnowballuk! ${referralLink}`;
+  }
 };
 
 /**
@@ -117,46 +117,46 @@ export const generateCustomShareMessage = async (milestone, referralLink) => {
  * @returns {Object|null} Milestone data or null
  */
 export const detectMilestoneFromText = (userMessage) => {
- if (!userMessage || typeof userMessage !== 'string') return null;
- 
- const message = userMessage.toLowerCase();
- 
- // Simple keyword-based detection (replace with actual GPT when available)
- const patterns = {
-  debt_cleared: [
-   /paid off.*?(credit card|overdraft|loan|debt)/,
-   /(cleared|finished|done with|eliminated).*?(credit card|overdraft|loan|debt)/,
-   /(halifax|mbna|santander|barclays|hsbc|lloyds|natwest|rbs).*(paid off|cleared|gone)/
-  ],
+  if (!userMessage || typeof userMessage !== 'string') return null;
   
-  milestone_hit: [
-   /under (£|$)(\d+k|10000|5000|1000)/,
-   /broke through.*?(£|$)(\d+k|10000|5000)/,
-   /less than (£|$)(\d+k|10000|5000|1000)/
-  ],
+  const message = userMessage.toLowerCase();
   
-  all_debts_cleared: [
-   /debt free/,
-   /completely paid off/,
-   /no more debt/,
-   /final payment/,
-   /last debt/
-  ]
- };
- 
- for (const [type, typePatterns] of Object.entries(patterns)) {
-  for (const pattern of typePatterns) {
-   if (pattern.test(message)) {
-    return {
-     milestone_detected: true,
-     type,
-     confidence: 0.7,
-     celebration_message: `🎉 ${userMessage}`,
-     share_worthy: true
-    };
-   }
+  // Simple keyword-based detection (replace with actual GPT when available)
+  const patterns = {
+    debt_cleared: [
+      /paid off.*?(credit card|overdraft|loan|debt)/,
+      /(cleared|finished|done with|eliminated).*?(credit card|overdraft|loan|debt)/,
+      /(halifax|mbna|santander|barclays|hsbc|lloyds|natwest|rbs).*(paid off|cleared|gone)/
+    ],
+    
+    milestone_hit: [
+      /under (£|$)(\d+k|10000|5000|1000)/,
+      /broke through.*?(£|$)(\d+k|10000|5000)/,
+      /less than (£|$)(\d+k|10000|5000|1000)/
+    ],
+    
+    all_debts_cleared: [
+      /debt free/,
+      /completely paid off/,
+      /no more debt/,
+      /final payment/,
+      /last debt/
+    ]
+  };
+  
+  for (const [type, typePatterns] of Object.entries(patterns)) {
+    for (const pattern of typePatterns) {
+      if (pattern.test(message)) {
+        return {
+          milestone_detected: true,
+          type,
+          confidence: 0.7,
+          celebration_message: `🎉 ${userMessage}`,
+          share_worthy: true
+        };
+      }
+    }
   }
- }
- 
- return null;
+  
+  return null;
 };

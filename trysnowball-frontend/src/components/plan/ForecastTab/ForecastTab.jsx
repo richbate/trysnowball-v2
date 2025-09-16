@@ -1,917 +1,689 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { useSearchParams, useNavigate } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import NoDebtsState from '../../../components/NoDebtsState';
 import Button from '../../../components/ui/Button';
 import { TimelineChart } from '../../../components/charts';
 import { useCsvExport } from '../../../hooks/useCsvExport';
 import { formatCurrency } from '../../../utils/debtFormatting';
-import { calculateSnowballTimeline, calculateAvalancheTimeline } from '../../../selectors/amortization';
-import { track } from '../../../lib/analytics';
-// Removed adapter import - using clean UK format directly
-import { fromCents } from '../../../lib/money';
-import { getDebtTotals } from '../../../utils/debtTotalsStandard';
+import { calculateSnowballTimeline, calculateAvalancheTimeline } from '../../../utils/debtTimelineCalculator';
 import MathDetails from '../../../components/MathDetails';
+import SnowballBoostMeter from '../../../components/SnowballBoostMeter';
 import ImpactHeadline from '../../../components/ImpactHeadline';
-import SimpleEditSnowballModal from '../../snowball/SimpleEditSnowballModal';
-import SimplePersistentSnowballControlBar from '../../snowball/SimplePersistentSnowballControlBar';
-import { useSnowballSettings } from '../../../hooks/useSnowballSettings';
 import { flags } from '../../../utils/flags';
 import ScenariosPanel from '../../../components/ScenariosPanel.jsx';
-import { computeImpacts } from '../../../lib/simulator/impact';
+import { computeImpacts } from '../../../lib/simulator/impact.js';
 import DebtPaymentMatrix from '../../../components/DebtPaymentMatrix';
 import FocusSelect from '../../FocusSelect.jsx';
 import { getFocusedDebtIdFromSearch, buildDebtBalanceSeries, buildFocusSearchString, getDebtLabelById, getFocusedDebtPayoffDate } from '../../../lib/selectors';
 
 // Normalize chart inputs - bulletproof data sanitization
 function toNumber(n) {
- const v = typeof n === "string" ? Number(n.replace(/[£, ]/g, "")) : Number(n);
- return Number.isFinite(v) ? v : 0;
+  const v = typeof n === "string" ? Number(n.replace(/[£, ]/g, "")) : Number(n);
+  return Number.isFinite(v) ? v : 0;
 }
 
 function normalizeSeries(rows) {
- return Array.isArray(rows)
-  ? rows
-    .map((r, i) => ({
-     month: r?.month ?? `Month ${i + 1}`,
-     minimumOnly: toNumber(r?.minimumOnly),
-     snowball: toNumber(r?.snowball),
-    }))
-    .filter(r => Number.isFinite(r.minimumOnly) && Number.isFinite(r.snowball))
-  : [];
+  return Array.isArray(rows)
+    ? rows
+        .map((r, i) => ({
+          month: r?.month ?? `Month ${i + 1}`,
+          minimumOnly: toNumber(r?.minimumOnly),
+          snowball: toNumber(r?.snowball),
+        }))
+        .filter(r => Number.isFinite(r.minimumOnly) && Number.isFinite(r.snowball))
+    : [];
 }
 
 const TimelineTab = ({ colors, timelineDebtsData, demoDataCleared, hasNoDebtData, dataManagerDebts, planTotalsDebts, planLoading, payoffStrategy = 'snowball', onTabChange }) => {
- console.log('[SnowballTab] Props received:', {
-  hasNoDebtData,
-  timelineDebtsData: timelineDebtsData?.length || 0,
-  dataManagerDebts: dataManagerDebts?.length || 0,
-  planTotalsDebts: planTotalsDebts?.length || 0,
-  planLoading,
-  sampleTimelineDebt: timelineDebtsData?.[0]?.name
- });
- 
- // Check for negative amortization and warn user
- const negativeAmortizationDebts = [];
- if (timelineDebtsData && timelineDebtsData.length > 0) {
-  timelineDebtsData.forEach(debt => {
-   const balance = debt.amount_pennies || 0;
-   const minPayment = debt.min_payment_pennies || 0;
-   const aprBps = debt.apr || debt.interest_bps || 0;
-   const monthlyRate = (aprBps / 10000) / 12;
-   const monthlyInterest = balance * monthlyRate;
-   
-   if (minPayment <= monthlyInterest && balance > 0) {
-    negativeAmortizationDebts.push({
-     name: debt.name,
-     balance: balance / 100,
-     minPayment: minPayment / 100,
-     monthlyInterest: monthlyInterest / 100,
-     apr: aprBps / 100
-    });
-    console.warn(`[NEGATIVE AMORTIZATION] Debt "${debt.name}":`, {
-     balance: balance / 100,
-     minPayment: minPayment / 100,
-     monthlyInterest: monthlyInterest / 100,
-     apr: aprBps / 100,
-     willGrowForever: true
-    });
-   }
-  });
- }
- 
- const [searchParams, setSearchParams] = useSearchParams();
- const navigate = useNavigate();
- const { snowballAmount } = useSnowballSettings();
- const [chartType, setChartType] = useState('line'); // 'line' or 'stacked'
- const [scenarioSelections, setScenarioSelections] = useState([]);
- const [forceShowScenarios, setForceShowScenarios] = useState(false);
- const [scenariosExpanded, setScenariosExpanded] = useState(false);
- const [isEditModalOpen, setIsEditModalOpen] = useState(false);
- 
- // Track control bar visibility
- useEffect(() => {
-  if (timelineDebts.length > 0) {
-    track('snowball_bar_visible', {
-      page: 'snowball',
-      debts_count: timelineDebts.length,
-      current_snowball: snowballAmount
-    });
-  }
- }, []); // Only run once on mount
- 
- // Focus functionality
- const focusedDebtId = getFocusedDebtIdFromSearch(searchParams.toString());
- 
- const handleFocusChange = (debtId) => {
-  const newSearch = buildFocusSearchString(searchParams.toString(), debtId);
-  setSearchParams(newSearch);
-  
-  // Track focus change analytics
-  if (window.posthog) {
-   const debtName = debtId ? timelineDebts.find(d => d.id === debtId)?.name || debtId : null;
-   window.posthog.capture('plan_snowball_focus_change', {
-    debt_id: debtId,
-    debt_name: debtName
-   });
-  }
- };
- 
- const { exportTimelineData } = useCsvExport();
-
- // Use normalized debts directly - ONLY use timelineDebtsData from Plan.jsx
- const timelineDebts = useMemo(() => {
-  // Use ONLY timelineDebtsData from Plan component (single source of truth)
-  const sourceDebts = timelineDebtsData || [];
-  console.log('[SnowballTab] Source debts (timelineDebtsData only):', {
-   timelineDebtsDataLength: timelineDebtsData?.length,
-   sourceDebtsLength: sourceDebts?.length,
-   sampleDebt: sourceDebts?.[0],
-   sampleDebtFields: sourceDebts?.[0] ? Object.keys(sourceDebts[0]) : 'none'
-  });
-  if (!Array.isArray(sourceDebts)) return [];
-  
-  // Debts are already normalized, just ensure they're valid
-  const filtered = sourceDebts.filter(debt => 
-   debt && 
-   typeof debt.amount_pennies === 'number' && 
-   typeof debt.apr === 'number' && 
-   typeof debt.min_payment_pennies === 'number'
-  );
-  console.log('[SnowballTab] Filtered debts:', filtered.length, 'valid debts');
-  return filtered;
- }, [timelineDebtsData]);
-
- // Check for scenario parameter on mount
- useEffect(() => {
-  if (searchParams.get('scenario') === 'true') {
-   setForceShowScenarios(true);
-   setScenariosExpanded(true); // Auto-expand for testing
-  }
- }, [searchParams]);
-
- // Analytics tracking for slider changes (throttled)
- useEffect(() => {
-  const id = setTimeout(() => {
-   // Only track if snowballAmount is meaningful (> 0)
-   if (snowballAmount > 0 && window.posthog) {
-    window.posthog.capture('plan_boost_change', {
-     tab: 'snowball',
-     boost_pennies: snowballAmount * 100,
-     debts_count: timelineDebts.length
-    });
-   }
-  }, 300);
-  return () => clearTimeout(id);
- }, [snowballAmount, timelineDebts.length]);
-
- const onScenariosChange = (s) => setScenarioSelections(s);
-
- // Use standardized debt totals calculation
- const debtTotals = useMemo(() => {
-  const totals = getDebtTotals(timelineDebts);
-  console.log('[SnowballTab] Debt totals calculation:', { 
-   timelineDebts: timelineDebts.length, 
-   sampleDebt: timelineDebts[0],
-   totals 
-  });
-  return totals;
- }, [timelineDebts]);
- const totalMinPaymentsTimeline = debtTotals.totalMinPayments;
- const totalDebtTimeline = debtTotals.totalDebt;
-
- // Calculate impacts using the new impact system
- const monthsCap = 120;
- const impacts = useMemo(() => {
-  if (timelineDebts.length === 0) {
-   return { 
-    base: null, 
-    combined: null, 
-    perScenario: [], 
-    agg: { monthsSaved: 0, interestSaved: 0 },
-    plans: { basePlan: null, combinedPlan: null }
-   };
-  }
-  return computeImpacts(timelineDebts, snowballAmount, scenarioSelections, monthsCap);
- }, [timelineDebts, snowballAmount, scenarioSelections]);
-
- // Get extra monthly amount from combined plan
- const planExtraMonthly = useMemo(() => {
-  if (!impacts.plans.combinedPlan) return snowballAmount;
-  return impacts.plans.combinedPlan.extraMonthly;
- }, [impacts, snowballAmount]);
-
- // Helper function to choose the right calculation method based on strategy
- const calculateTimeline = useMemo(() => {
-  return payoffStrategy === 'avalanche' ? calculateAvalancheTimeline : calculateSnowballTimeline;
- }, [payoffStrategy]);
-
- // Create timeline-based chart data with normalized debt inputs
- const strategyTimeline = useMemo(() => {
-  if (timelineDebts.length === 0) return [];
-  
-  console.log('[SnowballTab] Calculating strategy timeline with snowball:', planExtraMonthly);
-  // Pass normalized debts directly to selector - returns {months, balances, ...}
-  const result = calculateTimeline(timelineDebts, { extraPayment: planExtraMonthly });
-  console.log('[SnowballTab] Strategy calculation result:', 
-   'type: strategy',
-   'snowballAmount:', planExtraMonthly,
-   'months:', result?.months?.length || 0,
-   'balances:', result?.balances?.length || 0,
-   'firstBalance:', result?.balances?.[0] || 0,
-   'lastBalance:', result?.balances?.[result?.balances?.length - 1] || 0
-  );
-  
-  // Transform the result into an array format if it has the expected structure
-  if (result && result.months && result.balances) {
-   return result.months.map((month, index) => ({
-    month: month,
-    date: new Date(Date.now() + (month - 1) * 30 * 24 * 60 * 60 * 1000),
-    displayDate: `Month ${month}`,
-    totalBalance: result.balances[index] || 0,
-    interest: result.interestCentsByMonth?.[index] || 0,
-    debts: timelineDebts.map(d => ({ 
-     name: d.name || d.issuer || 'Debt',
-     amount_pennies: 0 // Would need individual debt tracking
-    }))
-   }));
-  }
-  
-  // Fallback: return empty array if result is not in expected format
-  return [];
- }, [timelineDebts, planExtraMonthly, calculateTimeline]);
- 
- const minimumTimeline = useMemo(() => {
-  if (timelineDebts.length === 0) return [];
-  
-  console.log('[SnowballTab] Calculating minimum timeline with snowball: 0');
-  const result = calculateTimeline(timelineDebts, { extraPayment: 0 }); // No extra payment for minimum
-  console.log('[SnowballTab] Minimum calculation result:', 
-   'type: minimum',
-   'snowballAmount: 0',
-   'months:', result?.months?.length || 0,
-   'balances:', result?.balances?.length || 0,
-   'firstBalance:', result?.balances?.[0] || 0,
-   'lastBalance:', result?.balances?.[result?.balances?.length - 1] || 0
-  );
-  
-  // Transform the result into an array format if it has the expected structure
-  if (result && result.months && result.balances) {
-   return result.months.map((month, index) => ({
-    month: month,
-    date: new Date(Date.now() + (month - 1) * 30 * 24 * 60 * 60 * 1000),
-    displayDate: `Month ${month}`,
-    totalBalance: result.balances[index] || 0,
-    interest: result.interestCentsByMonth?.[index] || 0,
-    debts: timelineDebts.map(d => ({ 
-     name: d.name || d.issuer || 'Debt',
-     amount_pennies: 0 // Would need individual debt tracking
-    }))
-   }));
-  }
-  
-  // Fallback: return empty array if result is not in expected format
-  return [];
- }, [timelineDebts, calculateTimeline]);
-
- // Focus-related calculations (must come after timelineDebts and strategyTimeline are defined)
- const focusedDebtLabel = getDebtLabelById(timelineDebts, focusedDebtId);
- const focusedDebtSeries = buildDebtBalanceSeries(strategyTimeline, focusedDebtId);
- const focusedDebtPayoffDate = getFocusedDebtPayoffDate(strategyTimeline, focusedDebtId);
-
- // Transform timeline data for payment matrix
- const matrixTimeline = useMemo(() => {
-  if (!Array.isArray(strategyTimeline) || strategyTimeline.length === 0) return [];
-  
-  return strategyTimeline.map((entry, index) => ({
-   monthIndex: index,
-   date: entry.date,
-   dateLabel: entry.displayDate,
-   totalSnowball: entry.totalBalance || 0,
-   snowballAmount: planExtraMonthly,
-   flex: 0, // Could be used for additional flexible payments
-   items: (entry.debts || [])
-    .filter(debt => {
-     // Only include debts that are in the current timeline debts list
-     const timelineDebt = (timelineDebts || []).find(td => td.name === debt.name);
-     return timelineDebt && debt.amount_pennies > 0;
-    })
-    .map(debt => {
-     // Find the corresponding timeline debt to get payment info
-     const timelineDebt = (timelineDebts || []).find(td => td.name === debt.name);
-     return {
-      debtId: debt.name,
-      label: debt.name,
-      payment: timelineDebt ? fromCents(timelineDebt.min_payment_pennies) : 0, // Convert to pounds
-      interest: 0, // Could calculate based on remaining balance
-      principal: timelineDebt ? fromCents(timelineDebt.min_payment_pennies) : 0,
-      extra: 0,
-      remaining: fromCents(debt.amount_pennies || 0), // Convert to pounds for display
-     };
-    })
-  }));
- }, [strategyTimeline, planExtraMonthly, timelineDebts]);
-
- // Stable debt column order for payment matrix - use issuer names from normalized debts
- const debtOrder = useMemo(() => {
-  return (timelineDebts || []).map(d => d.name || d.issuer).filter(Boolean);
- }, [timelineDebts]);
-
- // Custom month label function for payment matrix
- const monthLabel = (m) => {
-  // prefer existing label if present
-  if (m?.dateLabel) return m.dateLabel;
-  // else build from current date + monthIndex
-  if (Number.isFinite(m?.monthIndex)) {
-   const d = new Date();
-   d.setMonth(d.getMonth() + m.monthIndex);
-   return d.toLocaleString('en-GB', { month: 'short', year: '2-digit' }).replace(' ', '-');
-  }
-  return `M${(m?.monthIndex ?? 0) + 1}`;
- };
- 
- const chartData = useMemo(() => {
-  const strategyLength = Array.isArray(strategyTimeline) ? strategyTimeline.length : 0;
-  const minimumLength = Array.isArray(minimumTimeline) ? minimumTimeline.length : 0;
-  const maxLength = Math.max(strategyLength, minimumLength);
-  const data = [];
-  
-  console.log('[SnowballTab] Building chart data:', {
-   snowballAmount,
-   planExtraMonthly,
-   strategyLength,
-   minimumLength,
-   strategyData: Array.isArray(strategyTimeline) ? strategyTimeline[0] : null,
-   minimumData: Array.isArray(minimumTimeline) ? minimumTimeline[0] : null
+  console.log('[TimelineTab] Props received:', {
+    hasNoDebtData,
+    planTotalsDebts: planTotalsDebts?.length || 0,
+    timelineDebtsData: timelineDebtsData?.length || 0,
+    planLoading
   });
   
-  for (let i = 0; i < maxLength; i++) {
-   const strategyEntry = Array.isArray(strategyTimeline) ? strategyTimeline[i] : null;
-   const minimumEntry = Array.isArray(minimumTimeline) ? minimumTimeline[i] : null;
-   
-   // Convert balance from cents to pounds for display
-   const minimumBalance = minimumEntry ? (minimumEntry.totalBalance / 100) : 0;
-   const strategyBalance = strategyEntry ? (strategyEntry.totalBalance / 100) : 0;
-   
-   data.push({
-    month: strategyEntry?.displayDate || minimumEntry?.displayDate || `Month ${i + 1}`,
-    minimumOnly: minimumBalance,
-    snowball: strategyBalance, // Keep 'snowball' key for chart compatibility
-   });
-   
-   // Debug: log first few data points to see if lines are different
-   if (i < 5) {
-    console.log(`[SnowballTab] Month ${i + 1} data:`, 
-     'minimumOnly:', minimumBalance, 
-     'snowball:', strategyBalance, 
-     'different:', minimumBalance !== strategyBalance,
-     'strategyEntry:', strategyEntry ? { totalBalance: strategyEntry.totalBalance, month: strategyEntry.month } : null,
-     'minimumEntry:', minimumEntry ? { totalBalance: minimumEntry.totalBalance, month: minimumEntry.month } : null
-    );
-   }
-  }
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [extraPayment, setExtraPayment] = useState(100);
+  const [chartType, setChartType] = useState('line'); // 'line' or 'stacked'
+  const [scenarioSelections, setScenarioSelections] = useState([]);
+  const [forceShowScenarios, setForceShowScenarios] = useState(false);
+  const [scenariosExpanded, setScenariosExpanded] = useState(false);
   
-  console.log('[SnowballTab] Chart data summary:', {
-   dataLength: data.length,
-   planExtraMonthly,
-   snowballAmount,
-   firstPoint: data[0],
-   lastPoint: data[data.length - 1],
-   hasSnowballAmount: snowballAmount > 0,
-   shouldShowTwoLines: snowballAmount > 0
-  });
-  return data;
- }, [strategyTimeline, minimumTimeline, planExtraMonthly, snowballAmount]);
-
- // Create stacked chart data showing individual debt balances over time
- const stackedChartData = useMemo(() => {
-  if (chartType !== 'stacked') return [];
+  // Focus functionality
+  const focusedDebtId = getFocusedDebtIdFromSearch(searchParams.toString());
   
-  const sortedDebts = [...timelineDebts].sort((a, b) => a.amount_pennies - b.amount_pennies);
-  const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#84cc16', '#f97316'];
-  
-  // Create a simulation specifically for stacked view
-  const stackedSimulation = () => {
-   const debtBalances = sortedDebts.map(debt => ({
-    name: debt.name || debt.issuer,
-    amount_pennies: debt.amount_pennies, // Keep normalized field
-    apr: debt.apr, // Keep normalized field 
-    min_payment_pennies: debt.min_payment_pennies, // Keep normalized field
-    color: colors[sortedDebts.indexOf(debt) % colors.length]
-   }));
-   
-   const monthlyData = [];
-   
-   for (let month = 0; month < 61; month++) {
-    const monthData = { month };
+  const handleFocusChange = (debtId) => {
+    const newSearch = buildFocusSearchString(searchParams.toString(), debtId);
+    setSearchParams(newSearch);
     
-    // Add each debt's balance for this month
-    debtBalances.forEach(debt => {
-     monthData[debt.name] = Math.max(0, debt.amount_pennies);
-    });
-    
-    monthlyData.push(monthData);
-    
-    // Apply snowball method for next month
-    if (month < 60) {
-     let totalPayment = totalMinPaymentsTimeline + snowballAmount;
-     
-     // Pay minimums first (use normalized APR field)
-     debtBalances.forEach(debt => {
-      if (debt.amount_pennies > 0) {
-       const monthlyRate = debt.apr / 100 / 12; // Convert bps to decimal monthly rate
-       const interest = debt.amount_pennies * monthlyRate;
-       const principal = Math.max(0, debt.min_payment_pennies - interest);
-       debt.amount_pennies = Math.max(0, debt.amount_pennies - principal);
-       totalPayment -= debt.min_payment_pennies;
-      }
-     });
-     
-     // Apply extra payment to smallest debt
-     if (totalPayment > 0) {
-      for (let debt of debtBalances) {
-       if (debt.amount_pennies > 0) {
-        const payment = Math.min(totalPayment, debt.amount_pennies);
-        debt.amount_pennies -= payment;
-        break;
-       }
-      }
-     }
+    // Track focus change analytics
+    if (window.posthog) {
+      const debtName = debtId ? timelineDebts.find(d => d.id === debtId)?.name || debtId : null;
+      window.posthog.capture('plan_forecast_focus_change', {
+        debt_id: debtId,
+        debt_name: debtName
+      });
     }
-   }
-   
-   return { monthlyData, debtInfo: debtBalances };
   };
   
-  const { monthlyData, debtInfo } = stackedSimulation();
-  return { data: monthlyData, debtInfo };
- }, [timelineDebts, snowballAmount, totalMinPaymentsTimeline, chartType]);
+  const { exportTimelineData } = useCsvExport();
 
- // Ensure both datasets exist for the selected view
- const lineData = useMemo(() => {
-  return normalizeSeries(chartData);
- }, [chartData]);
+  // Transform debt data for DebtEngine with order preservation - use same source as other tabs
+  const timelineDebts = useMemo(() => {
+    const sourceDebts = dataManagerDebts || [];
+    if (!Array.isArray(sourceDebts)) return [];
+    return sourceDebts.map(debt => ({
+      id: debt.id || debt.name,
+      name: debt.name,
+      balance: debt.balance || debt.amount || 0,
+      rate: debt.interest || debt.rate || 20, // Use actual interest rate or default to 20%
+      minPayment: debt.min || debt.minPayment || debt.regularPayment || Math.max(25, Math.floor((debt.balance || debt.amount || 0) * 0.02)),
+      order: debt.order // Critical: preserve user-defined order
+    }));
+  }, [dataManagerDebts]);
 
- const stackedData = useMemo(() => {
-  // stackedChartData is either [] (when not stacked) or { data: [...], debtInfo: [...] } (when stacked)
-  const d = Array.isArray(stackedChartData) ? [] : (stackedChartData?.data ?? []);
-  console.log('[TimelineTab] Stacked raw data:', d?.length, 'entries, sample:', d[0]);
-  // coerce every key to a number except 'month'
-  const normalized = Array.isArray(d)
-   ? d.map(row =>
-     Object.fromEntries(
-      Object.entries(row).map(([k, v]) => [k, k === "month" ? row.month : toNumber(v)])
-     )
-    )
-   : [];
-  console.log('[TimelineTab] Stacked normalized:', normalized?.length, 'entries, sample:', normalized[0]);
-  return normalized;
- }, [stackedChartData]);
+  // Check for scenario parameter on mount
+  useEffect(() => {
+    if (searchParams.get('scenario') === 'true') {
+      setForceShowScenarios(true);
+      setScenariosExpanded(true); // Auto-expand for testing
+    }
+  }, [searchParams]);
 
- const hasLine = lineData.length > 0 && lineData.some(r => r.minimumOnly > 0 || r.snowball > 0);
- const hasStacked = stackedData.length > 0 && Object.keys(stackedData[0] || {}).length > 1;
- 
- console.log('[SnowballTab] Debug:', {
-  timelineDebtsLength: timelineDebts?.length,
-  strategyTimelineLength: strategyTimeline?.length,
-  chartDataLength: chartData?.length,
-  lineDataLength: lineData?.length,
-  hasLine,
-  firstLineData: lineData?.[0],
-  chartType,
-  hasStacked,
-  stackedDataLength: stackedData.length,
-  debtInfoLength: stackedChartData?.debtInfo?.length || 0
- });
-
- // Calculate payoff months from line data
- const strategyPayoffMonths = lineData.findIndex((p, index) => index > 0 && p.snowball <= 1);
- const minimumPayoffMonths = lineData.findIndex((p, index) => index > 0 && p.minimumOnly <= 1);
- 
- // Calculate interest paid (simplified calculation)
- const strategyInterestPaid = strategyPayoffMonths > 0 ? strategyPayoffMonths * 100 : 0;
- const minimumInterestPaid = minimumPayoffMonths > 0 ? minimumPayoffMonths * 150 : 0;
-
- // Calculate deltas for scenario display
- const monthsSaved = Math.max(0, minimumPayoffMonths - strategyPayoffMonths);
- const interestSaved = Math.max(0, minimumInterestPaid - strategyInterestPaid);
- 
- // Check if user has any active scenarios
- const hasActiveScenarios = scenarioSelections.some(s => s.active);
- 
- // Temporarily show headline even without scenarios if there's improvement from slider
- const hasSliderImpact = snowballAmount > 0 && (monthsSaved > 0 || interestSaved > 0);
- const showImpactHeadline = (hasActiveScenarios && (impacts.agg.monthsSaved > 0 || impacts.agg.interestSaved > 0)) || 
-              (!hasActiveScenarios && hasSliderImpact);
- 
- console.log('[TimelineTab] Impact headline debug:', {
-  hasActiveScenarios,
-  hasSliderImpact,
-  monthsSaved: impacts.agg.monthsSaved,
-  interestSaved: impacts.agg.interestSaved,
-  sliderMonthsSaved: monthsSaved,
-  sliderInterestSaved: interestSaved,
-  snowballAmount,
-  showImpactHeadline
- });
-
- if (hasNoDebtData) {
-  return (
-   <div data-testid="snowball-empty-state">
-    <NoDebtsState 
-     title="No Snowball Plan Yet"
-     subtitle="Add your debts to see how the Snowball Method can accelerate your debt freedom."
-     icon="📅"
-     source="snowball"
-     onAdd={() => {
-      // Navigate to debts tab first, then trigger modal
-      window.location.href = '/plan/debts';
-      // Use a small delay to ensure the page loads, then trigger modal
-      setTimeout(() => {
-       window.dispatchEvent(new CustomEvent('openAddDebtModal'));
-      }, 100);
-     }}
-     buttonText="Add Your First Debt"
-    />
-   </div>
-  );
- }
-
- return (
-  <div data-testid="snowball-tab-content" className="space-y-6 pb-32">
-   {/* Persistent Snowball Control Bar - Positioned at top for visibility */}
-   <SimplePersistentSnowballControlBar />
-   {/* Negative Amortization Warning */}
-   {negativeAmortizationDebts.length > 0 && (
-    <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
-     <div className="flex">
-      <div className="flex-shrink-0">
-       <svg className="h-5 w-5 text-red-400 mt-0.5" viewBox="0 0 20 20" fill="currentColor">
-        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-       </svg>
-      </div>
-      <div className="ml-3">
-       <h3 className="text-sm font-medium text-red-800">
-        ⚠️ Warning: Minimum Payments Too Low
-       </h3>
-       <div className="mt-2 text-sm text-red-700">
-        <p>Some debts have minimum payments below their monthly interest, causing them to grow:</p>
-        <ul className="list-disc pl-5 mt-1">
-         {negativeAmortizationDebts.map((debt, i) => (
-          <li key={i}>
-           <strong>{debt.name}</strong>: £{debt.minPayment}/mo minimum vs £{debt.monthlyInterest.toFixed(2)}/mo interest ({debt.apr.toFixed(1)}% APR)
-          </li>
-         ))}
-        </ul>
-        <p className="mt-2">
-         <strong>Solution:</strong> Increase your snowball amount above or update minimum payments in the Debts tab.
-        </p>
-       </div>
-      </div>
-     </div>
-    </div>
-   )}
-
-   <div className="flex items-center justify-between">
-    <div>
-     <h2 className={`text-xl font-semibold ${colors.text.primary}`}>Your Path to Debt Freedom</h2>
-     <p className={`text-sm ${colors.text.muted} mt-1`}>Based on your debts and payments today</p>
-    </div>
-   </div>
-
-   {/* Snowball Slider & Impact - 50/50 Layout */}
-   <div data-testid="snowball-controls" className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-stretch">
-    <div data-testid="snowball-amount-display" className="bg-surface rounded-xl p-6 border border-border">
-     <div className="flex items-center justify-between mb-4">
-      <div>
-       <h3 className="text-lg font-semibold text-text">Snowball Amount</h3>
-       <p className="text-sm text-muted">Extra monthly payment</p>
-      </div>
-      <button
-       onClick={() => setIsEditModalOpen(true)}
-       className="bg-primary text-white px-4 py-2 rounded-lg font-medium hover:bg-primary/90 transition-colors"
-      >
-       Edit Amount
-      </button>
-     </div>
-     <div className="text-3xl font-bold text-primary mb-2">
-      {formatCurrency(snowballAmount)} /mo
-     </div>
-     {snowballAmount === 0 && (
-      <p className="text-sm text-muted">
-       Set a snowball amount to accelerate your debt payoff
-      </p>
-     )}
-    </div>
-    <div data-testid="impact-headline">
-     <ImpactHeadline 
-      impact={{
-       monthsSaved: hasActiveScenarios ? impacts.agg.monthsSaved : monthsSaved,
-       interestSaved: hasActiveScenarios ? impacts.agg.interestSaved : interestSaved
-      }}
-      basePayoffMonths={minimumPayoffMonths}
-      strategyPayoffMonths={strategyPayoffMonths}
-     />
-    </div>
-   </div>
-
-   {/* Centered Snowflake CTA underneath both boxes */}
-   <div className="flex flex-col items-center space-y-2">
-    <button
-     onClick={() => onTabChange && onTabChange('snowflakes')}
-     className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 transition-colors"
-    >
-     <span>Log a Snowflake</span>
-     <span>❄️</span>
-    </button>
-    <p className="text-xs text-gray-500 text-center">
-     💡 One-off payments give your plan an instant boost.
-    </p>
-   </div>
-
-   {/* Core Numbers - Subdued */}
-   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-    <div className="p-4 rounded-lg bg-slate-50 border border-slate-200">
-     <div className="text-2xl font-bold text-slate-800">{formatCurrency(totalDebtTimeline)}</div>
-     <div className="text-sm text-slate-600">Total Balance</div>
-    </div>
-    <div className="p-4 rounded-lg bg-slate-50 border border-slate-200">
-     <div className="text-2xl font-bold text-slate-800">{formatCurrency(totalMinPaymentsTimeline)}</div>
-     <div className="text-sm text-slate-600">Monthly Minimums</div>
-    </div>
-    <div className="p-4 rounded-lg bg-slate-50 border border-slate-200">
-     <div className="text-2xl font-bold text-slate-800">{formatCurrency(totalMinPaymentsTimeline + planExtraMonthly)}</div>
-     <div className="text-sm text-slate-600">Your Payment Each Month</div>
-    </div>
-   </div>
-
-
-   {/* Expandable Scenarios Panel */}
-   {(flags.SCENARIOS || forceShowScenarios) && (
-    <div className="bg-white border border-slate-200 rounded-lg">
-     <button
-      onClick={() => {
-       const newExpanded = !scenariosExpanded;
-       setScenariosExpanded(newExpanded);
-       if (window.posthog) {
-        window.posthog.capture('plan_scenarios_toggle', {
-         open: newExpanded
+  // Analytics tracking for slider changes (throttled)
+  useEffect(() => {
+    const id = setTimeout(() => {
+      // Only track if extraPayment is meaningful (> 0)
+      if (extraPayment > 0 && window.posthog) {
+        window.posthog.capture('plan_boost_change', {
+          tab: 'forecast',
+          boost_pennies: extraPayment * 100,
+          debts_count: timelineDebts.length
         });
-       }
-      }}
-      className="w-full p-4 flex items-center justify-between hover:bg-slate-50 transition-colors"
-     >
-      <div className="flex items-center gap-2">
-       <span className="text-lg">💡</span>
-       <span className="font-medium text-slate-700">Explore lifestyle boosts</span>
-      </div>
-      <div className="flex items-center gap-2">
-       {hasActiveScenarios && !scenariosExpanded && (
-        <span className="text-sm text-emerald-600 font-medium">
-         {scenarioSelections.filter(s => s.active).length} active scenarios
-        </span>
-       )}
-       <svg 
-        className={`w-5 h-5 text-slate-500 transition-transform ${scenariosExpanded ? 'rotate-180' : ''}`}
-        fill="none" 
-        stroke="currentColor" 
-        viewBox="0 0 24 24"
-       >
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-       </svg>
-      </div>
-     </button>
-     {scenariosExpanded && (
-      <div className="px-4 pb-4">
-       <ScenariosPanel onChange={onScenariosChange} impacts={impacts.perScenario} />
-      </div>
-     )}
-    </div>
-   )}
+      }
+    }, 300);
+    return () => clearTimeout(id);
+  }, [extraPayment, timelineDebts.length]);
 
-   {/* Chart Section - More Breathing Room */}
-   <div className="space-y-6 py-4">
-    {/* Focus Control */}
-    {timelineDebts.length > 0 && (
-     <FocusSelect 
-      debts={timelineDebts} 
-      focusedDebtId={focusedDebtId} 
-      onChange={handleFocusChange}
-     />
-    )}
+  const onScenariosChange = (s) => setScenarioSelections(s);
+
+  const totalMinPaymentsTimeline = (timelineDebts || []).reduce((sum, debt) => sum + debt.minPayment, 0);
+  const totalDebtTimeline = (timelineDebts || []).reduce((sum, debt) => sum + debt.balance, 0);
+
+  // Calculate impacts using the new impact system
+  const monthsCap = 120;
+  const impacts = useMemo(() => {
+    if (timelineDebts.length === 0) {
+      return { 
+        base: null, 
+        combined: null, 
+        perScenario: [], 
+        agg: { monthsSaved: 0, interestSaved: 0 },
+        plans: { basePlan: null, combinedPlan: null }
+      };
+    }
+    return computeImpacts(timelineDebts, extraPayment, scenarioSelections, monthsCap);
+  }, [timelineDebts, extraPayment, scenarioSelections]);
+
+  // Get extra monthly amount from combined plan
+  const planExtraMonthly = useMemo(() => {
+    if (!impacts.plans.combinedPlan) return extraPayment;
+    return impacts.plans.combinedPlan.extraMonthly;
+  }, [impacts, extraPayment]);
+
+  // Helper function to choose the right calculation method based on strategy
+  const calculateTimeline = useMemo(() => {
+    return payoffStrategy === 'avalanche' ? calculateAvalancheTimeline : calculateSnowballTimeline;
+  }, [payoffStrategy]);
+
+  // Create timeline-based chart data with real dates
+  const strategyTimeline = useMemo(() => {
+    if (timelineDebts.length === 0) return [];
     
-    {/* Focused Debt Badge */}
-    {focusedDebtId && focusedDebtLabel && (
-     <div className={`inline-flex items-center space-x-2 px-4 py-2 rounded-lg ${colors.surfaceSecondary} border ${colors.border}`}>
-      <span className={`text-sm font-medium ${colors.text.primary}`}>
-       Focused on: {focusedDebtLabel}
-      </span>
-      {focusedDebtPayoffDate && (
-       <span className={`text-sm ${colors.text.muted}`}>
-        Payoff by {focusedDebtPayoffDate.toLocaleDateString('en-GB', { month: 'short', year: 'numeric' })}
-       </span>
+    // Use combined extra payment from impact calculations
+    return calculateTimeline(timelineDebts, planExtraMonthly);
+  }, [timelineDebts, planExtraMonthly, calculateTimeline]);
+  
+  const minimumTimeline = useMemo(() => {
+    if (timelineDebts.length === 0) return [];
+    return calculateTimeline(timelineDebts, 0); // No extra payment for minimum
+  }, [timelineDebts, calculateTimeline]);
+
+  // Focus-related calculations (must come after timelineDebts and strategyTimeline are defined)
+  const focusedDebtLabel = getDebtLabelById(timelineDebts, focusedDebtId);
+  const focusedDebtSeries = buildDebtBalanceSeries(strategyTimeline, focusedDebtId);
+  const focusedDebtPayoffDate = getFocusedDebtPayoffDate(strategyTimeline, focusedDebtId);
+
+  // Transform timeline data for payment matrix
+  const matrixTimeline = useMemo(() => {
+    if (!strategyTimeline || strategyTimeline.length === 0) return [];
+    
+    return strategyTimeline.map((entry, index) => ({
+      monthIndex: index,
+      date: entry.date,
+      dateLabel: entry.displayDate,
+      totalSnowball: entry.totalBalance || 0,
+      extraPayment: planExtraMonthly,
+      flex: 0, // Could be used for additional flexible payments
+      items: (entry.debts || [])
+        .filter(debt => {
+          // Only include debts that are in the current timeline debts list
+          const timelineDebt = (timelineDebts || []).find(td => td.name === debt.name);
+          return timelineDebt && debt.balance > 0;
+        })
+        .map(debt => {
+          // Find the corresponding timeline debt to get payment info
+          const timelineDebt = (timelineDebts || []).find(td => td.name === debt.name);
+          return {
+            debtId: debt.name,
+            label: debt.name,
+            payment: timelineDebt?.minPayment || 0, // Use the actual minimum payment
+            interest: 0, // Could calculate based on remaining balance
+            principal: timelineDebt?.minPayment || 0,
+            extra: 0,
+            remaining: debt.balance || 0,
+          };
+        })
+    }));
+  }, [strategyTimeline, planExtraMonthly, timelineDebts]);
+
+  // Stable debt column order for payment matrix - use actual user debt labels
+  const debtOrder = useMemo(() => {
+    return (timelineDebts || []).map(d => d.name).filter(Boolean);
+  }, [timelineDebts]);
+
+  // Custom month label function for payment matrix
+  const monthLabel = (m) => {
+    // prefer existing label if present
+    if (m?.dateLabel) return m.dateLabel;
+    // else build from current date + monthIndex
+    if (Number.isFinite(m?.monthIndex)) {
+      const d = new Date();
+      d.setMonth(d.getMonth() + m.monthIndex);
+      return d.toLocaleString('en-GB', { month: 'short', year: '2-digit' }).replace(' ', '-');
+    }
+    return `M${(m?.monthIndex ?? 0) + 1}`;
+  };
+  
+  const chartData = useMemo(() => {
+    const maxLength = Math.max(strategyTimeline.length, minimumTimeline.length);
+    const data = [];
+    
+    for (let i = 0; i < maxLength; i++) {
+      const strategyEntry = strategyTimeline[i];
+      const minimumEntry = minimumTimeline[i];
+      
+      data.push({
+        month: strategyEntry?.displayDate || minimumEntry?.displayDate || `Month ${i + 1}`,
+        minimumOnly: minimumEntry?.totalBalance || 0,
+        snowball: strategyEntry?.totalBalance || 0, // Keep 'snowball' key for chart compatibility
+      });
+    }
+    
+    console.log('[TimelineTab] Chart data:', {
+      dataLength: data.length,
+      planExtraMonthly,
+      firstPoint: data[0],
+      lastPoint: data[data.length - 1]
+    });
+    return data;
+  }, [strategyTimeline, minimumTimeline, planExtraMonthly]);
+
+  // Create stacked chart data showing individual debt balances over time
+  const stackedChartData = useMemo(() => {
+    if (chartType !== 'stacked') return [];
+    
+    const sortedDebts = [...timelineDebts].sort((a, b) => a.balance - b.balance);
+    const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#84cc16', '#f97316'];
+    
+    // Create a simulation specifically for stacked view
+    const stackedSimulation = () => {
+      const debtBalances = sortedDebts.map(debt => ({
+        name: debt.name,
+        balance: debt.balance,
+        rate: debt.rate,
+        minPayment: debt.minPayment,
+        color: colors[sortedDebts.indexOf(debt) % colors.length]
+      }));
+      
+      const monthlyData = [];
+      
+      for (let month = 0; month < 61; month++) {
+        const monthData = { month };
+        
+        // Add each debt's balance for this month
+        debtBalances.forEach(debt => {
+          monthData[debt.name] = Math.max(0, debt.balance);
+        });
+        
+        monthlyData.push(monthData);
+        
+        // Apply snowball method for next month
+        if (month < 60) {
+          let totalPayment = totalMinPaymentsTimeline + extraPayment;
+          
+          // Pay minimums first
+          debtBalances.forEach(debt => {
+            if (debt.balance > 0) {
+              const interest = debt.balance * (debt.rate / 12 / 100);
+              const principal = Math.max(0, debt.minPayment - interest);
+              debt.balance = Math.max(0, debt.balance - principal);
+              totalPayment -= debt.minPayment;
+            }
+          });
+          
+          // Apply extra payment to smallest debt
+          if (totalPayment > 0) {
+            for (let debt of debtBalances) {
+              if (debt.balance > 0) {
+                const payment = Math.min(totalPayment, debt.balance);
+                debt.balance -= payment;
+                break;
+              }
+            }
+          }
+        }
+      }
+      
+      return { monthlyData, debtInfo: debtBalances };
+    };
+    
+    const { monthlyData, debtInfo } = stackedSimulation();
+    return { data: monthlyData, debtInfo };
+  }, [timelineDebts, extraPayment, totalMinPaymentsTimeline, chartType]);
+
+  // Ensure both datasets exist for the selected view
+  const lineData = useMemo(() => {
+    return normalizeSeries(chartData);
+  }, [chartData]);
+
+  const stackedData = useMemo(() => {
+    // stackedChartData is either [] (when not stacked) or { data: [...], debtInfo: [...] } (when stacked)
+    const d = Array.isArray(stackedChartData) ? [] : (stackedChartData?.data ?? []);
+    console.log('[TimelineTab] Stacked raw data:', d?.length, 'entries, sample:', d[0]);
+    // coerce every key to a number except 'month'
+    const normalized = Array.isArray(d)
+      ? d.map(row =>
+          Object.fromEntries(
+            Object.entries(row).map(([k, v]) => [k, k === "month" ? row.month : toNumber(v)])
+          )
+        )
+      : [];
+    console.log('[TimelineTab] Stacked normalized:', normalized?.length, 'entries, sample:', normalized[0]);
+    return normalized;
+  }, [stackedChartData]);
+
+  const hasLine = lineData.length > 0 && lineData.some(r => r.minimumOnly > 0 || r.snowball > 0);
+  const hasStacked = stackedData.length > 0 && Object.keys(stackedData[0] || {}).length > 1;
+  
+  console.log('[TimelineTab] Chart state:', {
+    chartType,
+    hasLine,
+    hasStacked,
+    stackedDataLength: stackedData.length,
+    debtInfoLength: stackedChartData?.debtInfo?.length || 0
+  });
+
+  // Calculate payoff months from line data
+  const strategyPayoffMonths = lineData.findIndex((p, index) => index > 0 && p.snowball <= 1);
+  const minimumPayoffMonths = lineData.findIndex((p, index) => index > 0 && p.minimumOnly <= 1);
+  
+  // Calculate interest paid (simplified calculation)
+  const strategyInterestPaid = strategyPayoffMonths > 0 ? strategyPayoffMonths * 100 : 0;
+  const minimumInterestPaid = minimumPayoffMonths > 0 ? minimumPayoffMonths * 150 : 0;
+
+  // Calculate deltas for scenario display
+  const monthsSaved = Math.max(0, minimumPayoffMonths - strategyPayoffMonths);
+  const interestSaved = Math.max(0, minimumInterestPaid - strategyInterestPaid);
+  
+  // Check if user has any active scenarios
+  const hasActiveScenarios = scenarioSelections.some(s => s.active);
+  
+  // Temporarily show headline even without scenarios if there's improvement from slider
+  const hasSliderImpact = extraPayment > 0 && (monthsSaved > 0 || interestSaved > 0);
+  const showImpactHeadline = (hasActiveScenarios && (impacts.agg.monthsSaved > 0 || impacts.agg.interestSaved > 0)) || 
+                            (!hasActiveScenarios && hasSliderImpact);
+  
+  console.log('[TimelineTab] Impact headline debug:', {
+    hasActiveScenarios,
+    hasSliderImpact,
+    monthsSaved: impacts.agg.monthsSaved,
+    interestSaved: impacts.agg.interestSaved,
+    sliderMonthsSaved: monthsSaved,
+    sliderInterestSaved: interestSaved,
+    extraPayment,
+    showImpactHeadline
+  });
+
+  if (hasNoDebtData) {
+    return (
+      <NoDebtsState 
+        title="No Forecast Yet"
+        subtitle="Add your debts to see your personalised debt-free date and repayment timeline."
+        icon="📅"
+      />
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className={`text-xl font-semibold ${colors.text.primary}`}>Your Path to Debt Freedom</h2>
+          <p className={`text-sm ${colors.text.muted} mt-1`}>Based on your debts and payments today</p>
+        </div>
+      </div>
+
+      {/* Snowball Slider & Impact - 50/50 Layout */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-stretch">
+        <SnowballBoostMeter
+          value={extraPayment}
+          onChange={setExtraPayment}
+          min={0}
+          max={1100}
+          step={25}
+        />
+        <ImpactHeadline 
+          impact={{
+            monthsSaved: hasActiveScenarios ? impacts.agg.monthsSaved : monthsSaved,
+            interestSaved: hasActiveScenarios ? impacts.agg.interestSaved : interestSaved
+          }}
+          basePayoffMonths={minimumPayoffMonths}
+          strategyPayoffMonths={strategyPayoffMonths}
+        />
+      </div>
+
+      {/* Centered Snowflake CTA underneath both boxes */}
+      <div className="flex flex-col items-center space-y-2">
+        <button
+          onClick={() => onTabChange && onTabChange('snowflakes')}
+          className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 transition-colors"
+        >
+          <span>Log a Snowflake</span>
+          <span>❄️</span>
+        </button>
+        <p className="text-xs text-gray-500 text-center">
+          💡 One-off payments give your plan an instant boost.
+        </p>
+      </div>
+
+      {/* Core Numbers - Subdued */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="p-4 rounded-lg bg-slate-50 border border-slate-200">
+          <div className="text-2xl font-bold text-slate-800">{formatCurrency(totalDebtTimeline)}</div>
+          <div className="text-sm text-slate-600">Total Balance</div>
+        </div>
+        <div className="p-4 rounded-lg bg-slate-50 border border-slate-200">
+          <div className="text-2xl font-bold text-slate-800">{formatCurrency(totalMinPaymentsTimeline)}</div>
+          <div className="text-sm text-slate-600">Monthly Minimums</div>
+        </div>
+        <div className="p-4 rounded-lg bg-slate-50 border border-slate-200">
+          <div className="text-2xl font-bold text-slate-800">{formatCurrency(totalMinPaymentsTimeline + planExtraMonthly)}</div>
+          <div className="text-sm text-slate-600">Your Payment Each Month</div>
+        </div>
+      </div>
+
+
+      {/* Expandable Scenarios Panel */}
+      {(flags.SCENARIOS || forceShowScenarios) && (
+        <div className="bg-white border border-slate-200 rounded-lg">
+          <button
+            onClick={() => {
+              const newExpanded = !scenariosExpanded;
+              setScenariosExpanded(newExpanded);
+              if (window.posthog) {
+                window.posthog.capture('plan_scenarios_toggle', {
+                  open: newExpanded
+                });
+              }
+            }}
+            className="w-full p-4 flex items-center justify-between hover:bg-slate-50 transition-colors"
+          >
+            <div className="flex items-center gap-2">
+              <span className="text-lg">💡</span>
+              <span className="font-medium text-slate-700">Explore lifestyle boosts</span>
+            </div>
+            <div className="flex items-center gap-2">
+              {hasActiveScenarios && !scenariosExpanded && (
+                <span className="text-sm text-emerald-600 font-medium">
+                  {scenarioSelections.filter(s => s.active).length} active scenarios
+                </span>
+              )}
+              <svg 
+                className={`w-5 h-5 text-slate-500 transition-transform ${scenariosExpanded ? 'rotate-180' : ''}`}
+                fill="none" 
+                stroke="currentColor" 
+                viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </div>
+          </button>
+          {scenariosExpanded && (
+            <div className="px-4 pb-4">
+              <ScenariosPanel onChange={onScenariosChange} impacts={impacts.perScenario} />
+            </div>
+          )}
+        </div>
       )}
-      <button
-       onClick={() => handleFocusChange(null)}
-       className={`text-sm px-2 py-1 rounded ${colors.text.muted} hover:${colors.text.secondary}`}
-      >
-       ×
-      </button>
-     </div>
-    )}
 
-    {/* Chart Controls */}
-    <div className="flex justify-between items-center">
-     {/* Chart Type Toggle */}
-     <div className="bg-gray-100 p-1 rounded-lg">
-      <Button
-       onClick={() => {
-        const prevView = chartType;
-        setChartType('line');
-        if (window.posthog) {
-         window.posthog.capture('plan_chart_view_change', {
-          tab: 'snowball',
-          from: prevView,
-          to: 'line',
-          debts_count: timelineDebts.length,
-          boost_pennies: snowballAmount * 100
-         });
-        }
-       }}
-       variant={chartType === 'line' ? 'muted' : 'ghost'}
-       size="sm"
-       className={chartType === 'line' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-600 hover:text-gray-900'}
-      >
-       Line View
-      </Button>
-      <Button
-       onClick={() => {
-        const prevView = chartType;
-        setChartType('stacked');
-        if (window.posthog) {
-         window.posthog.capture('plan_chart_view_change', {
-          tab: 'snowball',
-          from: prevView,
-          to: 'stacked',
-          debts_count: timelineDebts.length,
-          boost_pennies: snowballAmount * 100
-         });
-        }
-       }}
-       variant={chartType === 'stacked' ? 'muted' : 'ghost'}
-       size="sm"
-       className={chartType === 'stacked' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-600 hover:text-gray-900'}
-      >
-       Stacked View
-      </Button>
-     </div>
-     
-     {/* Export Buttons */}
-     <div className="flex items-center space-x-2">
-      <Button
-       onClick={() => {
-        exportTimelineData(strategyTimeline);
-        if (window.posthog) {
-         window.posthog.capture('plan_export_csv', {
-          tab: 'snowball',
-          dataset: 'timeline',
-          rows: strategyTimeline.length,
-          debts_count: timelineDebts.length,
-          boost_pennies: snowballAmount * 100
-         });
-        }
-       }}
-       variant="ghost"
-       size="sm"
-       className="text-gray-600 hover:text-gray-900"
-      >
-       📊 Export as CSV
-      </Button>
-     </div>
-    </div>
+      {/* Chart Section - More Breathing Room */}
+      <div className="space-y-6 py-4">
+        {/* Focus Control */}
+        {timelineDebts.length > 0 && (
+          <FocusSelect 
+            debts={timelineDebts} 
+            focusedDebtId={focusedDebtId} 
+            onChange={handleFocusChange}
+          />
+        )}
+        
+        {/* Focused Debt Badge */}
+        {focusedDebtId && focusedDebtLabel && (
+          <div className={`inline-flex items-center space-x-2 px-4 py-2 rounded-lg ${colors.surfaceSecondary} border ${colors.border}`}>
+            <span className={`text-sm font-medium ${colors.text.primary}`}>
+              Focused on: {focusedDebtLabel}
+            </span>
+            {focusedDebtPayoffDate && (
+              <span className={`text-sm ${colors.text.muted}`}>
+                Payoff by {focusedDebtPayoffDate.toLocaleDateString('en-GB', { month: 'short', year: 'numeric' })}
+              </span>
+            )}
+            <button
+              onClick={() => handleFocusChange(null)}
+              className={`text-sm px-2 py-1 rounded ${colors.text.muted} hover:${colors.text.secondary}`}
+            >
+              ×
+            </button>
+          </div>
+        )}
 
-    {/* Chart - Guarded Rendering with Increased Height */}
-    {!hasLine && chartType === "line" && (
-     <div className="p-8 text-center text-sm text-slate-600 border rounded bg-gray-50">
-      📊 Add debts to see your Snowball impact.
-     </div>
-    )}
-    {chartType === "line" && hasLine && (
-     <div className="bg-white border border-slate-200 rounded-lg p-4">
-      <TimelineChart 
-       chartData={lineData}
-       stackedChartData={null}
-       chartType="line"
-       height={500}
-       focusedDebtSeries={focusedDebtId ? focusedDebtSeries : null}
-       focusedDebtLabel={focusedDebtLabel}
+        {/* Chart Controls */}
+        <div className="flex justify-between items-center">
+          {/* Chart Type Toggle */}
+          <div className="bg-gray-100 p-1 rounded-lg">
+            <Button
+              onClick={() => {
+                const prevView = chartType;
+                setChartType('line');
+                if (window.posthog) {
+                  window.posthog.capture('plan_chart_view_change', {
+                    tab: 'forecast',
+                    from: prevView,
+                    to: 'line',
+                    debts_count: timelineDebts.length,
+                    boost_pennies: extraPayment * 100
+                  });
+                }
+              }}
+              variant={chartType === 'line' ? 'muted' : 'ghost'}
+              size="sm"
+              className={chartType === 'line' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-600 hover:text-gray-900'}
+            >
+              Line View
+            </Button>
+            <Button
+              onClick={() => {
+                const prevView = chartType;
+                setChartType('stacked');
+                if (window.posthog) {
+                  window.posthog.capture('plan_chart_view_change', {
+                    tab: 'forecast',
+                    from: prevView,
+                    to: 'stacked',
+                    debts_count: timelineDebts.length,
+                    boost_pennies: extraPayment * 100
+                  });
+                }
+              }}
+              variant={chartType === 'stacked' ? 'muted' : 'ghost'}
+              size="sm"
+              className={chartType === 'stacked' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-600 hover:text-gray-900'}
+            >
+              Stacked View
+            </Button>
+          </div>
+          
+          {/* Export Buttons */}
+          <div className="flex items-center space-x-2">
+            <Button
+              onClick={() => {
+                exportTimelineData(strategyTimeline);
+                if (window.posthog) {
+                  window.posthog.capture('plan_export_csv', {
+                    tab: 'forecast',
+                    dataset: 'timeline',
+                    rows: strategyTimeline.length,
+                    debts_count: timelineDebts.length,
+                    boost_pennies: extraPayment * 100
+                  });
+                }
+              }}
+              variant="ghost"
+              size="sm"
+              className="text-gray-600 hover:text-gray-900"
+            >
+              📊 Export as CSV
+            </Button>
+          </div>
+        </div>
+
+        {/* Chart - Guarded Rendering with Increased Height */}
+        {!hasLine && chartType === "line" && (
+          <div className="p-8 text-center text-sm text-slate-600 border rounded bg-gray-50">
+            📊 Add debts or load demo data to see your forecast.
+          </div>
+        )}
+        {chartType === "line" && hasLine && (
+          <div className="bg-white border border-slate-200 rounded-lg p-4">
+            <TimelineChart 
+              chartData={lineData}
+              stackedChartData={null}
+              chartType="line"
+              height={500}
+              focusedDebtSeries={focusedDebtId ? focusedDebtSeries : null}
+              focusedDebtLabel={focusedDebtLabel}
+            />
+          </div>
+        )}
+
+        {chartType === "stacked" && !hasStacked && (
+          <div className="p-8 text-center text-sm text-slate-600 border rounded bg-gray-50">
+            📊 Not enough data for stacked view yet — switch to Line view.
+          </div>
+        )}
+        {chartType === "stacked" && hasStacked && (
+          <div className="bg-white border border-slate-200 rounded-lg p-4">
+            <TimelineChart 
+              chartData={null}
+              stackedChartData={{ 
+                data: stackedData,
+                debtInfo: stackedChartData?.debtInfo || []
+              }}
+              chartType="stacked"
+              height={500}
+            />
+          </div>
+        )}
+      </div>
+
+      {/* Results Summary */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Minimum Payments */}
+        <div className="bg-yellow-50 border-l-4 border-yellow-500 rounded-lg p-6">
+          <div className="flex items-center mb-3">
+            <div className="bg-yellow-100 rounded-full p-2 mr-3">
+              <svg className="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <h3 className="text-lg font-bold text-yellow-800">Minimum Payments Only</h3>
+          </div>
+          <p className="text-xl font-bold text-yellow-600 mb-1">
+            {minimumPayoffMonths > 0 ? minimumPayoffMonths : 'Never'} {minimumPayoffMonths > 0 ? 'months' : ''}
+          </p>
+          <p className="text-sm text-yellow-700">to be debt-free</p>
+          <p className="text-xs text-yellow-600 mt-2">
+            {formatCurrency(minimumInterestPaid)} interest paid
+          </p>
+        </div>
+
+        {/* Strategy Method */}
+        <div className="bg-green-50 border-l-4 border-green-500 rounded-lg p-6">
+          <div className="flex items-center mb-3">
+            <div className="bg-green-100 rounded-full p-2 mr-3">
+              <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+              </svg>
+            </div>
+            <h3 className="text-lg font-bold text-green-800">{payoffStrategy === 'avalanche' ? 'Avalanche' : 'Snowball'} Strategy</h3>
+          </div>
+          <p className="text-xl font-bold text-green-600 mb-1">
+            {strategyPayoffMonths > 0 ? strategyPayoffMonths : 'Never'} {strategyPayoffMonths > 0 ? 'months' : ''}
+          </p>
+          <p className="text-sm text-green-700">to be debt-free</p>
+          <p className="text-xs text-green-600 mt-2">
+            {formatCurrency(strategyInterestPaid)} interest paid
+          </p>
+        </div>
+      </div>
+
+      {/* Impact Summary */}
+      {strategyPayoffMonths > 0 && minimumPayoffMonths > 0 && (
+        <div className={`rounded-lg shadow-lg p-6 ${colors.surface}`}>
+          <h3 className={`text-xl font-bold ${colors.text.primary} mb-4`}>Why It Matters</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="text-center p-4 bg-green-50 rounded-lg">
+              <p className="text-sm text-gray-600 mb-1">Save</p>
+              <p className="text-3xl font-bold text-green-600">
+                £{Math.max(0, minimumInterestPaid - strategyInterestPaid).toLocaleString()}
+              </p>
+              <p className="text-sm text-gray-600">in interest</p>
+            </div>
+            <div className="text-center p-4 bg-blue-50 rounded-lg">
+              <p className="text-sm text-gray-600 mb-1">Be debt-free</p>
+              <p className="text-3xl font-bold text-blue-600">
+                {Math.max(0, minimumPayoffMonths - strategyPayoffMonths)}
+              </p>
+              <p className="text-sm text-gray-600">months sooner</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Math Details - Trust-building payoff table */}
+      <MathDetails extraPayment={extraPayment} />
+
+      {/* Payment Matrix - Detailed month-by-month schedule */}
+      <DebtPaymentMatrix
+        timeline={matrixTimeline}
+        debtOrder={debtOrder}
+        monthLabel={monthLabel}
+        defaultOpen={false}
+        focusedDebtId={focusedDebtId}
       />
-     </div>
-    )}
-
-    {chartType === "stacked" && !hasStacked && (
-     <div className="p-8 text-center text-sm text-slate-600 border rounded bg-gray-50">
-      📊 Not enough data for stacked view yet — switch to Line view.
-     </div>
-    )}
-    {chartType === "stacked" && hasStacked && (
-     <div className="bg-white border border-slate-200 rounded-lg p-4">
-      <TimelineChart 
-       chartData={null}
-       stackedChartData={{ 
-        data: stackedData,
-        debtInfo: stackedChartData?.debtInfo || []
-       }}
-       chartType="stacked"
-       height={500}
-      />
-     </div>
-    )}
-   </div>
-
-   {/* Results Summary */}
-   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-    {/* Minimum Payments */}
-    <div className="bg-yellow-50 border-l-4 border-yellow-500 rounded-lg p-6">
-     <div className="flex items-center mb-3">
-      <div className="bg-yellow-100 rounded-full p-2 mr-3">
-       <svg className="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-       </svg>
-      </div>
-      <h3 className="text-lg font-bold text-yellow-800">Minimum Payments Only</h3>
-     </div>
-     <p className="text-xl font-bold text-yellow-600 mb-1">
-      {minimumPayoffMonths > 0 ? minimumPayoffMonths : 'Never'} {minimumPayoffMonths > 0 ? 'months' : ''}
-     </p>
-     <p className="text-sm text-yellow-700">to be debt-free</p>
-     <p className="text-xs text-yellow-600 mt-2">
-      {formatCurrency(minimumInterestPaid)} interest paid
-     </p>
     </div>
-
-    {/* Strategy Method */}
-    <div className="bg-green-50 border-l-4 border-green-500 rounded-lg p-6">
-     <div className="flex items-center mb-3">
-      <div className="bg-green-100 rounded-full p-2 mr-3">
-       <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-       </svg>
-      </div>
-      <h3 className="text-lg font-bold text-green-800">{payoffStrategy === 'avalanche' ? 'Avalanche' : 'Snowball'} Strategy</h3>
-     </div>
-     <p className="text-xl font-bold text-green-600 mb-1">
-      {strategyPayoffMonths > 0 ? strategyPayoffMonths : 'Never'} {strategyPayoffMonths > 0 ? 'months' : ''}
-     </p>
-     <p className="text-sm text-green-700">to be debt-free</p>
-     <p className="text-xs text-green-600 mt-2">
-      {formatCurrency(strategyInterestPaid)} interest paid
-     </p>
-    </div>
-   </div>
-
-   {/* Impact Summary */}
-   {strategyPayoffMonths > 0 && minimumPayoffMonths > 0 && (
-    <div className={`rounded-lg shadow-lg p-6 ${colors.surface}`}>
-     <h3 className={`text-xl font-bold ${colors.text.primary} mb-4`}>Why It Matters</h3>
-     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-      <div className="text-center p-4 bg-green-50 rounded-lg">
-       <p className="text-sm text-gray-600 mb-1">Save</p>
-       <p className="text-3xl font-bold text-green-600">
-        £{Math.max(0, minimumInterestPaid - strategyInterestPaid).toLocaleString()}
-       </p>
-       <p className="text-sm text-gray-600">in interest</p>
-      </div>
-      <div className="text-center p-4 bg-blue-50 rounded-lg">
-       <p className="text-sm text-gray-600 mb-1">Be debt-free</p>
-       <p className="text-3xl font-bold text-blue-600">
-        {Math.max(0, minimumPayoffMonths - strategyPayoffMonths)}
-       </p>
-       <p className="text-sm text-gray-600">months sooner</p>
-      </div>
-     </div>
-    </div>
-   )}
-
-   {/* Math Details - Trust-building payoff table */}
-   <MathDetails snowballAmount={snowballAmount} />
-
-   {/* Payment Matrix - Detailed month-by-month schedule */}
-   <DebtPaymentMatrix
-    timeline={matrixTimeline}
-    debtOrder={debtOrder}
-    monthLabel={monthLabel}
-    defaultOpen={false}
-    focusedDebtId={focusedDebtId}
-   />
-
-
-   {/* Simple Edit Snowball Modal */}
-   <SimpleEditSnowballModal
-    isOpen={isEditModalOpen}
-    onClose={() => setIsEditModalOpen(false)}
-   />
-  </div>
- );
+  );
 };
 
 export default TimelineTab;

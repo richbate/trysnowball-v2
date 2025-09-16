@@ -8,48 +8,48 @@ import { getDemoMeta, useDemoMode } from '../providers/DemoModeProvider';
 import { useNavigate } from 'react-router-dom';
 
 export function DemoChrome() {
- const { demo_mode } = getDemoMeta();
- const { exitDemo } = useDemoMode();
- const navigate = useNavigate();
- 
- if (!demo_mode) return null;
- 
- const handleExitDemo = () => {
-  exitDemo('/debts'); // Navigate to debt entry page
- };
- 
- return (
-  <>
-   {/* Global Demo Banner */}
-   <div 
-    data-testid="demo-banner" 
-    className="fixed top-0 inset-x-0 z-50 bg-yellow-200 text-yellow-900 text-sm px-3 py-2 flex items-center justify-between shadow-md"
-   >
-    <div className="flex items-center space-x-2">
-     <div className="w-2 h-2 bg-yellow-600 rounded-full animate-pulse"></div>
-     <span>
-      You're in <strong>Demo Mode</strong> — nothing you do is saved.
-     </span>
-    </div>
-    <button
-     data-testid="exit-demo"
-     onClick={handleExitDemo}
-     className="underline hover:no-underline font-medium transition-all duration-200 hover:text-yellow-800"
-    >
-     Use my real data →
-    </button>
-   </div>
-   
-   {/* Demo Watermark */}
-   <div 
-    aria-label="Demo mode" 
-    role="status"
-    className="fixed right-3 bottom-3 z-40 opacity-60 text-xs bg-yellow-100 border border-yellow-300 rounded px-2 py-1 pointer-events-none select-none font-mono tracking-wide"
-   >
-    DEMO
-   </div>
-  </>
- );
+  const { demo_mode } = getDemoMeta();
+  const { exitDemo } = useDemoMode();
+  const navigate = useNavigate();
+  
+  if (!demo_mode) return null;
+  
+  const handleExitDemo = () => {
+    exitDemo('/debts'); // Navigate to debt entry page
+  };
+  
+  return (
+    <>
+      {/* Global Demo Banner */}
+      <div 
+        data-testid="demo-banner" 
+        className="fixed top-0 inset-x-0 z-50 bg-yellow-200 text-yellow-900 text-sm px-3 py-2 flex items-center justify-between shadow-md"
+      >
+        <div className="flex items-center space-x-2">
+          <div className="w-2 h-2 bg-yellow-600 rounded-full animate-pulse"></div>
+          <span>
+            You're in <strong>Demo Mode</strong> — nothing you do is saved.
+          </span>
+        </div>
+        <button
+          data-testid="exit-demo"
+          onClick={handleExitDemo}
+          className="underline hover:no-underline font-medium transition-all duration-200 hover:text-yellow-800"
+        >
+          Use my real data →
+        </button>
+      </div>
+      
+      {/* Demo Watermark */}
+      <div 
+        aria-label="Demo mode" 
+        role="status"
+        className="fixed right-3 bottom-3 z-40 opacity-60 text-xs bg-yellow-100 border border-yellow-300 rounded px-2 py-1 pointer-events-none select-none font-mono tracking-wide"
+      >
+        DEMO
+      </div>
+    </>
+  );
 }
 
 export default DemoChrome;

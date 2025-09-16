@@ -1,135 +1,135 @@
 // Utility to calculate debt trends from actual history data
 
 export const calculateTrend = (debt) => {
- const history = debt.history || [];
- const currentBalance = debt.amount_pennies || debt.amount || 0;
- 
- // If no history, create a single entry for current balance
- if (history.length === 0) {
+  const history = debt.history || [];
+  const currentBalance = debt.balance || debt.amount || 0;
+  
+  // If no history, create a single entry for current balance
+  if (history.length === 0) {
+    return {
+      trend: 0, // No change yet
+      totalChange: 0,
+      progressStatus: 'new',
+      chartData: [{ 
+        date: new Date().toISOString().slice(0, 7), 
+        balance: currentBalance 
+      }],
+      firstBalance: currentBalance,
+      lastBalance: currentBalance,
+      monthsTracked: 0
+    };
+  }
+  
+  // Sort history by date to ensure proper order
+  const sortedHistory = [...history].sort((a, b) => 
+    new Date(a.changedAt || a.date) - new Date(b.changedAt || b.date)
+  );
+  
+  // Get first and last entries
+  const firstEntry = sortedHistory[0];
+  const lastEntry = sortedHistory[sortedHistory.length - 1];
+  
+  const firstBalance = firstEntry.balance;
+  const lastBalance = lastEntry.balance || currentBalance;
+  
+  // Calculate trend: negative = debt reduced (good), positive = debt increased (bad)
+  const totalChange = lastBalance - firstBalance;
+  const trend = -totalChange; // Flip sign so positive trend = improvement
+  
+  // Determine progress status
+  let progressStatus = 'neutral';
+  if (trend > 100) progressStatus = 'excellent';
+  else if (trend > 50) progressStatus = 'good';
+  else if (trend < -100) progressStatus = 'concern';
+  else if (trend < -50) progressStatus = 'warning';
+  
+  // Create chart data from history (limit to last 12 entries for performance)
+  const recentHistory = sortedHistory.slice(-12);
+  const chartData = recentHistory.map(entry => ({
+    date: (entry.changedAt || entry.date).slice(0, 7), // YYYY-MM format
+    balance: entry.balance
+  }));
+  
+  // Add current balance if it's different from last history entry
+  const lastHistoryBalance = recentHistory[recentHistory.length - 1]?.balance;
+  if (Math.abs(currentBalance - lastHistoryBalance) > 0.01) {
+    chartData.push({
+      date: new Date().toISOString().slice(0, 7),
+      balance: currentBalance
+    });
+  }
+  
+  // Calculate months tracked
+  const firstDate = new Date(firstEntry.changedAt || firstEntry.date);
+  const lastDate = new Date(lastEntry.changedAt || lastEntry.date);
+  const monthsTracked = Math.max(1, Math.round((lastDate - firstDate) / (1000 * 60 * 60 * 24 * 30)));
+  
   return {
-   trend: 0, // No change yet
-   totalChange: 0,
-   progressStatus: 'new',
-   chartData: [{ 
-    date: new Date().toISOString().slice(0, 7), 
-    balance: currentBalance 
-   }],
-   firstBalance: currentBalance,
-   lastBalance: currentBalance,
-   monthsTracked: 0
+    trend, // Positive = improvement, negative = getting worse
+    totalChange, // Raw change in balance (negative = reduced debt)
+    progressStatus,
+    chartData,
+    firstBalance,
+    lastBalance,
+    monthsTracked
   };
- }
- 
- // Sort history by date to ensure proper order
- const sortedHistory = [...history].sort((a, b) => 
-  new Date(a.changedAt || a.date) - new Date(b.changedAt || b.date)
- );
- 
- // Get first and last entries
- const firstEntry = sortedHistory[0];
- const lastEntry = sortedHistory[sortedHistory.length - 1];
- 
- const firstBalance = firstEntry.balance;
- const lastBalance = lastEntry.balance || currentBalance;
- 
- // Calculate trend: negative = debt reduced (good), positive = debt increased (bad)
- const totalChange = lastBalance - firstBalance;
- const trend = -totalChange; // Flip sign so positive trend = improvement
- 
- // Determine progress status
- let progressStatus = 'neutral';
- if (trend > 100) progressStatus = 'excellent';
- else if (trend > 50) progressStatus = 'good';
- else if (trend < -100) progressStatus = 'concern';
- else if (trend < -50) progressStatus = 'warning';
- 
- // Create chart data from history (limit to last 12 entries for performance)
- const recentHistory = sortedHistory.slice(-12);
- const chartData = recentHistory.map(entry => ({
-  date: (entry.changedAt || entry.date).slice(0, 7), // YYYY-MM format
-  balance: entry.balance
- }));
- 
- // Add current balance if it's different from last history entry
- const lastHistoryBalance = recentHistory[recentHistory.length - 1]?.balance;
- if (Math.abs(currentBalance - lastHistoryBalance) > 0.01) {
-  chartData.push({
-   date: new Date().toISOString().slice(0, 7),
-   balance: currentBalance
-  });
- }
- 
- // Calculate months tracked
- const firstDate = new Date(firstEntry.changedAt || firstEntry.date);
- const lastDate = new Date(lastEntry.changedAt || lastEntry.date);
- const monthsTracked = Math.max(1, Math.round((lastDate - firstDate) / (1000 * 60 * 60 * 24 * 30)));
- 
- return {
-  trend, // Positive = improvement, negative = getting worse
-  totalChange, // Raw change in balance (negative = reduced debt)
-  progressStatus,
-  chartData,
-  firstBalance,
-  lastBalance,
-  monthsTracked
- };
 };
 
 export const calculateOverallProgress = (debts) => {
- if (!debts || debts.length === 0) return null;
- 
- let totalTrend = 0;
- let totalOriginal = 0;
- let totalCurrent = 0;
- let validDebts = 0;
- 
- const debtProgress = debts.map(debt => {
-  const trendData = calculateTrend(debt);
-  const originalAmount = debt.originalAmount || trendData.firstBalance;
-  const currentBalance = debt.amount_pennies || debt.amount || 0;
+  if (!debts || debts.length === 0) return null;
   
-  totalTrend += trendData.trend;
-  totalOriginal += originalAmount;
-  totalCurrent += currentBalance;
-  validDebts++;
+  let totalTrend = 0;
+  let totalOriginal = 0;
+  let totalCurrent = 0;
+  let validDebts = 0;
+  
+  const debtProgress = debts.map(debt => {
+    const trendData = calculateTrend(debt);
+    const originalAmount = debt.originalAmount || trendData.firstBalance;
+    const currentBalance = debt.balance || debt.amount || 0;
+    
+    totalTrend += trendData.trend;
+    totalOriginal += originalAmount;
+    totalCurrent += currentBalance;
+    validDebts++;
+    
+    return {
+      ...debt,
+      ...trendData,
+      originalAmount
+    };
+  }).filter(debt => debt.originalAmount > 0);
+  
+  const overallProgress = totalOriginal - totalCurrent;
+  const progressPercentage = totalOriginal > 0 ? (overallProgress / totalOriginal) * 100 : 0;
   
   return {
-   ...debt,
-   ...trendData,
-   originalAmount
+    debts: debtProgress,
+    totalTrend,
+    totalOriginal,
+    totalCurrent,
+    overallProgress,
+    progressPercentage,
+    validDebts
   };
- }).filter(debt => debt.originalAmount > 0);
- 
- const overallProgress = totalOriginal - totalCurrent;
- const progressPercentage = totalOriginal > 0 ? (overallProgress / totalOriginal) * 100 : 0;
- 
- return {
-  debts: debtProgress,
-  totalTrend,
-  totalOriginal,
-  totalCurrent,
-  overallProgress,
-  progressPercentage,
-  validDebts
- };
 };
 
 // Helper to format trend for display
 export const formatTrend = (trend) => {
- if (Math.abs(trend) < 1) return '£0';
- const sign = trend >= 0 ? '+' : '';
- return `${sign}£${Math.round(trend).toLocaleString()}`;
+  if (Math.abs(trend) < 1) return '£0';
+  const sign = trend >= 0 ? '+' : '';
+  return `${sign}£${Math.round(trend).toLocaleString()}`;
 };
 
 // Helper to get progress status color
 export const getProgressColor = (status) => {
- switch (status) {
-  case 'excellent': return 'text-green-600';
-  case 'good': return 'text-green-500';
-  case 'neutral': return 'text-gray-500';
-  case 'warning': return 'text-yellow-600';
-  case 'concern': return 'text-red-600';
-  case 'new': return 'text-blue-500';
-  default: return 'text-gray-500';
- }
+  switch (status) {
+    case 'excellent': return 'text-green-600';
+    case 'good': return 'text-green-500';
+    case 'neutral': return 'text-gray-500';
+    case 'warning': return 'text-yellow-600';
+    case 'concern': return 'text-red-600';
+    case 'new': return 'text-blue-500';
+    default: return 'text-gray-500';
+  }
 };

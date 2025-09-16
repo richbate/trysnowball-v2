@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { useUserDebts } from "../hooks/useUserDebts";
+import { useDebts } from "../hooks/useDebts";
 import { DebtEngine } from "../utils/DebtEngine";
 
 /**
@@ -8,215 +8,215 @@ import { DebtEngine } from "../utils/DebtEngine";
  * Default collapsed to keep UI clean, but available for transparency
  */
 export default function MathDetails({ extraPayment = 0 }) {
- const { debts } = useUserDebts();
- const [showAll, setShowAll] = useState(false);
- const [isExpanded, setIsExpanded] = useState(false);
+  const { debts } = useDebts();
+  const [showAll, setShowAll] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
 
- const schedule = useMemo(() => {
-  if (!debts || debts.length === 0) return [];
+  const schedule = useMemo(() => {
+    if (!debts || debts.length === 0) return [];
+    
+    const totalMinPayments = debts.reduce((sum, debt) => sum + (debt.minPayment || 0), 0);
+    const monthlyBudget = totalMinPayments + extraPayment;
+    
+    const engine = new DebtEngine(debts);
+    return engine.generateTimeline(monthlyBudget);
+  }, [debts, extraPayment]);
+
+  if (!schedule?.length) return null;
+
+  // Performance optimization: limit initial render for very long schedules
+  const isVeryLong = schedule.length > 240; // 20+ years
+  const initialShowLimit = isVeryLong ? 24 : 12; // Show 2 years for very long schedules
+  const maxShowLimit = isVeryLong ? 120 : schedule.length; // Cap at 10 years for performance
   
-  const totalMinPayments = debts.reduce((sum, debt) => sum + (debt.min_payment_pennies || 0), 0);
-  const monthlyBudget = totalMinPayments + extraPayment;
-  
-  const engine = new DebtEngine(debts);
-  return engine.generateTimeline(monthlyBudget);
- }, [debts, extraPayment]);
+  const rows = showAll 
+    ? schedule.slice(0, maxShowLimit)
+    : schedule.slice(0, initialShowLimit);
 
- if (!schedule?.length) return null;
+  function toCurrency(n) {
+    return `£${(n ?? 0).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",")}`;
+  }
 
- // Performance optimization: limit initial render for very long schedules
- const isVeryLong = schedule.length > 240; // 20+ years
- const initialShowLimit = isVeryLong ? 24 : 12; // Show 2 years for very long schedules
- const maxShowLimit = isVeryLong ? 120 : schedule.length; // Cap at 10 years for performance
- 
- const rows = showAll 
-  ? schedule.slice(0, maxShowLimit)
-  : schedule.slice(0, initialShowLimit);
+  function downloadCsv() {
+    const header = [
+      "Month","Debt Name","Open Balance","Interest","Min Payment","Extra Payment","Close Balance"
+    ];
+    const lines = [header.join(",")];
+    
+    schedule.forEach(m => {
+      m.items.forEach(it => {
+        lines.push([
+          m.month,
+          csvSafe(it.name),
+          it.open.toFixed(2),
+          it.interest.toFixed(2),
+          it.minPaid.toFixed(2),
+          it.extraPaid.toFixed(2),
+          it.close.toFixed(2),
+        ].join(","));
+      });
+    });
+    
+    const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; 
+    a.download = `snowball-forecast-${new Date().toISOString().split('T')[0]}.csv`; 
+    a.click();
+    URL.revokeObjectURL(url);
+  }
 
- function toCurrency(n) {
-  return `£${(n ?? 0).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",")}`;
- }
+  function csvSafe(s = "") {
+    return `"${String(s).replace(/"/g,'""')}"`;
+  }
 
- function downloadCsv() {
-  const header = [
-   "Month","Debt Name","Open Balance","Interest","Min Payment","Extra Payment","Close Balance"
-  ];
-  const lines = [header.join(",")];
-  
-  schedule.forEach(m => {
-   m.items.forEach(it => {
-    lines.push([
-     m.month,
-     csvSafe(it.name),
-     it.open.toFixed(2),
-     it.interest.toFixed(2),
-     it.minPaid.toFixed(2),
-     it.extraPaid.toFixed(2),
-     it.close.toFixed(2),
-    ].join(","));
-   });
-  });
-  
-  const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url; 
-  a.download = `snowball-forecast-${new Date().toISOString().split('T')[0]}.csv`; 
-  a.click();
-  URL.revokeObjectURL(url);
- }
-
- function csvSafe(s = "") {
-  return `"${String(s).replace(/"/g,'""')}"`;
- }
-
- return (
-  <div className="border rounded-lg bg-white">
-   {/* Collapsible header */}
-   <div 
-    className="flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-gray-50 transition-colors border-b"
-    onClick={() => setIsExpanded(!isExpanded)}
-   >
-    <div className="flex items-center space-x-2">
-     <span className="text-sm font-medium">💡 Math details (optional)</span>
-     <span className="text-xs text-gray-500">
-      - see the penny-by-penny breakdown that powers your forecast
-     </span>
-    </div>
-    <div className="flex items-center gap-2">
-     <button 
-      onClick={(e) => {
-       e.stopPropagation();
-       downloadCsv();
-      }}
-      className="text-sm text-blue-600 hover:text-blue-800 underline"
-     >
-      Download CSV
-     </button>
-     <span className="text-gray-400">
-      {isExpanded ? '−' : '+'}
-     </span>
-    </div>
-   </div>
-
-   {isExpanded && (
-    <div className="p-4">
-     {/* Controls */}
-     <div className="flex items-center justify-between mb-4">
-      <button 
-       onClick={() => setShowAll(s => !s)} 
-       className="text-sm text-blue-600 hover:text-blue-800 underline"
+  return (
+    <div className="border rounded-lg bg-white">
+      {/* Collapsible header */}
+      <div 
+        className="flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-gray-50 transition-colors border-b"
+        onClick={() => setIsExpanded(!isExpanded)}
       >
-       {showAll 
-        ? `Show first ${initialShowLimit} months`
-        : isVeryLong 
-         ? `Show more (${Math.min(maxShowLimit, schedule.length)} of ${schedule.length} months)`
-         : `Show all ${schedule.length} months`
-       }
-      </button>
-      {isVeryLong && (
-       <div className="text-xs text-amber-600">
-        ⚠️ Very long schedule - showing first {maxShowLimit} months for performance
-       </div>
-      )}
-      <div className="text-sm text-gray-600">
-       Debt-free in {schedule.length} months
+        <div className="flex items-center space-x-2">
+          <span className="text-sm font-medium">💡 Math details (optional)</span>
+          <span className="text-xs text-gray-500">
+            - see the penny-by-penny breakdown that powers your forecast
+          </span>
+        </div>
+        <div className="flex items-center gap-2">
+          <button 
+            onClick={(e) => {
+              e.stopPropagation();
+              downloadCsv();
+            }}
+            className="text-sm text-blue-600 hover:text-blue-800 underline"
+          >
+            Download CSV
+          </button>
+          <span className="text-gray-400">
+            {isExpanded ? '−' : '+'}
+          </span>
+        </div>
       </div>
-     </div>
 
-     {/* Monthly summary table */}
-     <div className="overflow-x-auto">
-      <table className="min-w-full text-sm border border-gray-200">
-       <thead className="bg-gray-50">
-        <tr className="text-left">
-         <th className="px-3 py-2 font-medium">Month</th>
-         <th className="px-3 py-2 font-medium">Total Payment</th>
-         <th className="px-3 py-2 font-medium">Interest</th>
-         <th className="px-3 py-2 font-medium">Principal</th>
-         <th className="px-3 py-2 font-medium">End Balance</th>
-         <th className="px-3 py-2 font-medium">Focus Debt</th>
-        </tr>
-       </thead>
-       <tbody>
-        {rows.map(m => (
-         <React.Fragment key={m.month}>
-          <tr className="border-t hover:bg-gray-50">
-           <td className="px-3 py-2 font-medium">{m.month}</td>
-           <td className="px-3 py-2">{toCurrency(m.totals.payment)}</td>
-           <td className="px-3 py-2 text-red-600">{toCurrency(m.totals.interest)}</td>
-           <td className="px-3 py-2 text-green-600">{toCurrency(m.totals.principal)}</td>
-           <td className="px-3 py-2 font-medium">
-            {m.totals.balanceEnd === 0 ? (
-             <span className="text-green-600 font-bold">DEBT FREE! ✓</span>
-            ) : (
-             toCurrency(m.totals.balanceEnd)
+      {isExpanded && (
+        <div className="p-4">
+          {/* Controls */}
+          <div className="flex items-center justify-between mb-4">
+            <button 
+              onClick={() => setShowAll(s => !s)} 
+              className="text-sm text-blue-600 hover:text-blue-800 underline"
+            >
+              {showAll 
+                ? `Show first ${initialShowLimit} months`
+                : isVeryLong 
+                  ? `Show more (${Math.min(maxShowLimit, schedule.length)} of ${schedule.length} months)`
+                  : `Show all ${schedule.length} months`
+              }
+            </button>
+            {isVeryLong && (
+              <div className="text-xs text-amber-600">
+                ⚠️ Very long schedule - showing first {maxShowLimit} months for performance
+              </div>
             )}
-           </td>
-           <td className="px-3 py-2 text-blue-600">{m.focus ?? "—"}</td>
-          </tr>
-          {/* Expandable per-debt breakdown */}
-          <tr className="bg-gray-50 border-t">
-           <td colSpan={6} className="px-3 py-2">
-            <details className="group">
-             <summary className="cursor-pointer text-xs text-gray-600 hover:text-gray-800 select-none">
-              ▸ Show month {m.month} per-debt breakdown
-             </summary>
-             <div className="overflow-x-auto mt-2 group-open:block">
-              <table className="w-full text-xs border border-gray-200">
-               <thead className="bg-gray-100">
-                <tr className="text-left">
-                 <th className="px-2 py-1 font-medium">Debt</th>
-                 <th className="px-2 py-1 font-medium">Open</th>
-                 <th className="px-2 py-1 font-medium">Interest</th>
-                 <th className="px-2 py-1 font-medium">Min</th>
-                 <th className="px-2 py-1 font-medium">Extra</th>
-                 <th className="px-2 py-1 font-medium">Close</th>
-                </tr>
-               </thead>
-               <tbody>
-                {m.items.map(it => (
-                 <tr key={it.id} className="border-t hover:bg-gray-50">
-                  <td className="px-2 py-1 font-medium">
-                   {it.name}
-                   {it.close === 0 && it.open > 0 && (
-                    <span className="text-green-600 ml-1">✓</span>
-                   )}
-                  </td>
-                  <td className="px-2 py-1">{toCurrency(it.open)}</td>
-                  <td className="px-2 py-1 text-red-600">{toCurrency(it.interest)}</td>
-                  <td className="px-2 py-1">{toCurrency(it.minPaid)}</td>
-                  <td className="px-2 py-1 text-blue-600">
-                   {it.extraPaid > 0 ? toCurrency(it.extraPaid) : "—"}
-                  </td>
-                  <td className="px-2 py-1 font-medium">
-                   {it.close === 0 && it.open > 0 ? (
-                    <span className="text-green-600 font-bold">PAID OFF</span>
-                   ) : (
-                    toCurrency(it.close)
-                   )}
-                  </td>
-                 </tr>
-                ))}
-               </tbody>
-              </table>
-             </div>
-            </details>
-           </td>
-          </tr>
-         </React.Fragment>
-        ))}
-       </tbody>
-      </table>
-     </div>
+            <div className="text-sm text-gray-600">
+              Debt-free in {schedule.length} months
+            </div>
+          </div>
 
-     {/* Explanation */}
-     <div className="mt-4 p-3 bg-blue-50 rounded text-xs text-gray-600 leading-relaxed">
-      <strong>How to read this:</strong> We use a monthly interest model (APR÷12), round to the nearest penny at each step,
-      and apply any extra payment to your top-priority debt first, cascading any remainder.
-      Real issuer billing cycles may vary slightly, but this gives you the mathematical foundation of your plan.
-     </div>
+          {/* Monthly summary table */}
+          <div className="overflow-x-auto">
+            <table className="min-w-full text-sm border border-gray-200">
+              <thead className="bg-gray-50">
+                <tr className="text-left">
+                  <th className="px-3 py-2 font-medium">Month</th>
+                  <th className="px-3 py-2 font-medium">Total Payment</th>
+                  <th className="px-3 py-2 font-medium">Interest</th>
+                  <th className="px-3 py-2 font-medium">Principal</th>
+                  <th className="px-3 py-2 font-medium">End Balance</th>
+                  <th className="px-3 py-2 font-medium">Focus Debt</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map(m => (
+                  <React.Fragment key={m.month}>
+                    <tr className="border-t hover:bg-gray-50">
+                      <td className="px-3 py-2 font-medium">{m.month}</td>
+                      <td className="px-3 py-2">{toCurrency(m.totals.payment)}</td>
+                      <td className="px-3 py-2 text-red-600">{toCurrency(m.totals.interest)}</td>
+                      <td className="px-3 py-2 text-green-600">{toCurrency(m.totals.principal)}</td>
+                      <td className="px-3 py-2 font-medium">
+                        {m.totals.balanceEnd === 0 ? (
+                          <span className="text-green-600 font-bold">DEBT FREE! ✓</span>
+                        ) : (
+                          toCurrency(m.totals.balanceEnd)
+                        )}
+                      </td>
+                      <td className="px-3 py-2 text-blue-600">{m.focus ?? "—"}</td>
+                    </tr>
+                    {/* Expandable per-debt breakdown */}
+                    <tr className="bg-gray-50 border-t">
+                      <td colSpan={6} className="px-3 py-2">
+                        <details className="group">
+                          <summary className="cursor-pointer text-xs text-gray-600 hover:text-gray-800 select-none">
+                            ▸ Show month {m.month} per-debt breakdown
+                          </summary>
+                          <div className="overflow-x-auto mt-2 group-open:block">
+                            <table className="w-full text-xs border border-gray-200">
+                              <thead className="bg-gray-100">
+                                <tr className="text-left">
+                                  <th className="px-2 py-1 font-medium">Debt</th>
+                                  <th className="px-2 py-1 font-medium">Open</th>
+                                  <th className="px-2 py-1 font-medium">Interest</th>
+                                  <th className="px-2 py-1 font-medium">Min</th>
+                                  <th className="px-2 py-1 font-medium">Extra</th>
+                                  <th className="px-2 py-1 font-medium">Close</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {m.items.map(it => (
+                                  <tr key={it.id} className="border-t hover:bg-gray-50">
+                                    <td className="px-2 py-1 font-medium">
+                                      {it.name}
+                                      {it.close === 0 && it.open > 0 && (
+                                        <span className="text-green-600 ml-1">✓</span>
+                                      )}
+                                    </td>
+                                    <td className="px-2 py-1">{toCurrency(it.open)}</td>
+                                    <td className="px-2 py-1 text-red-600">{toCurrency(it.interest)}</td>
+                                    <td className="px-2 py-1">{toCurrency(it.minPaid)}</td>
+                                    <td className="px-2 py-1 text-blue-600">
+                                      {it.extraPaid > 0 ? toCurrency(it.extraPaid) : "—"}
+                                    </td>
+                                    <td className="px-2 py-1 font-medium">
+                                      {it.close === 0 && it.open > 0 ? (
+                                        <span className="text-green-600 font-bold">PAID OFF</span>
+                                      ) : (
+                                        toCurrency(it.close)
+                                      )}
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </details>
+                      </td>
+                    </tr>
+                  </React.Fragment>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Explanation */}
+          <div className="mt-4 p-3 bg-blue-50 rounded text-xs text-gray-600 leading-relaxed">
+            <strong>How to read this:</strong> We use a monthly interest model (APR÷12), round to the nearest penny at each step,
+            and apply any extra payment to your top-priority debt first, cascading any remainder.
+            Real issuer billing cycles may vary slightly, but this gives you the mathematical foundation of your plan.
+          </div>
+        </div>
+      )}
     </div>
-   )}
-  </div>
- );
+  );
 }

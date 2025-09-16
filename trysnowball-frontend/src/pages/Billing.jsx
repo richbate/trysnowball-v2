@@ -5,252 +5,241 @@
 
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext.tsx';
-import { useUserPlan } from '../hooks/useUserPlan';
+import { useUser } from '../contexts/UserContext';
+import { useTheme } from '../contexts/ThemeContext';
 import { useAnalytics } from '../hooks/useAnalytics';
-import { getToken } from '../utils/tokenStorage';
 import DemoModeBanner from '../components/DemoModeBanner';
 import Button from '../components/ui/Button';
 import { Crown, CreditCard, Calendar, ExternalLink, AlertTriangle } from 'lucide-react';
 
 const Billing = () => {
- const { user, authReady } = useAuth();
- const { isPaid, source, loading: planLoading, refresh: refreshPlan } = useUserPlan();
- const { trackBillingEvent } = useAnalytics();
- const navigate = useNavigate();
- const [isLoadingPortal, setIsLoadingPortal] = useState(false);
+  const { colors } = useTheme();
+  const { user, loading } = useUser();
+  const { trackBillingEvent } = useAnalytics();
+  const navigate = useNavigate();
+  const [isLoadingPortal, setIsLoadingPortal] = useState(false);
 
- // Redirect if not logged in
- React.useEffect(() => {
-  if (authReady && !user) {
-   navigate('/auth/login?redirect=/billing');
+  // Redirect if not logged in
+  React.useEffect(() => {
+    if (!loading && !user) {
+      navigate('/auth/login?redirect=/billing');
+    }
+  }, [user, loading, navigate]);
+
+  // Handle Stripe Customer Portal
+  const handleManageSubscription = async () => {
+    if (!user?.email) return;
+
+    setIsLoadingPortal(true);
+    
+    try {
+      trackBillingEvent('portal_accessed', {
+        subscription_status: user.isPro ? 'active' : 'none'
+      });
+
+      const response = await fetch('/api/create-portal-session', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+        },
+        body: JSON.stringify({
+          customerEmail: user.email,
+          returnUrl: `${window.location.origin}/billing`
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to create portal session');
+      }
+
+      const { url } = await response.json();
+      window.location.href = url;
+      
+    } catch (error) {
+      console.error('Portal error:', error);
+      alert('Unable to open billing portal. Please contact support.');
+    } finally {
+      setIsLoadingPortal(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className={`min-h-screen ${colors.background} flex items-center justify-center`}>
+        <div>Loading...</div>
+      </div>
+    );
   }
- }, [user, authReady, navigate]);
 
- // Handle Stripe Customer Portal
- const handleManageSubscription = async () => {
-  if (!user?.email) return;
-
-  setIsLoadingPortal(true);
-  
-  try {
-   trackBillingEvent('portal_accessed', {
-    subscription_status: isPaid ? 'active' : 'none',
-    source: source
-   });
-
-   const response = await fetch('/api/create-portal-session', {
-    method: 'POST',
-    headers: {
-     'Content-Type': 'application/json',
-     'Authorization': `Bearer ${getToken()}`
-    },
-    body: JSON.stringify({
-     customerEmail: user.email,
-     returnUrl: `${window.location.origin}/billing`
-    })
-   });
-
-   if (!response.ok) {
-    throw new Error('Failed to create portal session');
-   }
-
-   const { url } = await response.json();
-   window.location.href = url;
-   
-   // Refresh plan status when user returns from portal
-   setTimeout(() => {
-    refreshPlan();
-   }, 1000);
-   
-  } catch (error) {
-   console.error('Portal error:', error);
-   alert('Unable to open billing portal. Please contact support.');
-  } finally {
-   setIsLoadingPortal(false);
+  if (!user) {
+    return null; // Redirect happening
   }
- };
 
- if (!authReady || planLoading) {
   return (
-   <div className={`min-h-screen ${colors.background} flex items-center justify-center`}>
-    <div>Loading...</div>
-   </div>
-  );
- }
-
- if (!user) {
-  return null; // Redirect happening
- }
-
- return (
-  <div className={`min-h-screen ${colors.background}`}>
-   <DemoModeBanner />
-   
-   <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-    {/* Header */}
-    <div className="text-center mb-12">
-     <h1 className={`text-4xl font-bold ${colors.text.primary} mb-4`}>
-      Billing & Subscription
-     </h1>
-     <p className={`text-lg ${colors.text.secondary}`}>
-      Manage your TrySnowball subscription and billing settings
-     </p>
-    </div>
-
-    <div className="grid lg:grid-cols-2 gap-8">
-     {/* Current Plan Status */}
-     <div className={`${colors.surface} rounded-lg shadow-sm border ${colors.border} p-6`}>
-      <div className="flex items-center gap-3 mb-6">
-       {isPaid ? (
-        <div className="bg-gradient-to-r from-yellow-400 to-orange-500 w-12 h-12 rounded-full flex items-center justify-center">
-         <Crown className="w-6 h-6 text-white" />
+    <div className={`min-h-screen ${colors.background}`}>
+      <DemoModeBanner />
+      
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        {/* Header */}
+        <div className="text-center mb-12">
+          <h1 className={`text-4xl font-bold ${colors.text.primary} mb-4`}>
+            Billing & Subscription
+          </h1>
+          <p className={`text-lg ${colors.text.secondary}`}>
+            Manage your TrySnowball subscription and billing settings
+          </p>
         </div>
-       ) : (
-        <div className="bg-gray-100 w-12 h-12 rounded-full flex items-center justify-center">
-         <Crown className="w-6 h-6 text-gray-500" />
-        </div>
-       )}
-       <div>
-        <h2 className={`text-xl font-semibold ${colors.text.primary}`}>
-         Current Plan
-        </h2>
-        <p className={`text-sm ${colors.text.secondary}`}>
-         {source === 'stripe' ? 'TrySnowball Pro' :
-          source === 'beta' ? 'Beta Access' : 
-          'Free Plan'}
-        </p>
-       </div>
-      </div>
 
-      {isPaid ? (
-       <div className="space-y-4">
-        <div className="flex items-center justify-between py-3 border-b border-gray-200">
-         <span className={`text-sm ${colors.text.secondary}`}>Status</span>
-         <span className="text-sm font-medium text-green-600 bg-green-100 px-2 py-1 rounded-full">
-          {source === 'stripe' ? 'Active' : source === 'beta' ? 'Beta Access' : 'Active'}
-         </span>
-        </div>
-        <div className="flex items-center justify-between py-3 border-b border-gray-200">
-         <span className={`text-sm ${colors.text.secondary}`}>Plan</span>
-         <span className={`text-sm font-medium ${colors.text.primary}`}>
-          {source === 'stripe' ? 'TrySnowball Pro - £4.99/month' :
-           source === 'beta' ? 'Beta Access - Complimentary' : 
-           'Active Plan'}
-         </span>
-        </div>
-        <div className="flex items-center justify-between py-3">
-         <span className={`text-sm ${colors.text.secondary}`}>Features</span>
-         <span className={`text-sm ${colors.text.primary}`}>
-          Unlimited AI Coach, Pro Charts, Priority Support
-         </span>
-        </div>
-       </div>
-      ) : (
-       <div className="text-center py-8">
-        <p className={`text-sm ${colors.text.secondary} mb-4`}>
-         You're currently using Demo Mode. Upgrade to Pro for unlimited AI coaching and advanced features.
-        </p>
-        <Button
-         onClick={() => navigate('/upgrade')}
-         variant="special"
-         size="md"
-        >
-         Upgrade to Pro
-        </Button>
-       </div>
-      )}
-     </div>
+        <div className="grid lg:grid-cols-2 gap-8">
+          {/* Current Plan Status */}
+          <div className={`${colors.surface} rounded-lg shadow-sm border ${colors.border} p-6`}>
+            <div className="flex items-center gap-3 mb-6">
+              {user.isPro ? (
+                <div className="bg-gradient-to-r from-yellow-400 to-orange-500 w-12 h-12 rounded-full flex items-center justify-center">
+                  <Crown className="w-6 h-6 text-white" />
+                </div>
+              ) : (
+                <div className="bg-gray-100 w-12 h-12 rounded-full flex items-center justify-center">
+                  <Crown className="w-6 h-6 text-gray-500" />
+                </div>
+              )}
+              <div>
+                <h2 className={`text-xl font-semibold ${colors.text.primary}`}>
+                  Current Plan
+                </h2>
+                <p className={`text-sm ${colors.text.secondary}`}>
+                  {user.isPro ? 'TrySnowball Pro' : 'Demo Mode'}
+                </p>
+              </div>
+            </div>
 
-     {/* Billing Management */}
-     <div className={`${colors.surface} rounded-lg shadow-sm border ${colors.border} p-6`}>
-      <div className="flex items-center gap-3 mb-6">
-       <div className="bg-blue-100 w-12 h-12 rounded-full flex items-center justify-center">
-        <CreditCard className="w-6 h-6 text-blue-600" />
-       </div>
-       <div>
-        <h2 className={`text-xl font-semibold ${colors.text.primary}`}>
-         Billing Management
-        </h2>
-        <p className={`text-sm ${colors.text.secondary}`}>
-         Update payment method, view invoices, and manage billing
-        </p>
-       </div>
-      </div>
-
-      {source === 'stripe' ? (
-       <div className="space-y-4">
-        <Button
-         onClick={handleManageSubscription}
-         disabled={isLoadingPortal}
-         variant="primary"
-         size="lg"
-         className="w-full"
-         leftIcon={!isLoadingPortal ? ExternalLink : undefined}
-         loading={isLoadingPortal}
-        >
-         {isLoadingPortal ? 'Loading...' : 'Manage Subscription'}
-        </Button>
-        
-        <div className={`bg-blue-50 rounded-lg p-4 text-sm ${colors.text.secondary}`}>
-         <div className="flex items-start gap-2">
-          <Calendar className="w-4 h-4 mt-0.5 text-blue-500" />
-          <div>
-           <p className="font-medium text-blue-900 mb-1">Stripe Customer Portal</p>
-           <p>Update payment method, download invoices, cancel subscription, and view billing history.</p>
+            {user.isPro ? (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between py-3 border-b border-gray-200">
+                  <span className={`text-sm ${colors.text.secondary}`}>Status</span>
+                  <span className="text-sm font-medium text-green-600 bg-green-100 px-2 py-1 rounded-full">
+                    Active
+                  </span>
+                </div>
+                <div className="flex items-center justify-between py-3 border-b border-gray-200">
+                  <span className={`text-sm ${colors.text.secondary}`}>Plan</span>
+                  <span className={`text-sm font-medium ${colors.text.primary}`}>
+                    TrySnowball Pro - £4.99/month
+                  </span>
+                </div>
+                <div className="flex items-center justify-between py-3">
+                  <span className={`text-sm ${colors.text.secondary}`}>Features</span>
+                  <span className={`text-sm ${colors.text.primary}`}>
+                    Unlimited AI Coach, Pro Charts, Priority Support
+                  </span>
+                </div>
+              </div>
+            ) : (
+              <div className="text-center py-8">
+                <p className={`text-sm ${colors.text.secondary} mb-4`}>
+                  You're currently using Demo Mode. Upgrade to Pro for unlimited AI coaching and advanced features.
+                </p>
+                <Button
+                  onClick={() => navigate('/upgrade')}
+                  variant="special"
+                  size="md"
+                >
+                  Upgrade to Pro
+                </Button>
+              </div>
+            )}
           </div>
-         </div>
-        </div>
-       </div>
-      ) : (
-       <div className="text-center py-8">
-        <div className="flex items-center justify-center gap-2 mb-4">
-         <AlertTriangle className="w-5 h-5 text-gray-400" />
-         <span className={`text-sm ${colors.text.secondary}`}>No active subscription</span>
-        </div>
-        <p className={`text-sm ${colors.text.secondary} mb-4`}>
-         Upgrade to Pro to access billing management features.
-        </p>
-       </div>
-      )}
-     </div>
-    </div>
 
-    {/* Pro Features Reminder */}
-    {!isPaid && (
-     <div className={`${colors.surface} rounded-lg border-2 border-dashed ${colors.border} p-8 text-center mt-8`}>
-      <Crown className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-      <h3 className={`text-xl font-semibold ${colors.text.primary} mb-2`}>
-       Ready to unlock Pro features?
-      </h3>
-      <p className={`${colors.text.secondary} mb-6 max-w-md mx-auto`}>
-       Get AI coaching, advanced charts, and priority support for just £4.99/month.
-      </p>
-      <Button
-       onClick={() => navigate('/upgrade')}
-       variant="special"
-       size="lg"
-      >
-       View Pro Plans
-      </Button>
-     </div>
-    )}
+          {/* Billing Management */}
+          <div className={`${colors.surface} rounded-lg shadow-sm border ${colors.border} p-6`}>
+            <div className="flex items-center gap-3 mb-6">
+              <div className="bg-blue-100 w-12 h-12 rounded-full flex items-center justify-center">
+                <CreditCard className="w-6 h-6 text-blue-600" />
+              </div>
+              <div>
+                <h2 className={`text-xl font-semibold ${colors.text.primary}`}>
+                  Billing Management
+                </h2>
+                <p className={`text-sm ${colors.text.secondary}`}>
+                  Update payment method, view invoices, and manage billing
+                </p>
+              </div>
+            </div>
 
-    {/* Support Contact */}
-    <div className="text-center mt-12">
-     <p className={`text-sm ${colors.text.secondary} mb-4`}>
-      Need help with billing or have questions?
-     </p>
-     <a
-      href="mailto:hello@trysnowball.co.uk"
-      className={`text-sm text-blue-600 hover:text-blue-700 font-medium`}
-     >
-      Contact Support →
-     </a>
+            {user.isPro ? (
+              <div className="space-y-4">
+                <Button
+                  onClick={handleManageSubscription}
+                  disabled={isLoadingPortal}
+                  variant="primary"
+                  size="lg"
+                  className="w-full"
+                  leftIcon={!isLoadingPortal ? ExternalLink : undefined}
+                  loading={isLoadingPortal}
+                >
+                  {isLoadingPortal ? 'Loading...' : 'Manage Subscription'}
+                </Button>
+                
+                <div className={`bg-blue-50 rounded-lg p-4 text-sm ${colors.text.secondary}`}>
+                  <div className="flex items-start gap-2">
+                    <Calendar className="w-4 h-4 mt-0.5 text-blue-500" />
+                    <div>
+                      <p className="font-medium text-blue-900 mb-1">Stripe Customer Portal</p>
+                      <p>Update payment method, download invoices, cancel subscription, and view billing history.</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="text-center py-8">
+                <div className="flex items-center justify-center gap-2 mb-4">
+                  <AlertTriangle className="w-5 h-5 text-gray-400" />
+                  <span className={`text-sm ${colors.text.secondary}`}>No active subscription</span>
+                </div>
+                <p className={`text-sm ${colors.text.secondary} mb-4`}>
+                  Upgrade to Pro to access billing management features.
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Pro Features Reminder */}
+        {!user.isPro && (
+          <div className={`${colors.surface} rounded-lg border-2 border-dashed ${colors.border} p-8 text-center mt-8`}>
+            <Crown className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+            <h3 className={`text-xl font-semibold ${colors.text.primary} mb-2`}>
+              Ready to unlock Pro features?
+            </h3>
+            <p className={`${colors.text.secondary} mb-6 max-w-md mx-auto`}>
+              Get AI coaching, advanced charts, and priority support for just £4.99/month.
+            </p>
+            <Button
+              onClick={() => navigate('/upgrade')}
+              variant="special"
+              size="lg"
+            >
+              View Pro Plans
+            </Button>
+          </div>
+        )}
+
+        {/* Support Contact */}
+        <div className="text-center mt-12">
+          <p className={`text-sm ${colors.text.secondary} mb-4`}>
+            Need help with billing or have questions?
+          </p>
+          <a
+            href="mailto:hello@trysnowball.co.uk"
+            className={`text-sm text-blue-600 hover:text-blue-700 font-medium`}
+          >
+            Contact Support →
+          </a>
+        </div>
+      </div>
     </div>
-   </div>
-  </div>
- );
+  );
 };
 
 export default Billing;

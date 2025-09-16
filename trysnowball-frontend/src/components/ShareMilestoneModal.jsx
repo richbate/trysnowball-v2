@@ -1,427 +1,400 @@
 import React, { useState, useEffect } from 'react';
 import { X, Copy, CheckCircle } from 'lucide-react';
-import { useAuth } from '../contexts/AuthContext.tsx';
-import { usePostHog } from 'posthog-js/react';
+import { useUser } from '../contexts/UserContext';
 import { 
- generateShareMessage, 
- trackReferralEvent 
-} from '../compat/utils/referralUtils';
+  generateShareMessage, 
+  trackReferralEvent 
+} from '../utils/referralUtils';
 import { generateCustomShareMessage } from '../utils/gptMilestonePrompts';
 import { generateMilestoneShareData } from '../utils/dynamicShareMessages';
-import { secureAnalytics } from '../utils/secureAnalytics';
 import Button from './ui/Button';
 import ShareButtons from './ShareButtons';
 import ShareCard from './share/ShareCard';
 import { exportShareCardPNG, copyShareCardToClipboard, buildShareCopy, buildShareCaption } from './share/exportShareCard';
 
 const ShareMilestoneModal = ({ 
- isOpen, 
- onClose, 
- milestone, 
- customMessage = null 
+  isOpen, 
+  onClose, 
+  milestone, 
+  customMessage = null 
 }) => {
- const { user, referralLink } = useAuth();
- const posthog = usePostHog();
- const [shareMessage, setShareMessage] = useState('');
- const [copied, setCopied] = useState(false);
- const [shareCardVariant, setShareCardVariant] = useState('square');
- const [imageCopied, setImageCopied] = useState(false);
- const [captionCopied, setCaptionCopied] = useState(false);
- const [editableCaption, setEditableCaption] = useState('');
- const [captionEdited, setCaptionEdited] = useState(false);
+  const { user, referralLink } = useUser();
+  const [shareMessage, setShareMessage] = useState('');
+  const [copied, setCopied] = useState(false);
+  const [shareCardVariant, setShareCardVariant] = useState('square');
+  const [imageCopied, setImageCopied] = useState(false);
+  const [captionCopied, setCaptionCopied] = useState(false);
+  const [editableCaption, setEditableCaption] = useState('');
+  const [captionEdited, setCaptionEdited] = useState(false);
 
- // Generate share message when modal opens
- useEffect(() => {
-  const generateMessage = async () => {
-   if (isOpen && milestone) {
-    let message;
+  // Generate share message when modal opens
+  useEffect(() => {
+    const generateMessage = async () => {
+      if (isOpen && milestone) {
+        let message;
+        
+        if (customMessage) {
+          message = customMessage;
+        } else {
+          // Try GPT-generated message first, fallback to template
+          try {
+            message = await generateCustomShareMessage(milestone, referralLink || 'https://trysnowball.co.uk');
+          } catch (error) {
+            console.warn('GPT message generation failed, using template:', error);
+            message = generateShareMessage(milestone, referralLink || 'https://trysnowball.co.uk');
+          }
+        }
+        
+        setShareMessage(message);
+        
+        // Track milestone sharing trigger
+        trackReferralEvent('share_triggered', {
+          reason: milestone.type,
+          debtName: milestone.debtName,
+          userId: user?.id
+        });
+      }
+    };
     
-    if (customMessage) {
-     message = customMessage;
-    } else {
-     // Try GPT-generated message first, fallback to template
-     try {
-      message = await generateCustomShareMessage(milestone, referralLink || 'https://trysnowball.co.uk');
-     } catch (error) {
-      console.warn('GPT message generation failed, using template:', error);
-      message = generateShareMessage(milestone, referralLink || 'https://trysnowball.co.uk');
-     }
+    generateMessage();
+  }, [isOpen, milestone, customMessage, referralLink, user]);
+
+  // Initialize editable caption
+  useEffect(() => {
+    if (isOpen && milestone && !captionEdited) {
+      const generatedCaption = buildShareCaption(milestone);
+      setEditableCaption(generatedCaption);
     }
-    
-    setShareMessage(message);
-    
-    // Track milestone sharing trigger
-    trackReferralEvent('share_triggered', {
-     reason: milestone.type,
-     debtName: milestone.debtName,
-     userId: user?.id
-    });
-   }
+  }, [isOpen, milestone, captionEdited]);
+
+  const handleCopyToClipboard = async () => {
+    try {
+      await navigator.clipboard.writeText(shareMessage);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+      
+      trackReferralEvent('share_copied', {
+        method: 'clipboard',
+        milestoneType: milestone?.type
+      });
+    } catch (error) {
+      console.warn('Failed to copy to clipboard:', error);
+      // Fallback for older browsers
+      const textArea = document.createElement('textarea');
+      textArea.value = shareMessage;
+      document.body.appendChild(textArea);
+      textArea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textArea);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
   };
-  
-  generateMessage();
- }, [isOpen, milestone, customMessage, referralLink, user]);
 
- // Initialize editable caption
- useEffect(() => {
-  if (isOpen && milestone && !captionEdited) {
-   const generatedCaption = buildShareCaption(milestone);
-   setEditableCaption(generatedCaption);
-  }
- }, [isOpen, milestone, captionEdited]);
+  const handleShare = (platform) => {
+    trackReferralEvent('share_social', {
+      platform: platform,
+      milestoneType: milestone?.type
+    });
+  };
 
- const handleCopyToClipboard = async () => {
-  try {
-   await navigator.clipboard.writeText(shareMessage);
-   setCopied(true);
-   setTimeout(() => setCopied(false), 2000);
-   
-   trackReferralEvent('share_copied', {
-    method: 'clipboard',
-    milestoneType: milestone?.type
-   });
-   
-   // Track milestone sharing for action completion
-   secureAnalytics.trackEvent('milestone_shared', {
-    platform: 'clipboard',
-    milestone_type: milestone?.type
-   });
-  } catch (error) {
-   console.warn('Failed to copy to clipboard:', error);
-   // Fallback for older browsers
-   const textArea = document.createElement('textarea');
-   textArea.value = shareMessage;
-   document.body.appendChild(textArea);
-   textArea.select();
-   document.execCommand('copy');
-   document.body.removeChild(textArea);
-   setCopied(true);
-   setTimeout(() => setCopied(false), 2000);
-  }
- };
+  const handleSaveImage = async () => {
+    try {
+      await exportShareCardPNG('share-card-root', 'trysnowball-milestone.png');
+      trackReferralEvent('share_image_saved', {
+        milestoneType: milestone?.type,
+        variant: shareCardVariant
+      });
+    } catch (error) {
+      console.warn('Failed to save image:', error);
+    }
+  };
 
- const handleShare = (platform) => {
-  trackReferralEvent('share_social', {
-   platform: platform,
-   milestoneType: milestone?.type
-  });
-  
-  // Track milestone sharing for action completion
-  secureAnalytics.trackEvent('milestone_shared', {
-   platform: platform,
-   milestone_type: milestone?.type
-  });
- };
+  const handleCopyImage = async () => {
+    try {
+      await copyShareCardToClipboard('share-card-root');
+      setImageCopied(true);
+      setTimeout(() => setImageCopied(false), 2000);
+      trackReferralEvent('share_image_copied', {
+        milestoneType: milestone?.type,
+        variant: shareCardVariant
+      });
+    } catch (error) {
+      console.warn('Failed to copy image:', error);
+    }
+  };
 
- const handleSaveImage = async () => {
-  try {
-   await exportShareCardPNG('share-card-root', 'trysnowball-milestone.png');
-   trackReferralEvent('share_image_saved', {
-    milestoneType: milestone?.type,
-    variant: shareCardVariant
-   });
-   
-   // Track milestone sharing for action completion
-   secureAnalytics.trackEvent('milestone_shared', {
-    platform: 'download',
-    milestone_type: milestone?.type
-   });
-  } catch (error) {
-   console.warn('Failed to save image:', error);
-  }
- };
+  const handleCopyCaption = async () => {
+    try {
+      await navigator.clipboard.writeText(editableCaption);
+      setCaptionCopied(true);
+      setTimeout(() => setCaptionCopied(false), 2000);
+      trackReferralEvent('share_caption_copied', {
+        milestoneType: milestone?.type,
+        edited: captionEdited
+      });
+    } catch (error) {
+      console.warn('Failed to copy caption:', error);
+    }
+  };
 
- const handleCopyImage = async () => {
-  try {
-   await copyShareCardToClipboard('share-card-root');
-   setImageCopied(true);
-   setTimeout(() => setImageCopied(false), 2000);
-   trackReferralEvent('share_image_copied', {
-    milestoneType: milestone?.type,
-    variant: shareCardVariant
-   });
-   
-   // Track milestone sharing for action completion
-   secureAnalytics.trackEvent('milestone_shared', {
-    platform: 'image_clipboard',
-    milestone_type: milestone?.type
-   });
-  } catch (error) {
-   console.warn('Failed to copy image:', error);
-  }
- };
+  const handleCaptionChange = (e) => {
+    setEditableCaption(e.target.value);
+    setCaptionEdited(true);
+  };
 
- const handleCopyCaption = async () => {
-  try {
-   await navigator.clipboard.writeText(editableCaption);
-   setCaptionCopied(true);
-   setTimeout(() => setCaptionCopied(false), 2000);
-   trackReferralEvent('share_caption_copied', {
-    milestoneType: milestone?.type,
-    edited: captionEdited
-   });
-  } catch (error) {
-   console.warn('Failed to copy caption:', error);
-  }
- };
+  const handleResetCaption = () => {
+    const generatedCaption = buildShareCaption(milestone);
+    setEditableCaption(generatedCaption);
+    setCaptionEdited(false);
+  };
 
- const handleCaptionChange = (e) => {
-  setEditableCaption(e.target.value);
-  setCaptionEdited(true);
- };
+  const handleClose = () => {
+    setCopied(false);
+    setImageCopied(false);
+    setCaptionCopied(false);
+    setCaptionEdited(false);
+    setEditableCaption('');
+    onClose();
+  };
 
- const handleResetCaption = () => {
-  const generatedCaption = buildShareCaption(milestone);
-  setEditableCaption(generatedCaption);
-  setCaptionEdited(false);
- };
+  if (!isOpen || !milestone) return null;
 
- const handleClose = () => {
-  setCopied(false);
-  setImageCopied(false);
-  setCaptionCopied(false);
-  setCaptionEdited(false);
-  setEditableCaption('');
-  onClose();
- };
+  // Celebration emoji based on milestone type
+  const getCelebrationEmoji = (type) => {
+    switch (type) {
+      case 'debt_cleared': return '🎉';
+      case 'milestone_hit': return '🎯';
+      case 'all_debts_cleared': return '🎊';
+      default: return '🚀';
+    }
+  };
 
- if (!isOpen || !milestone) return null;
+  // Get milestone title
+  const getMilestoneTitle = (milestone) => {
+    switch (milestone.type) {
+      case 'debt_cleared':
+        return `You cleared ${milestone.debtName}!`;
+      case 'all_debts_cleared':
+        return 'You\'re debt free!';
+      case 'milestone_hit':
+        return `You hit a major milestone!`;
+      default:
+        return 'Great progress!';
+    }
+  };
 
- // Celebration emoji based on milestone type
- const getCelebrationEmoji = (type) => {
-  switch (type) {
-   case 'debt_cleared': return '🎉';
-   case 'milestone_hit': return '🎯';
-   case 'all_debts_cleared': return '🎊';
-   default: return '🚀';
-  }
- };
-
- // Get milestone title
- const getMilestoneTitle = (milestone) => {
-  switch (milestone.type) {
-   case 'debt_cleared':
-    return `You cleared ${milestone.debtName}!`;
-   case 'all_debts_cleared':
-    return 'You\'re debt free!';
-   case 'milestone_hit':
-    return `You hit a major milestone!`;
-   default:
-    return 'Great progress!';
-  }
- };
-
- return (
-  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-   <div className="bg-white rounded-xl max-w-lg w-full mx-4 shadow-2xl">
-    {/* Header */}
-    <div className="relative p-6 text-center bg-gradient-to-br from-green-50 to-blue-50 rounded-t-xl">
-     <Button
-      onClick={handleClose}
-      variant="ghost"
-      size="sm"
-      className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 p-1 h-8 w-8 min-w-0"
-      leftIcon={X}
-     />
-     
-     <div className="text-6xl mb-4">
-      {getCelebrationEmoji(milestone.type)}
-     </div>
-     
-     <h2 className="text-2xl font-bold text-gray-900 mb-2">
-      Congratulations!
-     </h2>
-     
-     <p className="text-lg text-gray-600">
-      {getMilestoneTitle(milestone)}
-     </p>
-     
-     {milestone.amount && (
-      <p className="text-sm text-gray-500 mt-2">
-       £{milestone.amount.toLocaleString()} paid off
-      </p>
-     )}
-    </div>
-
-    {/* Content */}
-    <div className="p-6">
-     <div className="mb-6">
-      <h3 className="text-lg font-semibold text-gray-900 mb-3">
-       Share your success story
-      </h3>
-      
-      <p className="text-gray-600 mb-4">
-       Inspire others on their debt freedom journey and help them discover TrySnowball!
-      </p>
-      
-      {/* Share message preview */}
-      <div className="bg-gray-50 border rounded-lg p-4 mb-4">
-       <div className="text-sm text-gray-700 whitespace-pre-line">
-        {shareMessage}
-       </div>
-      </div>
-
-      {/* Share Card Preview */}
-      <div className="mb-6">
-       <div className="flex items-center justify-between mb-3">
-        <h4 className="text-md font-medium text-gray-900">Share Image</h4>
-        <select
-         value={shareCardVariant}
-         onChange={(e) => setShareCardVariant(e.target.value)}
-         className="text-sm border rounded px-2 py-1"
-        >
-         <option value="square">Square (Instagram)</option>
-         <option value="story">Story (Instagram/TikTok)</option>
-         <option value="og">Landscape (Twitter/Facebook)</option>
-        </select>
-       </div>
-       
-       {/* Share Card - scaled down for preview */}
-       <div className="bg-gray-100 rounded-lg p-4 mb-3 overflow-auto">
-        <div style={{ transform: 'scale(0.3)', transformOrigin: 'top left', width: '300%', height: '300%' }}>
-         {(() => {
-          const shareCopy = buildShareCopy(milestone);
-          return (
-           <ShareCard
-            variant={shareCardVariant}
-            headline={shareCopy.headline}
-            stat={shareCopy.stat}
-            subline={shareCopy.subline}
-           />
-          );
-         })()}
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-xl max-w-lg w-full mx-4 shadow-2xl">
+        {/* Header */}
+        <div className="relative p-6 text-center bg-gradient-to-br from-green-50 to-blue-50 rounded-t-xl">
+          <Button
+            onClick={handleClose}
+            variant="ghost"
+            size="sm"
+            className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 p-1 h-8 w-8 min-w-0"
+            leftIcon={X}
+          />
+          
+          <div className="text-6xl mb-4">
+            {getCelebrationEmoji(milestone.type)}
+          </div>
+          
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">
+            Congratulations!
+          </h2>
+          
+          <p className="text-lg text-gray-600">
+            {getMilestoneTitle(milestone)}
+          </p>
+          
+          {milestone.amount && (
+            <p className="text-sm text-gray-500 mt-2">
+              £{milestone.amount.toLocaleString()} paid off
+            </p>
+          )}
         </div>
-       </div>
 
-       {/* Share Card Actions */}
-       <div className="flex gap-2">
-        <Button
-         onClick={handleSaveImage}
-         variant="secondary"
-         size="sm"
-         className="flex-1"
-        >
-         Save Image
-        </Button>
-        <Button
-         onClick={handleCopyImage}
-         variant={imageCopied ? "muted" : "secondary"}
-         size="sm"
-         className={`flex-1 ${
-          imageCopied 
-           ? 'bg-green-100 text-green-700 border-green-200 hover:bg-green-200' 
-           : ''
-         }`}
-        >
-         {imageCopied ? 'Copied!' : 'Copy Image'}
-        </Button>
-       </div>
+        {/* Content */}
+        <div className="p-6">
+          <div className="mb-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-3">
+              Share your success story
+            </h3>
+            
+            <p className="text-gray-600 mb-4">
+              Inspire others on their debt freedom journey and help them discover TrySnowball!
+            </p>
+            
+            {/* Share message preview */}
+            <div className="bg-gray-50 border rounded-lg p-4 mb-4">
+              <div className="text-sm text-gray-700 whitespace-pre-line">
+                {shareMessage}
+              </div>
+            </div>
+
+            {/* Share Card Preview */}
+            <div className="mb-6">
+              <div className="flex items-center justify-between mb-3">
+                <h4 className="text-md font-medium text-gray-900">Share Image</h4>
+                <select
+                  value={shareCardVariant}
+                  onChange={(e) => setShareCardVariant(e.target.value)}
+                  className="text-sm border rounded px-2 py-1"
+                >
+                  <option value="square">Square (Instagram)</option>
+                  <option value="story">Story (Instagram/TikTok)</option>
+                  <option value="og">Landscape (Twitter/Facebook)</option>
+                </select>
+              </div>
+              
+              {/* Share Card - scaled down for preview */}
+              <div className="bg-gray-100 rounded-lg p-4 mb-3 overflow-auto">
+                <div style={{ transform: 'scale(0.3)', transformOrigin: 'top left', width: '300%', height: '300%' }}>
+                  {(() => {
+                    const shareCopy = buildShareCopy(milestone);
+                    return (
+                      <ShareCard
+                        variant={shareCardVariant}
+                        headline={shareCopy.headline}
+                        stat={shareCopy.stat}
+                        subline={shareCopy.subline}
+                      />
+                    );
+                  })()}
+                </div>
+              </div>
+
+              {/* Share Card Actions */}
+              <div className="flex gap-2">
+                <Button
+                  onClick={handleSaveImage}
+                  variant="secondary"
+                  size="sm"
+                  className="flex-1"
+                >
+                  Save Image
+                </Button>
+                <Button
+                  onClick={handleCopyImage}
+                  variant={imageCopied ? "muted" : "secondary"}
+                  size="sm"
+                  className={`flex-1 ${
+                    imageCopied 
+                      ? 'bg-green-100 text-green-700 border-green-200 hover:bg-green-200' 
+                      : ''
+                  }`}
+                >
+                  {imageCopied ? 'Copied!' : 'Copy Image'}
+                </Button>
+              </div>
+            </div>
+
+            {/* Editable Caption */}
+            <div className="mb-6">
+              <div className="flex items-center justify-between mb-3">
+                <h4 className="text-md font-medium text-gray-900">Caption</h4>
+                {captionEdited && (
+                  <button
+                    onClick={handleResetCaption}
+                    className="text-sm text-blue-600 hover:text-blue-800 underline"
+                  >
+                    Reset to default
+                  </button>
+                )}
+              </div>
+              
+              <textarea
+                value={editableCaption}
+                onChange={handleCaptionChange}
+                placeholder="Write your caption..."
+                rows={3}
+                className="w-full border rounded-lg px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+              
+              <div className="flex items-center justify-between mt-2">
+                <span className="text-xs text-gray-500">
+                  {editableCaption.length} characters
+                </span>
+                <Button
+                  onClick={handleCopyCaption}
+                  variant={captionCopied ? "muted" : "secondary"}
+                  size="sm"
+                  className={captionCopied 
+                    ? 'bg-green-100 text-green-700 border-green-200 hover:bg-green-200' 
+                    : ''
+                  }
+                >
+                  {captionCopied ? 'Caption Copied!' : 'Copy Caption'}
+                </Button>
+              </div>
+            </div>
+          </div>
+
+          {/* Share buttons */}
+          <div className="space-y-3">
+            {/* Copy to clipboard */}
+            <Button
+              onClick={handleCopyToClipboard}
+              variant={copied ? "muted" : "primary"}
+              size="lg"
+              className={`w-full ${
+                copied 
+                  ? 'bg-green-100 text-green-700 border-green-200 hover:bg-green-200' 
+                  : ''
+              }`}
+              leftIcon={copied ? CheckCircle : Copy}
+            >
+              {copied ? 'Copied to clipboard!' : 'Copy message'}
+            </Button>
+
+            {/* Share Buttons */}
+            <div className="mt-4">
+              {(() => {
+                const dynamicShareData = generateMilestoneShareData(milestone, user, referralLink);
+                return (
+                  <ShareButtons
+                    url={dynamicShareData.url}
+                    title={dynamicShareData.title}
+                    description={dynamicShareData.description}
+                    hashtags={dynamicShareData.hashtags}
+                    imageUrl={dynamicShareData.imageUrl}
+                    onShare={handleShare}
+                  />
+                );
+              })()}
+            </div>
+          </div>
+
+          {/* Benefits callout */}
+          <div className="mt-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+            <h4 className="font-medium text-yellow-800 mb-2">
+              Why share your success?
+            </h4>
+            <ul className="text-sm text-yellow-700 space-y-1">
+              <li>• Celebrate your achievement publicly</li>
+              <li>• Inspire others to start their debt freedom journey</li>
+              <li>• Share across all your social platforms</li>
+              <li>• Tag @trysnowballuk and we'll celebrate with you!</li>
+            </ul>
+          </div>
+
+          {/* Close button */}
+          <div className="mt-6 pt-4 border-t">
+            <Button
+              onClick={handleClose}
+              variant="ghost"
+              size="md"
+              className="w-full text-gray-600 hover:text-gray-700"
+            >
+              Maybe later
+            </Button>
+          </div>
+        </div>
       </div>
-
-      {/* Editable Caption */}
-      <div className="mb-6">
-       <div className="flex items-center justify-between mb-3">
-        <h4 className="text-md font-medium text-gray-900">Caption</h4>
-        {captionEdited && (
-         <button
-          onClick={handleResetCaption}
-          className="text-sm text-blue-600 hover:text-blue-800 underline"
-         >
-          Reset to default
-         </button>
-        )}
-       </div>
-       
-       <textarea
-        value={editableCaption}
-        onChange={handleCaptionChange}
-        placeholder="Write your caption..."
-        rows={3}
-        className="w-full border rounded-lg px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-       />
-       
-       <div className="flex items-center justify-between mt-2">
-        <span className="text-xs text-gray-500">
-         {editableCaption.length} characters
-        </span>
-        <Button
-         onClick={handleCopyCaption}
-         variant={captionCopied ? "muted" : "secondary"}
-         size="sm"
-         className={captionCopied 
-          ? 'bg-green-100 text-green-700 border-green-200 hover:bg-green-200' 
-          : ''
-         }
-        >
-         {captionCopied ? 'Caption Copied!' : 'Copy Caption'}
-        </Button>
-       </div>
-      </div>
-     </div>
-
-     {/* Share buttons */}
-     <div className="space-y-3">
-      {/* Copy to clipboard */}
-      <Button
-       onClick={handleCopyToClipboard}
-       variant={copied ? "muted" : "primary"}
-       size="lg"
-       className={`w-full ${
-        copied 
-         ? 'bg-green-100 text-green-700 border-green-200 hover:bg-green-200' 
-         : ''
-       }`}
-       leftIcon={copied ? CheckCircle : Copy}
-      >
-       {copied ? 'Copied to clipboard!' : 'Copy message'}
-      </Button>
-
-      {/* Share Buttons */}
-      <div className="mt-4">
-       {(() => {
-        const dynamicShareData = generateMilestoneShareData(milestone, user, referralLink);
-        return (
-         <ShareButtons
-          url={dynamicShareData.url}
-          title={dynamicShareData.title}
-          description={dynamicShareData.description}
-          hashtags={dynamicShareData.hashtags}
-          imageUrl={dynamicShareData.imageUrl}
-          onShare={handleShare}
-         />
-        );
-       })()}
-      </div>
-     </div>
-
-     {/* Benefits callout */}
-     <div className="mt-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-      <h4 className="font-medium text-yellow-800 mb-2">
-       Why share your success?
-      </h4>
-      <ul className="text-sm text-yellow-700 space-y-1">
-       <li>• Celebrate your achievement publicly</li>
-       <li>• Inspire others to start their debt freedom journey</li>
-       <li>• Share across all your social platforms</li>
-       <li>• Tag @trysnowballuk and we'll celebrate with you!</li>
-      </ul>
-     </div>
-
-     {/* Close button */}
-     <div className="mt-6 pt-4 border-t">
-      <Button
-       onClick={handleClose}
-       variant="ghost"
-       size="md"
-       className="w-full text-gray-600 hover:text-gray-700"
-      >
-       Maybe later
-      </Button>
-     </div>
     </div>
-   </div>
-  </div>
- );
+  );
 };
 
 export default ShareMilestoneModal;

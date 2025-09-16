@@ -8,6 +8,6 @@ console.log('NODE_ENV:', process.env.NODE_ENV);
 
 // Show all env vars that start with REACT_APP_ or VITE_PUBLIC_
 const envVars = Object.keys(process.env).filter(key => 
- key.startsWith('REACT_APP_') || key.startsWith('VITE_PUBLIC_')
+  key.startsWith('REACT_APP_') || key.startsWith('VITE_PUBLIC_')
 );
 console.log('Available env vars:', envVars);

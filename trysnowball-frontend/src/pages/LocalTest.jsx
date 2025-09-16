@@ -4,339 +4,339 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
-import { localDebtManager } from '../storage/localDebtManager';
+import { localDebtManager } from '../storage/localDebtManager.ts';
 import StorageDoctor from '../dev/StorageDoctor'; // dev storage tools (legacy ↔ IDB)
 
 const LocalTest = () => {
- const [results, setResults] = useState([]);
- const [running, setRunning] = useState(false);
- const ran = useRef(false);   // StrictMode guard
- const logRef = useRef([]);   // Stable log for accurate summary
+  const [results, setResults] = useState([]);
+  const [running, setRunning] = useState(false);
+  const ran = useRef(false);     // StrictMode guard
+  const logRef = useRef([]);     // Stable log for accurate summary
 
- const addResult = (test, status, message, expected = null, actual = null) => {
-  const entry = {
-   test,
-   status,
-   message,
-   expected,
-   actual,
-   timestamp: new Date().toISOString(),
+  const addResult = (test, status, message, expected = null, actual = null) => {
+    const entry = {
+      test,
+      status,
+      message,
+      expected,
+      actual,
+      timestamp: new Date().toISOString(),
+    };
+    logRef.current.push(entry);
+    setResults([...logRef.current]); // force render with fresh copy
   };
-  logRef.current.push(entry);
-  setResults([...logRef.current]); // force render with fresh copy
- };
 
- // Stub /auth/* calls ONLY on this page to avoid CORS / side-effects
- useEffect(() => {
-  // Flag for any app-level auth bootstrap to short-circuit
-  window.__DISABLE_AUTH__ = true;
-
-  const origFetch = window.fetch;
-  window.fetch = (input, init) => {
-   const url = typeof input === 'string' ? input : (input?.url || '');
-   if (url.includes('/auth/')) {
-    return Promise.resolve(
-     new Response('{"ok":true}', {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' },
-     })
-    );
-   }
-   return origFetch(input, init);
-  };
-  return () => {
-   window.fetch = origFetch;
-  };
- }, []);
-
- const runSmokeTest = async () => {
-  setRunning(true);
-  logRef.current = [];
-  setResults([]);
-
-  try {
-   // Clear any existing data completely (reliable and fast)
-   await localDebtManager.clearAllData();
-   addResult('Setup', '✅', 'Cleared existing test data completely');
-
-   // Test 1: Seed sample data
-   addResult('Test 1', '⏳', 'Seeding sample debt data...');
-
-   // Add two sample debts
-   await localDebtManager.addDebt({
-    name: 'Visa',
-    balance: 1200.0,
-    interest: 19.99,
-    minPayment: 30.0,
-    order: 1,
-   });
-
-   await localDebtManager.addDebt({
-    name: 'Loan',
-    balance: 2800.0,
-    interest: 12.99,
-    minPayment: 150.0,
-    order: 2,
-   });
-
-   // Re-read to verify and capture IDs (avoids any add/tx timing)
-   const seeded = await localDebtManager.getDebts();
-   const visa = seeded.find((d) => d.name === 'Visa');
-   const loan = seeded.find((d) => d.name === 'Loan');
-   if (!visa || !loan) throw new Error('Seed verification failed: debts not found after add');
-
-   const visaId = visa.id;
-   const loanId = loan.id;
-
-   addResult(
-    'Test 1',
-    '✅',
-    'Seeded 2 debts successfully',
-    null,
-    `Visa: ${visaId}, Loan: ${loanId}`
-   );
-
-   // Test 2: Verify initial totals
-   addResult('Test 2', '⏳', 'Checking initial totals...');
-
-   const totalBalance = await localDebtManager.getTotalBalance();
-   const totalMinPayments = await localDebtManager.getTotalMinPayments();
-
-   const expectedTotal = 4000.0;
-   const expectedMinPayments = 180.0;
-
-   if (Math.abs(totalBalance - expectedTotal) < 0.01) {
-    addResult('Test 2A', '✅', 'Total balance correct', expectedTotal, totalBalance);
-   } else {
-    addResult('Test 2A', '❌', 'Total balance incorrect', expectedTotal, totalBalance);
-   }
-
-   if (Math.abs(totalMinPayments - expectedMinPayments) < 0.01) {
-    addResult(
-     'Test 2B',
-     '✅',
-     'Total min payments correct',
-     expectedMinPayments,
-     totalMinPayments
-    );
-   } else {
-    addResult(
-     'Test 2B',
-     '❌',
-     'Total min payments incorrect',
-     expectedMinPayments,
-     totalMinPayments
-    );
-   }
-
-   // Test 3: Record a payment
-   addResult('Test 3', '⏳', 'Recording £500 payment to Visa...');
-
-   const paymentId = await localDebtManager.recordPayment(visaId, 500.0);
-   addResult('Test 3', '✅', 'Payment recorded', null, `Payment ID: ${paymentId}`);
-
-   // Test 4: Verify updated totals
-   addResult('Test 4', '⏳', 'Checking totals after payment...');
-
-   const newTotalBalance = await localDebtManager.getTotalBalance();
-   const expectedNewTotal = 3500.0;
-
-   if (Math.abs(newTotalBalance - expectedNewTotal) < 0.01) {
-    addResult(
-     'Test 4',
-     '✅',
-     'Balance updated correctly after payment',
-     expectedNewTotal,
-     newTotalBalance
-    );
-   } else {
-    addResult('Test 4', '❌', 'Balance update failed', expectedNewTotal, newTotalBalance);
-   }
-
-   // Test 5: Check debt ordering
-   addResult('Test 5', '⏳', 'Checking debt ordering...');
-
-   const debts = await localDebtManager.getDebts();
-   if (debts.length === 2 && debts[0].order === 1 && debts[1].order === 2) {
-    addResult(
-     'Test 5',
-     '✅',
-     'Debts ordered correctly',
-     'Order 1,2',
-     `Order ${debts[0].order},${debts[1].order}`
-    );
-   } else {
-    addResult(
-     'Test 5',
-     '❌',
-     'Debt ordering failed',
-     '2 debts ordered',
-     `${debts.length} debts found`
-    );
-   }
-
-   // Test 6: Check payment history
-   addResult('Test 6', '⏳', 'Checking payment history...');
-
-   const payments = await localDebtManager.getPaymentHistory();
-   if (payments.length === 1 && payments[0].amount === 500) {
-    addResult(
-     'Test 6',
-     '✅',
-     'Payment history correct',
-     '1 payment of £500',
-     `${payments.length} payments found`
-    );
-   } else {
-    addResult(
-     'Test 6',
-     '❌',
-     'Payment history failed',
-     '1 payment',
-     `${payments.length} payments found`
-    );
-   }
-
-   // Test 7: Test reordering
-   addResult('Test 7', '⏳', 'Testing debt reordering...');
-
-   await localDebtManager.reorderDebts([loanId, visaId]); // Swap order
-   const reorderedDebts = await localDebtManager.getDebts();
-
-   if (reorderedDebts[0].name === 'Loan' && reorderedDebts[1].name === 'Visa') {
-    addResult('Test 7', '✅', 'Debt reordering works', 'Loan first', `${reorderedDebts[0].name} first`);
-   } else {
-    addResult('Test 7', '❌', 'Debt reordering failed', 'Loan first', `${reorderedDebts[0].name} first`);
-   }
-
-   // Test 8: Monthly snapshots
-   addResult('Test 8', '⏳', 'Testing monthly snapshots...');
-
-   await localDebtManager.createMonthlySnapshot();
-   const progressHistory = await localDebtManager.getProgressHistory();
-
-   if (progressHistory.length === 1) {
-    addResult('Test 8', '✅', 'Monthly snapshot created', '1 snapshot', `${progressHistory.length} snapshots`);
-   } else {
-    addResult('Test 8', '❌', 'Monthly snapshot failed', '1 snapshot', `${progressHistory.length} snapshots`);
-   }
-
-   // Test 9: Storage persistence (simulate page reload)
-   addResult('Test 9', '⏳', 'Testing data persistence...');
-
-   const freshManager = localDebtManager; // simulate new instance
-   const persistedDebts = await freshManager.getDebts();
-   const persistedBalance = await freshManager.getTotalBalance();
-
-   if (persistedDebts.length === 2 && Math.abs(persistedBalance - 3500) < 0.01) {
-    addResult(
-     'Test 9',
-     '✅',
-     'Data persisted correctly',
-     '2 debts, £3500',
-     `${persistedDebts.length} debts, £${persistedBalance}`
-    );
-   } else {
-    addResult(
-     'Test 9',
-     '❌',
-     'Data persistence failed',
-     '2 debts, £3500',
-     `${persistedDebts.length} debts, £${persistedBalance}`
-    );
-   }
-
-   // Summary (compute from the stable log, not state)
-   const log = logRef.current;
-   const isRealTest = (r) => typeof r.test === 'string' && r.test.startsWith('Test ');
-   const done = log.filter((r) => isRealTest(r) && r.status !== '⏳');
-   const passed = done.filter((r) => r.status === '✅');
-   addResult(
-    'Summary',
-    passed.length === done.length ? '🎉' : '⚠️',
-    `Tests completed: ${passed.length}/${done.length} passed`
-   );
-  } catch (error) {
-   addResult('Error', '❌', `Test suite failed: ${error.message}`);
-   console.error('Test suite error:', error);
-  } finally {
-   setRunning(false);
-  }
- };
-
- // Auto-run on mount for convenience (StrictMode-safe)
+  // Stub /auth/* calls ONLY on this page to avoid CORS / side-effects
   useEffect(() => {
-  if (process.env.JEST_WORKER_ID) return; // don't autorun in Jest
-  if (ran.current) return;
-  ran.current = true;
-  runSmokeTest();
- }, []);
+    // Flag for any app-level auth bootstrap to short-circuit
+    window.__DISABLE_AUTH__ = true;
 
- return (
-  <div className="max-w-4xl mx-auto p-6 bg-white">
-   <div className="mb-6">
-    <h1 className="text-3xl font-bold text-gray-900 mb-2">Local Storage Test Suite</h1>
-    <p className="text-gray-600">Smoke testing IndexedDB debt storage system</p>
-   </div>
+    const origFetch = window.fetch;
+    window.fetch = (input, init) => {
+      const url = typeof input === 'string' ? input : (input?.url || '');
+      if (url.includes('/auth/')) {
+        return Promise.resolve(
+          new Response('{"ok":true}', {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          })
+        );
+      }
+      return origFetch(input, init);
+    };
+    return () => {
+      window.fetch = origFetch;
+    };
+  }, []);
 
-   {/* Dev-only storage tools (nuke/migrate/seed; handles legacy localStorage too) */}
-   <StorageDoctor />
+  const runSmokeTest = async () => {
+    setRunning(true);
+    logRef.current = [];
+    setResults([]);
 
-   <div className="mb-4">
-    <button
-     onClick={runSmokeTest}
-     disabled={running}
-     className={`px-4 py-2 rounded font-medium ${
-      running ? 'bg-gray-300 text-gray-500 cursor-not-allowed' : 'bg-blue-600 text-white hover:bg-blue-700'
-     }`}
-    >
-     {running ? 'Running Tests...' : 'Run Tests Again'}
-    </button>
-   </div>
+    try {
+      // Clear any existing data completely (reliable and fast)
+      await localDebtManager.clearAllData();
+      addResult('Setup', '✅', 'Cleared existing test data completely');
 
-   <div className="space-y-2">
-    {results.map((result, index) => (
-     <div
-      key={index}
-      className={`p-3 rounded-lg border-l-4 ${
-       result.status === '✅'
-        ? 'bg-green-50 border-green-500 text-green-800'
-        : result.status === '❌'
-        ? 'bg-red-50 border-red-500 text-red-800'
-        : result.status === '⏳'
-        ? 'bg-blue-50 border-blue-500 text-blue-800'
-        : result.status === '🎉'
-        ? 'bg-purple-50 border-purple-500 text-purple-800'
-        : result.status === '⚠️'
-        ? 'bg-yellow-50 border-yellow-500 text-yellow-800'
-        : 'bg-gray-50 border-gray-500 text-gray-800'
-      }`}
-     >
-      <div className="flex items-start justify-between">
-       <div className="flex-1">
-        <div className="flex items-center space-x-2">
-         <span className="font-medium">{result.status}</span>
-         <span className="font-medium">{result.test}</span>
-         <span>{result.message}</span>
-        </div>
-        {(result.expected || result.actual) && (
-         <div className="mt-1 text-sm font-mono">
-          {result.expected && <div>Expected: {result.expected}</div>}
-          {result.actual && <div>Actual: {result.actual}</div>}
-         </div>
-        )}
-       </div>
-       <span className="text-xs text-gray-500">{new Date(result.timestamp).toLocaleTimeString()}</span>
+      // Test 1: Seed sample data
+      addResult('Test 1', '⏳', 'Seeding sample debt data...');
+
+      // Add two sample debts
+      await localDebtManager.addDebt({
+        name: 'Visa',
+        balance: 1200.0,
+        interest: 19.99,
+        minPayment: 30.0,
+        order: 1,
+      });
+
+      await localDebtManager.addDebt({
+        name: 'Loan',
+        balance: 2800.0,
+        interest: 12.99,
+        minPayment: 150.0,
+        order: 2,
+      });
+
+      // Re-read to verify and capture IDs (avoids any add/tx timing)
+      const seeded = await localDebtManager.getDebts();
+      const visa = seeded.find((d) => d.name === 'Visa');
+      const loan = seeded.find((d) => d.name === 'Loan');
+      if (!visa || !loan) throw new Error('Seed verification failed: debts not found after add');
+
+      const visaId = visa.id;
+      const loanId = loan.id;
+
+      addResult(
+        'Test 1',
+        '✅',
+        'Seeded 2 debts successfully',
+        null,
+        `Visa: ${visaId}, Loan: ${loanId}`
+      );
+
+      // Test 2: Verify initial totals
+      addResult('Test 2', '⏳', 'Checking initial totals...');
+
+      const totalBalance = await localDebtManager.getTotalBalance();
+      const totalMinPayments = await localDebtManager.getTotalMinPayments();
+
+      const expectedTotal = 4000.0;
+      const expectedMinPayments = 180.0;
+
+      if (Math.abs(totalBalance - expectedTotal) < 0.01) {
+        addResult('Test 2A', '✅', 'Total balance correct', expectedTotal, totalBalance);
+      } else {
+        addResult('Test 2A', '❌', 'Total balance incorrect', expectedTotal, totalBalance);
+      }
+
+      if (Math.abs(totalMinPayments - expectedMinPayments) < 0.01) {
+        addResult(
+          'Test 2B',
+          '✅',
+          'Total min payments correct',
+          expectedMinPayments,
+          totalMinPayments
+        );
+      } else {
+        addResult(
+          'Test 2B',
+          '❌',
+          'Total min payments incorrect',
+          expectedMinPayments,
+          totalMinPayments
+        );
+      }
+
+      // Test 3: Record a payment
+      addResult('Test 3', '⏳', 'Recording £500 payment to Visa...');
+
+      const paymentId = await localDebtManager.recordPayment(visaId, 500.0);
+      addResult('Test 3', '✅', 'Payment recorded', null, `Payment ID: ${paymentId}`);
+
+      // Test 4: Verify updated totals
+      addResult('Test 4', '⏳', 'Checking totals after payment...');
+
+      const newTotalBalance = await localDebtManager.getTotalBalance();
+      const expectedNewTotal = 3500.0;
+
+      if (Math.abs(newTotalBalance - expectedNewTotal) < 0.01) {
+        addResult(
+          'Test 4',
+          '✅',
+          'Balance updated correctly after payment',
+          expectedNewTotal,
+          newTotalBalance
+        );
+      } else {
+        addResult('Test 4', '❌', 'Balance update failed', expectedNewTotal, newTotalBalance);
+      }
+
+      // Test 5: Check debt ordering
+      addResult('Test 5', '⏳', 'Checking debt ordering...');
+
+      const debts = await localDebtManager.getDebts();
+      if (debts.length === 2 && debts[0].order === 1 && debts[1].order === 2) {
+        addResult(
+          'Test 5',
+          '✅',
+          'Debts ordered correctly',
+          'Order 1,2',
+          `Order ${debts[0].order},${debts[1].order}`
+        );
+      } else {
+        addResult(
+          'Test 5',
+          '❌',
+          'Debt ordering failed',
+          '2 debts ordered',
+          `${debts.length} debts found`
+        );
+      }
+
+      // Test 6: Check payment history
+      addResult('Test 6', '⏳', 'Checking payment history...');
+
+      const payments = await localDebtManager.getPaymentHistory();
+      if (payments.length === 1 && payments[0].amount === 500) {
+        addResult(
+          'Test 6',
+          '✅',
+          'Payment history correct',
+          '1 payment of £500',
+          `${payments.length} payments found`
+        );
+      } else {
+        addResult(
+          'Test 6',
+          '❌',
+          'Payment history failed',
+          '1 payment',
+          `${payments.length} payments found`
+        );
+      }
+
+      // Test 7: Test reordering
+      addResult('Test 7', '⏳', 'Testing debt reordering...');
+
+      await localDebtManager.reorderDebts([loanId, visaId]); // Swap order
+      const reorderedDebts = await localDebtManager.getDebts();
+
+      if (reorderedDebts[0].name === 'Loan' && reorderedDebts[1].name === 'Visa') {
+        addResult('Test 7', '✅', 'Debt reordering works', 'Loan first', `${reorderedDebts[0].name} first`);
+      } else {
+        addResult('Test 7', '❌', 'Debt reordering failed', 'Loan first', `${reorderedDebts[0].name} first`);
+      }
+
+      // Test 8: Monthly snapshots
+      addResult('Test 8', '⏳', 'Testing monthly snapshots...');
+
+      await localDebtManager.createMonthlySnapshot();
+      const progressHistory = await localDebtManager.getProgressHistory();
+
+      if (progressHistory.length === 1) {
+        addResult('Test 8', '✅', 'Monthly snapshot created', '1 snapshot', `${progressHistory.length} snapshots`);
+      } else {
+        addResult('Test 8', '❌', 'Monthly snapshot failed', '1 snapshot', `${progressHistory.length} snapshots`);
+      }
+
+      // Test 9: Storage persistence (simulate page reload)
+      addResult('Test 9', '⏳', 'Testing data persistence...');
+
+      const freshManager = localDebtManager; // simulate new instance
+      const persistedDebts = await freshManager.getDebts();
+      const persistedBalance = await freshManager.getTotalBalance();
+
+      if (persistedDebts.length === 2 && Math.abs(persistedBalance - 3500) < 0.01) {
+        addResult(
+          'Test 9',
+          '✅',
+          'Data persisted correctly',
+          '2 debts, £3500',
+          `${persistedDebts.length} debts, £${persistedBalance}`
+        );
+      } else {
+        addResult(
+          'Test 9',
+          '❌',
+          'Data persistence failed',
+          '2 debts, £3500',
+          `${persistedDebts.length} debts, £${persistedBalance}`
+        );
+      }
+
+      // Summary (compute from the stable log, not state)
+      const log = logRef.current;
+      const isRealTest = (r) => typeof r.test === 'string' && r.test.startsWith('Test ');
+      const done = log.filter((r) => isRealTest(r) && r.status !== '⏳');
+      const passed = done.filter((r) => r.status === '✅');
+      addResult(
+        'Summary',
+        passed.length === done.length ? '🎉' : '⚠️',
+        `Tests completed: ${passed.length}/${done.length} passed`
+      );
+    } catch (error) {
+      addResult('Error', '❌', `Test suite failed: ${error.message}`);
+      console.error('Test suite error:', error);
+    } finally {
+      setRunning(false);
+    }
+  };
+
+  // Auto-run on mount for convenience (StrictMode-safe)
+   useEffect(() => {
+    if (process.env.JEST_WORKER_ID) return; // don't autorun in Jest
+    if (ran.current) return;
+    ran.current = true;
+    runSmokeTest();
+  }, []);
+
+  return (
+    <div className="max-w-4xl mx-auto p-6 bg-white">
+      <div className="mb-6">
+        <h1 className="text-3xl font-bold text-gray-900 mb-2">Local Storage Test Suite</h1>
+        <p className="text-gray-600">Smoke testing IndexedDB debt storage system</p>
       </div>
-     </div>
-    ))}
-   </div>
 
-   {results.length === 0 && !running && (
-    <div className="text-center py-8 text-gray-500">Click "Run Tests" to start the smoke test suite</div>
-   )}
-  </div>
- );
+      {/* Dev-only storage tools (nuke/migrate/seed; handles legacy localStorage too) */}
+      <StorageDoctor />
+
+      <div className="mb-4">
+        <button
+          onClick={runSmokeTest}
+          disabled={running}
+          className={`px-4 py-2 rounded font-medium ${
+            running ? 'bg-gray-300 text-gray-500 cursor-not-allowed' : 'bg-blue-600 text-white hover:bg-blue-700'
+          }`}
+        >
+          {running ? 'Running Tests...' : 'Run Tests Again'}
+        </button>
+      </div>
+
+      <div className="space-y-2">
+        {results.map((result, index) => (
+          <div
+            key={index}
+            className={`p-3 rounded-lg border-l-4 ${
+              result.status === '✅'
+                ? 'bg-green-50 border-green-500 text-green-800'
+                : result.status === '❌'
+                ? 'bg-red-50 border-red-500 text-red-800'
+                : result.status === '⏳'
+                ? 'bg-blue-50 border-blue-500 text-blue-800'
+                : result.status === '🎉'
+                ? 'bg-purple-50 border-purple-500 text-purple-800'
+                : result.status === '⚠️'
+                ? 'bg-yellow-50 border-yellow-500 text-yellow-800'
+                : 'bg-gray-50 border-gray-500 text-gray-800'
+            }`}
+          >
+            <div className="flex items-start justify-between">
+              <div className="flex-1">
+                <div className="flex items-center space-x-2">
+                  <span className="font-medium">{result.status}</span>
+                  <span className="font-medium">{result.test}</span>
+                  <span>{result.message}</span>
+                </div>
+                {(result.expected || result.actual) && (
+                  <div className="mt-1 text-sm font-mono">
+                    {result.expected && <div>Expected: {result.expected}</div>}
+                    {result.actual && <div>Actual: {result.actual}</div>}
+                  </div>
+                )}
+              </div>
+              <span className="text-xs text-gray-500">{new Date(result.timestamp).toLocaleTimeString()}</span>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {results.length === 0 && !running && (
+        <div className="text-center py-8 text-gray-500">Click "Run Tests" to start the smoke test suite</div>
+      )}
+    </div>
+  );
 };
 
 export default LocalTest;

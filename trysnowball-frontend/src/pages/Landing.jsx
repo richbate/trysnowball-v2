@@ -7,125 +7,107 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext.tsx';
 import { useDemoMode } from '../providers/DemoModeProvider';
-import { useABVariant } from '../hooks/useABVariant';
 import { Sparkles, TrendingDown, Target, ChevronRight } from 'lucide-react';
 
 const Landing = () => {
- const navigate = useNavigate();
- const { user } = useAuth();
- const { enterDemo } = useDemoMode();
- const { variant, trackInteraction } = useABVariant('hero_cta');
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  const { enterDemo } = useDemoMode();
 
- // If already logged in, redirect to dashboard
- React.useEffect(() => {
-  if (user) {
-   navigate('/');
-  }
- }, [user, navigate]);
+  // If already logged in, redirect to dashboard
+  React.useEffect(() => {
+    if (user) {
+      navigate('/');
+    }
+  }, [user, navigate]);
 
- const handleSignup = () => {
-  // Track A/B test interaction
-  trackInteraction(variant?.ctaAction === 'trial' ? 'trial' : 'signup', {
-   location: 'hero_primary_cta',
-   headline: variant?.headline,
-   cta_text: variant?.ctaText
-  });
-  
-  navigate('/auth/login');
- };
+  const handleSignup = () => {
+    navigate('/auth/login');
+  };
 
- const handleDemo = async () => {
-  // Track demo interaction
-  trackInteraction('demo', {
-   location: 'hero_secondary_cta',
-   headline: variant?.headline
-  });
-  
-  await enterDemo('landing', 'uk');
-  navigate('/demo');
- };
+  const handleDemo = async () => {
+    await enterDemo('landing', 'default');
+    navigate('/demo');
+  };
 
- return (
-  <div className="min-h-screen bg-gradient-to-br from-primary via-accent to-primary">
-   {/* Hero Section */}
-   <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 pb-16">
-    <div className="text-center">
-     <h1 className="text-5xl font-bold text-white mb-6">
-      {variant?.headline || 'See when you\'ll be debt-free'}
-     </h1>
-     <p className="text-xl text-white/90 mb-8 max-w-2xl mx-auto">
-      {variant?.subheading || 'Track your debts and see your payoff timeline. Start adding debts now — no signup required.'}
-     </p>
-     
-     {/* CTAs */}
-     <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-      <button
-       onClick={() => navigate('/plan/debts')}
-       className="px-8 py-4 bg-white text-primary rounded-xl font-bold text-lg hover:bg-white/90 transition-colors flex items-center gap-2 shadow-xl"
-      >
-       Start free — add your debts now
-       <ChevronRight className="w-5 h-5" />
-      </button>
-      
-      <button
-       onClick={handleDemo}
-       className="px-6 py-3 bg-white/25 backdrop-blur-sm text-white rounded-xl font-semibold hover:bg-white/35 hover:scale-105 transition-all duration-200 flex items-center gap-2 border border-white/40 shadow-lg"
-      >
-       <Sparkles className="w-5 h-5 text-yellow-500" />
-       See demo with sample data
-      </button>
-     </div>
-    </div>
-   </div>
-
-   {/* Features Grid */}
-   <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pb-20">
-    <div className="grid md:grid-cols-3 gap-8">
-     <div className="bg-white/90 backdrop-blur-lg rounded-3xl p-8 shadow-xl border border-white/20 flex flex-col min-h-[200px]">
-      <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center mb-4">
-       <TrendingDown className="w-6 h-6 text-primary" />
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+      {/* Hero Section */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 pb-16">
+        <div className="text-center">
+          <h1 className="text-5xl font-bold text-gray-900 mb-6">
+            Build your debt payoff plan in 2 minutes
+          </h1>
+          <p className="text-xl text-gray-600 mb-8 max-w-2xl mx-auto">
+            Join thousands using the debt snowball method to become debt-free faster. 
+            UK-focused with real APR calculations.
+          </p>
+          
+          {/* CTAs */}
+          <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+            <button
+              onClick={handleSignup}
+              className="px-8 py-4 bg-blue-600 text-white rounded-lg font-semibold text-lg hover:bg-blue-700 transition-colors flex items-center gap-2 shadow-lg"
+            >
+              Sign up free with email
+              <ChevronRight className="w-5 h-5" />
+            </button>
+            
+            <button
+              onClick={handleDemo}
+              className="px-6 py-3 bg-white text-gray-700 rounded-lg font-medium hover:bg-gray-50 transition-colors flex items-center gap-2 border border-gray-300"
+            >
+              <Sparkles className="w-5 h-5 text-yellow-500" />
+              Just curious? Try Demo Mode
+            </button>
+          </div>
+        </div>
       </div>
-      <h3 className="text-xl font-bold mb-2">Debt Snowball Method</h3>
-      <p className="text-gray-600 flex-1">
-       Pay off smallest debts first to build momentum and stay motivated.
-      </p>
-     </div>
 
-     <div className="bg-white/90 backdrop-blur-lg rounded-3xl p-8 shadow-xl border border-white/20 flex flex-col min-h-[200px]">
-      <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center mb-4">
-       <Target className="w-6 h-6 text-primary" />
+      {/* Features Grid */}
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pb-20">
+        <div className="grid md:grid-cols-3 gap-8">
+          <div className="bg-white rounded-xl p-8 shadow-sm">
+            <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mb-4">
+              <TrendingDown className="w-6 h-6 text-blue-600" />
+            </div>
+            <h3 className="text-xl font-semibold mb-2">Debt Snowball Method</h3>
+            <p className="text-gray-600">
+              Pay off smallest debts first to build momentum and stay motivated.
+            </p>
+          </div>
+
+          <div className="bg-white rounded-xl p-8 shadow-sm">
+            <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center mb-4">
+              <Target className="w-6 h-6 text-green-600" />
+            </div>
+            <h3 className="text-xl font-semibold mb-2">Smart Forecasting</h3>
+            <p className="text-gray-600">
+              See exactly when you'll be debt-free with our UK-accurate calculations.
+            </p>
+          </div>
+
+          <div className="bg-white rounded-xl p-8 shadow-sm">
+            <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center mb-4">
+              <Sparkles className="w-6 h-6 text-purple-600" />
+            </div>
+            <h3 className="text-xl font-semibold mb-2">AI Coach</h3>
+            <p className="text-gray-600">
+              Get personalized advice and strategies from our AI debt coach.
+            </p>
+          </div>
+        </div>
       </div>
-      <h3 className="text-xl font-bold mb-2">Smart Forecasting</h3>
-      <p className="text-gray-600 flex-1">
-       See exactly when you'll be debt-free with our UK-accurate calculations.
-      </p>
-     </div>
 
-     <div className="bg-white/90 backdrop-blur-lg rounded-3xl p-8 shadow-xl border border-white/20 flex flex-col min-h-[200px]">
-      <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center mb-4">
-       <Sparkles className="w-6 h-6 text-primary" />
+      {/* Social Proof */}
+      <div className="bg-white border-t border-gray-200">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12 text-center">
+          <p className="text-gray-600 mb-4">Trusted by UK families to manage</p>
+          <p className="text-3xl font-bold text-gray-900">£2.3M+ in debt</p>
+        </div>
       </div>
-      <h3 className="text-xl font-bold mb-2">AI Coach</h3>
-      <p className="text-gray-600 flex-1">
-       Get personalized advice and strategies from our AI debt coach.
-      </p>
-     </div>
     </div>
-   </div>
-
-   {/* Spacer */}
-   <div className="h-16"></div>
-
-   {/* Social Proof */}
-   <div className="bg-white border-t border-gray-200">
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12 text-center">
-     <p className="text-gray-600 mb-4">📉 Real people. Real debt. Real freedom.</p>
-     <p className="text-3xl font-bold text-gray-900">£2.3M+ on track to be cleared</p>
-     <p className="text-sm text-gray-500 mt-2">TrySnowball helps families ditch debt, fast.</p>
-    </div>
-   </div>
-  </div>
- );
+  );
 };
 
 export default Landing;

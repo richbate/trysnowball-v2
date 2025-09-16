@@ -1,92 +1,42 @@
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { setToken } from '../utils/tokenStorage';
-import { useAuth } from '../contexts/AuthContext.tsx';
-import { apiFetch } from '../utils/api';
-import { localDebtStore } from '../data/localDebtStore';
 
 const LoginSuccess = () => {
- const navigate = useNavigate();
- const { refreshAuth } = useAuth();
+  const navigate = useNavigate();
 
- useEffect(() => {
-  const processLogin = async () => {
-   // Check for token in URL parameters (?token=) or hash parameters (#token=)
-   const searchParams = new URLSearchParams(window.location.search);
-   const hashParams = new URLSearchParams(window.location.hash.slice(1));
-   const jwt = searchParams.get('token') || hashParams.get('token');
+  useEffect(() => {
+    // Check for token in URL parameters (?token=) or hash parameters (#token=)
+    const searchParams = new URLSearchParams(window.location.search);
+    const hashParams = new URLSearchParams(window.location.hash.slice(1));
+    const jwt = searchParams.get('token') || hashParams.get('token');
 
-   console.log('[LoginSuccess] Token extraction:', {
-    searchToken: searchParams.get('token'),
-    hashToken: hashParams.get('token'),
-    finalToken: jwt ? 'found' : 'none'
-   });
+    console.log('[LoginSuccess] Token extraction:', {
+      searchToken: searchParams.get('token'),
+      hashToken: hashParams.get('token'),
+      finalToken: jwt ? 'found' : 'none'
+    });
 
-   if (jwt) {
-    console.log('[LoginSuccess] Token found, storing and refreshing auth');
-    setToken(jwt);
-    
-    // Refresh auth state to pick up the httpOnly cookie that was set by the auth worker
-    try {
-     await refreshAuth();
-     console.log('[LoginSuccess] Auth refreshed successfully');
-     
-     // Check if user has any debts to determine if they need onboarding
-     const hasOnboarded = localStorage.getItem('ts:onboarding_done') === 'true';
-     let hasDebts = false;
-     
-     try {
-      // Check server debts first
-      const res = await apiFetch('/api/debts');
-      if (res.ok) {
-       const data = await res.json();
-       hasDebts = Array.isArray(data?.debts) && data.debts.length > 0;
-      }
-      
-      // Fallback to local debts if no server debts
-      if (!hasDebts) {
-       const localDebts = await localDebtStore.listDebts({ includeDemo: false });
-       hasDebts = localDebts.length > 0;
-      }
-     } catch (debtError) {
-      console.warn('[LoginSuccess] Error checking debts:', debtError);
-      // Still check local debts on error
-      try {
-       const localDebts = await localDebtStore.listDebts({ includeDemo: false });
-       hasDebts = localDebts.length > 0;
-      } catch (localError) {
-       console.warn('[LoginSuccess] Error checking local debts:', localError);
-      }
-     }
-     
-     // Let RootRoute handle the proper destination logic
-     const target = hasDebts || hasOnboarded ? '/' : '/onboarding';
-     console.log('[LoginSuccess] Redirecting to:', target, { hasDebts, hasOnboarded });
-     navigate(target);
-    } catch (error) {
-     console.error('[LoginSuccess] Error refreshing auth:', error);
-     // Still navigate somewhere on error
-     navigate('/');
+    if (jwt) {
+      console.log('[LoginSuccess] Token found, storing and dispatching event with token');
+      setToken(jwt);
+      // Pass token directly in event to avoid localStorage timing issues
+      window.dispatchEvent(new CustomEvent('auth-success', { 
+        detail: { token: jwt, source: 'login-success' } 
+      }));
+      console.log('[LoginSuccess] Token stored and auth-success event dispatched');
+    } else {
+      console.error('[LoginSuccess] No token found in URL parameters or hash');
+      console.log('[LoginSuccess] Search params:', Object.fromEntries(searchParams));
+      console.log('[LoginSuccess] Hash params:', Object.fromEntries(hashParams));
+      console.log('[LoginSuccess] Full URL:', window.location.href);
     }
-    
-    // Also dispatch the legacy event for any listeners
-    window.dispatchEvent(new CustomEvent('auth-success', { 
-     detail: { token: jwt, source: 'login-success' } 
-    }));
-   } else {
-    console.error('[LoginSuccess] No token found in URL parameters or hash');
-    console.log('[LoginSuccess] Search params:', Object.fromEntries(searchParams));
-    console.log('[LoginSuccess] Hash params:', Object.fromEntries(hashParams));
-    console.log('[LoginSuccess] Full URL:', window.location.href);
-    // No token, navigate to landing
-    navigate('/landing');
-   }
-  };
 
-  processLogin();
- }, [navigate, refreshAuth]);
+    // Clean up URL and navigate to home or dashboard
+    navigate('/');
+  }, [navigate]);
 
- return <p>Logging you in...</p>;
+  return <p>Logging you in...</p>;
 };
 
 export default LoginSuccess;

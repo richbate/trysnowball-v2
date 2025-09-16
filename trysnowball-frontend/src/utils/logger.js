@@ -9,79 +9,79 @@ const isTest = process.env.NODE_ENV === 'test';
 
 // Create logger methods that only work in development/test
 const logger = {
- log: (...args) => {
-  if (isDevelopment || isTest) {
-   console.log(...args);
+  log: (...args) => {
+    if (isDevelopment || isTest) {
+      console.log(...args);
+    }
+  },
+  
+  info: (...args) => {
+    if (isDevelopment || isTest) {
+      console.info(...args);
+    }
+  },
+  
+  warn: (...args) => {
+    if (isDevelopment || isTest) {
+      console.warn(...args);
+    }
+  },
+  
+  error: (...args) => {
+    // Always show errors, even in production
+    console.error(...args);
+  },
+  
+  debug: (...args) => {
+    if (isDevelopment) {
+      console.debug('[DEBUG]', ...args);
+    }
+  },
+  
+  group: (label) => {
+    if (isDevelopment || isTest) {
+      console.group(label);
+    }
+  },
+  
+  groupEnd: () => {
+    if (isDevelopment || isTest) {
+      console.groupEnd();
+    }
+  },
+  
+  table: (data) => {
+    if (isDevelopment || isTest) {
+      console.table(data);
+    }
+  },
+  
+  time: (label) => {
+    if (isDevelopment || isTest) {
+      console.time(label);
+    }
+  },
+  
+  timeEnd: (label) => {
+    if (isDevelopment || isTest) {
+      console.timeEnd(label);
+    }
   }
- },
- 
- info: (...args) => {
-  if (isDevelopment || isTest) {
-   console.info(...args);
-  }
- },
- 
- warn: (...args) => {
-  if (isDevelopment || isTest) {
-   console.warn(...args);
-  }
- },
- 
- error: (...args) => {
-  // Always show errors, even in production
-  console.error(...args);
- },
- 
- debug: (...args) => {
-  if (isDevelopment) {
-   console.debug('[DEBUG]', ...args);
-  }
- },
- 
- group: (label) => {
-  if (isDevelopment || isTest) {
-   console.group(label);
-  }
- },
- 
- groupEnd: () => {
-  if (isDevelopment || isTest) {
-   console.groupEnd();
-  }
- },
- 
- table: (data) => {
-  if (isDevelopment || isTest) {
-   console.table(data);
-  }
- },
- 
- time: (label) => {
-  if (isDevelopment || isTest) {
-   console.time(label);
-  }
- },
- 
- timeEnd: (label) => {
-  if (isDevelopment || isTest) {
-   console.timeEnd(label);
-  }
- }
 };
 
 // In development, add some helpful styling
 if (isDevelopment) {
- logger.success = (...args) => {
-  console.log('%c✅', 'color: green; font-weight: bold', ...args);
- };
- 
- logger.warning = (...args) => {
-  console.log('%c⚠️', 'color: orange; font-weight: bold', ...args);
- };
- 
- logger.error = (...args) => {
-  console.log('%c❌', 'color: red; font-weight: bold', ...args);
- };
+  logger.success = (...args) => {
+    console.log('%c✅', 'color: green; font-weight: bold', ...args);
+  };
+  
+  logger.warning = (...args) => {
+    console.log('%c⚠️', 'color: orange; font-weight: bold', ...args);
+  };
+  
+  logger.error = (...args) => {
+    console.log('%c❌', 'color: red; font-weight: bold', ...args);
+  };
 }
 
 export default logger;

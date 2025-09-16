@@ -5,304 +5,304 @@
  */
 
 import { useCallback, useEffect } from 'react';
-import { useAuth } from '../contexts/AuthContext.tsx';
-import { useUserDebts } from './useUserDebts';
+import { useUser } from '../contexts/UserContext';
+import { useDebts } from './useDebts';
 
 // Analytics event types
 export const EVENTS = {
- // Page views
- PAGE_VIEW: 'page_view',
- 
- // User interactions
- SLIDER_CHANGE: 'slider_change',
- CHART_VIEW_CHANGE: 'chart_view_change',
- DEBT_ADDED: 'debt_added',
- DEBT_UPDATED: 'debt_updated',
- DEBT_REMOVED: 'debt_removed',
- 
- // AI features
- AI_REPORT_GENERATED: 'ai_report_generated',
- AI_REPORT_COPIED: 'ai_report_copied',
- AI_CHAT_STARTED: 'ai_chat_started',
- AI_FEEDBACK_SUBMITTED: 'ai_feedback_submitted',
- 
- // Feature usage
- CALCULATOR_USED: 'calculator_used',
- BUDGET_PLANNER_CLICKED: 'budget_planner_clicked',
- UPGRADE_CLICKED: 'upgrade_clicked',
- 
- // Errors
- CALCULATION_ERROR: 'calculation_error',
- SYNC_ERROR: 'sync_error'
+  // Page views
+  PAGE_VIEW: 'page_view',
+  
+  // User interactions
+  SLIDER_CHANGE: 'slider_change',
+  CHART_VIEW_CHANGE: 'chart_view_change',
+  DEBT_ADDED: 'debt_added',
+  DEBT_UPDATED: 'debt_updated',
+  DEBT_REMOVED: 'debt_removed',
+  
+  // AI features
+  AI_REPORT_GENERATED: 'ai_report_generated',
+  AI_REPORT_COPIED: 'ai_report_copied',
+  AI_CHAT_STARTED: 'ai_chat_started',
+  AI_FEEDBACK_SUBMITTED: 'ai_feedback_submitted',
+  
+  // Feature usage
+  CALCULATOR_USED: 'calculator_used',
+  BUDGET_PLANNER_CLICKED: 'budget_planner_clicked',
+  UPGRADE_CLICKED: 'upgrade_clicked',
+  
+  // Errors
+  CALCULATION_ERROR: 'calculation_error',
+  SYNC_ERROR: 'sync_error'
 };
 
 export const useAnalytics = () => {
- const { user, isPro } = useAuth();
- const { debts, totalDebt } = useUserDebts();
+  const { user, isPro } = useUser();
+  const { debts, totalDebt } = useDebts();
 
- // Base properties included with every event
- const getBaseProperties = useCallback(() => ({
-  userId: user?.id || 'anonymous',
-  userType: isPro ? 'pro' : 'free',
-  debtCount: debts?.length || 0,
-  totalDebt: Math.round(totalDebt || 0),
-  timestamp: new Date().toISOString(),
-  url: window.location.href,
-  userAgent: navigator.userAgent,
-  sessionId: getSessionId()
- }), [user?.id, isPro, debts?.length, totalDebt]);
+  // Base properties included with every event
+  const getBaseProperties = useCallback(() => ({
+    userId: user?.id || 'anonymous',
+    userType: isPro ? 'pro' : 'free',
+    debtCount: debts?.length || 0,
+    totalDebt: Math.round(totalDebt || 0),
+    timestamp: new Date().toISOString(),
+    url: window.location.href,
+    userAgent: navigator.userAgent,
+    sessionId: getSessionId()
+  }), [user?.id, isPro, debts?.length, totalDebt]);
 
- // Get or create session ID
- const getSessionId = useCallback(() => {
-  let sessionId = sessionStorage.getItem('trysnowball-session-id');
-  if (!sessionId) {
-   sessionId = Date.now().toString() + Math.random().toString(36).substr(2, 9);
-   sessionStorage.setItem('trysnowball-session-id', sessionId);
-  }
-  return sessionId;
- }, []);
-
- // Main tracking function
- const track = useCallback((eventName, properties = {}) => {
-  try {
-   const eventData = {
-    event: eventName,
-    properties: {
-     ...getBaseProperties(),
-     ...properties
+  // Get or create session ID
+  const getSessionId = useCallback(() => {
+    let sessionId = sessionStorage.getItem('trysnowball-session-id');
+    if (!sessionId) {
+      sessionId = Date.now().toString() + Math.random().toString(36).substr(2, 9);
+      sessionStorage.setItem('trysnowball-session-id', sessionId);
     }
-   };
+    return sessionId;
+  }, []);
 
-   // Console logging for development
-   if (process.env.NODE_ENV === 'development') {
-    console.log('📊 Analytics Event:', eventData);
-   }
+  // Main tracking function
+  const track = useCallback((eventName, properties = {}) => {
+    try {
+      const eventData = {
+        event: eventName,
+        properties: {
+          ...getBaseProperties(),
+          ...properties
+        }
+      };
 
-   // Send to multiple analytics providers
-   sendToAnalyticsProviders(eventData);
-   
-   // Store locally for debugging/backup
-   storeEventLocally(eventData);
+      // Console logging for development
+      if (process.env.NODE_ENV === 'development') {
+        console.log('📊 Analytics Event:', eventData);
+      }
 
-  } catch (error) {
-   console.warn('Analytics tracking error:', error);
-  }
- }, [getBaseProperties]);
+      // Send to multiple analytics providers
+      sendToAnalyticsProviders(eventData);
+      
+      // Store locally for debugging/backup
+      storeEventLocally(eventData);
 
- // Send to various analytics providers
- const sendToAnalyticsProviders = useCallback((eventData) => {
-  // Google Analytics 4
-  if (typeof window.gtag !== 'undefined') {
-   window.gtag('event', eventData.event, {
-    ...eventData.properties,
-    custom_parameter_1: eventData.properties.userType,
-    custom_parameter_2: eventData.properties.debtCount
-   });
-  }
+    } catch (error) {
+      console.warn('Analytics tracking error:', error);
+    }
+  }, [getBaseProperties]);
 
-  // PostHog (if available)
-  if (typeof window.posthog !== 'undefined') {
-   window.posthog.capture(eventData.event, eventData.properties);
-  }
+  // Send to various analytics providers
+  const sendToAnalyticsProviders = useCallback((eventData) => {
+    // Google Analytics 4
+    if (typeof window.gtag !== 'undefined') {
+      window.gtag('event', eventData.event, {
+        ...eventData.properties,
+        custom_parameter_1: eventData.properties.userType,
+        custom_parameter_2: eventData.properties.debtCount
+      });
+    }
 
-  // Custom analytics endpoint (if configured)
-  const analyticsEndpoint = process.env.REACT_APP_ANALYTICS_ENDPOINT;
-  if (analyticsEndpoint) {
-   fetch(analyticsEndpoint, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(eventData)
-   }).catch(err => console.warn('Custom analytics error:', err));
-  }
- }, []);
+    // PostHog (if available)
+    if (typeof window.posthog !== 'undefined') {
+      window.posthog.capture(eventData.event, eventData.properties);
+    }
 
- // Store events safely - no legacy localStorage keys
- const storeEventLocally = useCallback((eventData) => {
-  try {
-   // TODO: Use IndexedDB through localDebtStore for analytics events
-   // For now: no-op to prevent legacy storage issues
-   // await localDebtStore.enqueueEvent({event: eventData.event, props: eventData.properties, at: Date.now()});
-   
-   // Development logging only
-   if (process.env.NODE_ENV === 'development') {
-    console.log('[Analytics]', eventData.event, eventData.properties);
-   }
-  } catch (error) {
-   // Analytics must never break product flows - swallow all errors
-  }
- }, []);
+    // Custom analytics endpoint (if configured)
+    const analyticsEndpoint = process.env.REACT_APP_ANALYTICS_ENDPOINT;
+    if (analyticsEndpoint) {
+      fetch(analyticsEndpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(eventData)
+      }).catch(err => console.warn('Custom analytics error:', err));
+    }
+  }, []);
 
- // Convenience methods for common events
- const trackPageView = useCallback((pageName, additionalProperties = {}) => {
-  track(EVENTS.PAGE_VIEW, {
-   page: pageName,
-   path: window.location.pathname,
-   ...additionalProperties
-  });
- }, [track]);
+  // Store events safely - no legacy localStorage keys
+  const storeEventLocally = useCallback((eventData) => {
+    try {
+      // TODO: Use IndexedDB through localDebtStore for analytics events
+      // For now: no-op to prevent legacy storage issues
+      // await localDebtStore.enqueueEvent({event: eventData.event, props: eventData.properties, at: Date.now()});
+      
+      // Development logging only
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[Analytics]', eventData.event, eventData.properties);
+      }
+    } catch (error) {
+      // Analytics must never break product flows - swallow all errors
+    }
+  }, []);
 
- // Billing and subscription tracking
- const trackUpgradeFlow = useCallback((action, planType = null, additionalData = {}) => {
-  track(`upgrade_${action}`, {
-   plan_type: planType,
-   user_tier: isPro ? 'pro' : 'free',
-   ...additionalData
-  });
- }, [track, isPro]);
-
- const trackBillingEvent = useCallback((action, additionalData = {}) => {
-  track(`billing_${action}`, {
-   user_tier: isPro ? 'pro' : 'free',
-   user_id: user?.id,
-   ...additionalData
-  });
- }, [track, isPro, user?.id]);
-
- const trackSliderChange = useCallback((newValue, oldValue) => {
-  track(EVENTS.SLIDER_CHANGE, {
-   newValue,
-   oldValue,
-   difference: newValue - oldValue
-  });
- }, [track]);
-
- const trackDebtAction = useCallback((action, debtData) => {
-  const eventMap = {
-   added: EVENTS.DEBT_ADDED,
-   updated: EVENTS.DEBT_UPDATED,
-   removed: EVENTS.DEBT_REMOVED
-  };
-
-  track(eventMap[action], {
-   debtId: debtData.id,
-   debtType: debtData.type || 'unknown',
-   amount: debtData.balance || debtData.amount,
-   interestRate: debtData.rate || debtData.interest
-  });
- }, [track]);
-
- const trackAIInteraction = useCallback((interactionType, additionalData = {}) => {
-  const eventMap = {
-   reportGenerated: EVENTS.AI_REPORT_GENERATED,
-   reportCopied: EVENTS.AI_REPORT_COPIED,
-   chatStarted: EVENTS.AI_CHAT_STARTED,
-   feedbackSubmitted: EVENTS.AI_FEEDBACK_SUBMITTED
-  };
-
-  track(eventMap[interactionType], additionalData);
- }, [track]);
-
- const trackError = useCallback((errorType, errorDetails) => {
-  track(errorType === 'calculation' ? EVENTS.CALCULATION_ERROR : EVENTS.SYNC_ERROR, {
-   errorMessage: errorDetails.message,
-   errorStack: errorDetails.stack,
-   errorCode: errorDetails.code
-  });
- }, [track]);
-
- // Feedback submission with analytics
- const submitFeedback = useCallback(async (feedbackData) => {
-  try {
-   // Track the feedback submission
-   trackAIInteraction('feedbackSubmitted', {
-    rating: feedbackData.rating,
-    hasComment: !!feedbackData.comment,
-    feature: feedbackData.feature || 'general'
-   });
-
-   // Send feedback to backend (if configured)
-   const feedbackEndpoint = process.env.REACT_APP_FEEDBACK_ENDPOINT;
-   if (feedbackEndpoint) {
-    await fetch(feedbackEndpoint, {
-     method: 'POST',
-     headers: { 'Content-Type': 'application/json' },
-     body: JSON.stringify({
-      ...feedbackData,
-      userId: user?.id,
-      timestamp: new Date().toISOString()
-     })
+  // Convenience methods for common events
+  const trackPageView = useCallback((pageName, additionalProperties = {}) => {
+    track(EVENTS.PAGE_VIEW, {
+      page: pageName,
+      path: window.location.pathname,
+      ...additionalProperties
     });
-   }
+  }, [track]);
 
-   // Store locally as backup
-   const key = 'trysnowball-feedback';
-   const existing = JSON.parse(localStorage.getItem(key) || '[]');
-   localStorage.setItem(key, JSON.stringify([feedbackData, ...existing.slice(0, 19)]));
+  // Billing and subscription tracking
+  const trackUpgradeFlow = useCallback((action, planType = null, additionalData = {}) => {
+    track(`upgrade_${action}`, {
+      plan_type: planType,
+      user_tier: isPro ? 'pro' : 'free',
+      ...additionalData
+    });
+  }, [track, isPro]);
 
-   return { success: true };
-  } catch (error) {
-   trackError('feedback', error);
-   return { success: false, error };
-  }
- }, [user?.id, trackAIInteraction, trackError]);
+  const trackBillingEvent = useCallback((action, additionalData = {}) => {
+    track(`billing_${action}`, {
+      user_tier: isPro ? 'pro' : 'free',
+      user_id: user?.id,
+      ...additionalData
+    });
+  }, [track, isPro, user?.id]);
 
- // Performance tracking
- const trackPerformance = useCallback((metricName, value, additionalData = {}) => {
-  track('performance_metric', {
-   metric: metricName,
-   value,
-   ...additionalData
-  });
- }, [track]);
+  const trackSliderChange = useCallback((newValue, oldValue) => {
+    track(EVENTS.SLIDER_CHANGE, {
+      newValue,
+      oldValue,
+      difference: newValue - oldValue
+    });
+  }, [track]);
 
- // Auto-track page views
- useEffect(() => {
-  const pageName = window.location.pathname.split('/').pop() || 'home';
-  trackPageView(pageName);
- }, [trackPageView]);
+  const trackDebtAction = useCallback((action, debtData) => {
+    const eventMap = {
+      added: EVENTS.DEBT_ADDED,
+      updated: EVENTS.DEBT_UPDATED,
+      removed: EVENTS.DEBT_REMOVED
+    };
 
- return {
-  // Core tracking
-  track,
-  
-  // Convenience methods
-  trackPageView,
-  trackSliderChange,
-  trackDebtAction,
-  trackAIInteraction,
-  trackError,
-  trackPerformance,
-  
-  // Billing & subscription tracking
-  trackUpgradeFlow,
-  trackBillingEvent,
-  
-  // Feedback system
-  submitFeedback,
-  
-  // Utility
-  getSessionId,
-  
-  // Debug helpers (development only) - no legacy storage access
-  ...(process.env.NODE_ENV === 'development' && {
-   getLocalEvents: () => [], // No longer store in localStorage
-   clearLocalEvents: () => {} // No-op
-  })
- };
+    track(eventMap[action], {
+      debtId: debtData.id,
+      debtType: debtData.type || 'unknown',
+      amount: debtData.balance || debtData.amount,
+      interestRate: debtData.rate || debtData.interest
+    });
+  }, [track]);
+
+  const trackAIInteraction = useCallback((interactionType, additionalData = {}) => {
+    const eventMap = {
+      reportGenerated: EVENTS.AI_REPORT_GENERATED,
+      reportCopied: EVENTS.AI_REPORT_COPIED,
+      chatStarted: EVENTS.AI_CHAT_STARTED,
+      feedbackSubmitted: EVENTS.AI_FEEDBACK_SUBMITTED
+    };
+
+    track(eventMap[interactionType], additionalData);
+  }, [track]);
+
+  const trackError = useCallback((errorType, errorDetails) => {
+    track(errorType === 'calculation' ? EVENTS.CALCULATION_ERROR : EVENTS.SYNC_ERROR, {
+      errorMessage: errorDetails.message,
+      errorStack: errorDetails.stack,
+      errorCode: errorDetails.code
+    });
+  }, [track]);
+
+  // Feedback submission with analytics
+  const submitFeedback = useCallback(async (feedbackData) => {
+    try {
+      // Track the feedback submission
+      trackAIInteraction('feedbackSubmitted', {
+        rating: feedbackData.rating,
+        hasComment: !!feedbackData.comment,
+        feature: feedbackData.feature || 'general'
+      });
+
+      // Send feedback to backend (if configured)
+      const feedbackEndpoint = process.env.REACT_APP_FEEDBACK_ENDPOINT;
+      if (feedbackEndpoint) {
+        await fetch(feedbackEndpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            ...feedbackData,
+            userId: user?.id,
+            timestamp: new Date().toISOString()
+          })
+        });
+      }
+
+      // Store locally as backup
+      const key = 'trysnowball-feedback';
+      const existing = JSON.parse(localStorage.getItem(key) || '[]');
+      localStorage.setItem(key, JSON.stringify([feedbackData, ...existing.slice(0, 19)]));
+
+      return { success: true };
+    } catch (error) {
+      trackError('feedback', error);
+      return { success: false, error };
+    }
+  }, [user?.id, trackAIInteraction, trackError]);
+
+  // Performance tracking
+  const trackPerformance = useCallback((metricName, value, additionalData = {}) => {
+    track('performance_metric', {
+      metric: metricName,
+      value,
+      ...additionalData
+    });
+  }, [track]);
+
+  // Auto-track page views
+  useEffect(() => {
+    const pageName = window.location.pathname.split('/').pop() || 'home';
+    trackPageView(pageName);
+  }, [trackPageView]);
+
+  return {
+    // Core tracking
+    track,
+    
+    // Convenience methods
+    trackPageView,
+    trackSliderChange,
+    trackDebtAction,
+    trackAIInteraction,
+    trackError,
+    trackPerformance,
+    
+    // Billing & subscription tracking
+    trackUpgradeFlow,
+    trackBillingEvent,
+    
+    // Feedback system
+    submitFeedback,
+    
+    // Utility
+    getSessionId,
+    
+    // Debug helpers (development only) - no legacy storage access
+    ...(process.env.NODE_ENV === 'development' && {
+      getLocalEvents: () => [], // No longer store in localStorage
+      clearLocalEvents: () => {} // No-op
+    })
+  };
 };
 
 // Higher-order component to auto-track page views
 export const withAnalytics = (Component, pageName) => {
- return function AnalyticsWrappedComponent(props) {
-  const { trackPageView } = useAnalytics();
-  
-  useEffect(() => {
-   trackPageView(pageName || Component.name);
-  }, [trackPageView]);
-  
-  return <Component {...props} />;
- };
+  return function AnalyticsWrappedComponent(props) {
+    const { trackPageView } = useAnalytics();
+    
+    useEffect(() => {
+      trackPageView(pageName || Component.name);
+    }, [trackPageView]);
+    
+    return <Component {...props} />;
+  };
 };
 
 // Hook for tracking component mount/unmount
 export const useComponentTracking = (componentName) => {
- const { track } = useAnalytics();
- 
- useEffect(() => {
-  track('component_mounted', { component: componentName });
+  const { track } = useAnalytics();
   
-  return () => {
-   track('component_unmounted', { component: componentName });
-  };
- }, [track, componentName]);
+  useEffect(() => {
+    track('component_mounted', { component: componentName });
+    
+    return () => {
+      track('component_unmounted', { component: componentName });
+    };
+  }, [track, componentName]);
 };

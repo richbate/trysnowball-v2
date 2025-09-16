@@ -8,166 +8,166 @@ import { useEntitlement } from './useEntitlement';
 import { useAuth } from '../contexts/AuthContext.tsx';
 
 export const usePremiumGate = (options = {}) => {
- const { betaAccess, loading, isPremium } = useEntitlement();
- const { user } = useAuth();
- 
- // Legacy compatibility - treat betaAccess as "Pro"
- const isPro = betaAccess;
- 
- const {
-  requirePro = true,
-  fallbackMessage = "This feature requires Beta access",
-  redirectTo = null,
-  allowDevelopment = true
- } = options;
-
- // Development bypass
- const isDevelopment = process.env.NODE_ENV === 'development' && allowDevelopment;
- 
- // Check environment variable override
- const requireProFromEnv = process.env.REACT_APP_REQUIRE_PRO !== 'false';
- 
- const hasAccess = !requirePro || isPro || isDevelopment || !requireProFromEnv;
- 
- const gateStatus = {
-  hasAccess,
-  isPro,
-  loading,
-  isBlocked: !hasAccess && !loading,
-  reason: !hasAccess ? (
-   !isPro ? 'Beta access required' : 
-   'Access denied'
-  ) : null
- };
-
- // Premium gate component
- const PremiumGate = ({ children, customMessage, showUpgrade = true }) => {
-  if (loading) {
-   return (
-    <div className="flex items-center justify-center min-h-64">
-     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-    </div>
-   );
-  }
-
-  if (!hasAccess) {
-   return (
-    <div className="max-w-md mx-auto bg-gradient-to-br from-purple-50 to-blue-50 rounded-xl p-8 text-center border border-purple-200">
-     <div className="w-16 h-16 mx-auto mb-4 bg-purple-100 rounded-full flex items-center justify-center">
-      <svg className="w-8 h-8 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-5a2 2 0 00-2-2H6a2 2 0 00-2 2v5a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-      </svg>
-     </div>
-     
-     <h3 className="text-xl font-bold text-gray-900 mb-2">
-      Beta Access Required
-     </h3>
-     
-     <p className="text-gray-600 mb-6">
-      {customMessage || fallbackMessage}
-     </p>
-     
-     {showUpgrade && (
-      <div className="space-y-3">
-       <button 
-        onClick={() => window.location.href = '/upgrade'}
-        className="w-full bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors"
-       >
-        Get Beta Access - £10
-       </button>
-       
-       <p className="text-sm text-gray-500">
-        One-time payment during Beta.
-       </p>
-      </div>
-     )}
-    </div>
-   );
-  }
-
-  return children;
- };
-
- // Hook to check access programmatically
- const checkAccess = (action = 'access this feature') => {
-  if (!hasAccess) {
-   const message = !user 
-    ? `Please sign in to ${action}`
-    : `TrySnowball Pro required to ${action}`;
-   
-   // Could trigger a toast/modal here
-   console.warn(message);
-   return false;
-  }
-  return true;
- };
-
- // Hook to get upgrade URL with context
- const getUpgradeUrl = () => {
-  const baseUrl = '/upgrade';
-  const params = new URLSearchParams();
+  const { betaAccess, loading, isPremium } = useEntitlement();
+  const { user } = useAuth();
   
-  if (window.location.pathname) {
-   params.set('returnTo', window.location.pathname);
-  }
+  // Legacy compatibility - treat betaAccess as "Pro"
+  const isPro = betaAccess;
   
-  return `${baseUrl}?${params.toString()}`;
- };
+  const {
+    requirePro = true,
+    fallbackMessage = "This feature requires Beta access",
+    redirectTo = null,
+    allowDevelopment = true
+  } = options;
 
- return {
-  ...gateStatus,
-  PremiumGate,
-  checkAccess,
-  getUpgradeUrl,
+  // Development bypass
+  const isDevelopment = process.env.NODE_ENV === 'development' && allowDevelopment;
   
-  // Convenience methods
-  requireAuth: () => checkAccess('continue'),
-  requirePro: () => checkAccess('use this Pro feature'),
+  // Check environment variable override
+  const requireProFromEnv = process.env.REACT_APP_REQUIRE_PRO !== 'false';
   
-  // Status flags
-  needsAuth: !user,
-  needsUpgrade: user && !isPro,
+  const hasAccess = !requirePro || isPro || isDevelopment || !requireProFromEnv;
   
-  // Debug info (development only)
-  ...(isDevelopment && {
-   debug: {
-    isDevelopment,
-    requireProFromEnv,
-    userMetadata: user?.user_metadata,
-    environmentOverride: !requireProFromEnv
-   }
-  })
- };
+  const gateStatus = {
+    hasAccess,
+    isPro,
+    loading,
+    isBlocked: !hasAccess && !loading,
+    reason: !hasAccess ? (
+      !isPro ? 'Beta access required' : 
+      'Access denied'
+    ) : null
+  };
+
+  // Premium gate component
+  const PremiumGate = ({ children, customMessage, showUpgrade = true }) => {
+    if (loading) {
+      return (
+        <div className="flex items-center justify-center min-h-64">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+        </div>
+      );
+    }
+
+    if (!hasAccess) {
+      return (
+        <div className="max-w-md mx-auto bg-gradient-to-br from-purple-50 to-blue-50 rounded-xl p-8 text-center border border-purple-200">
+          <div className="w-16 h-16 mx-auto mb-4 bg-purple-100 rounded-full flex items-center justify-center">
+            <svg className="w-8 h-8 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-5a2 2 0 00-2-2H6a2 2 0 00-2 2v5a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+            </svg>
+          </div>
+          
+          <h3 className="text-xl font-bold text-gray-900 mb-2">
+            Beta Access Required
+          </h3>
+          
+          <p className="text-gray-600 mb-6">
+            {customMessage || fallbackMessage}
+          </p>
+          
+          {showUpgrade && (
+            <div className="space-y-3">
+              <button 
+                onClick={() => window.location.href = '/upgrade'}
+                className="w-full bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors"
+              >
+                Get Beta Access - £10
+              </button>
+              
+              <p className="text-sm text-gray-500">
+                One-time payment during Beta.
+              </p>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    return children;
+  };
+
+  // Hook to check access programmatically
+  const checkAccess = (action = 'access this feature') => {
+    if (!hasAccess) {
+      const message = !user 
+        ? `Please sign in to ${action}`
+        : `TrySnowball Pro required to ${action}`;
+      
+      // Could trigger a toast/modal here
+      console.warn(message);
+      return false;
+    }
+    return true;
+  };
+
+  // Hook to get upgrade URL with context
+  const getUpgradeUrl = () => {
+    const baseUrl = '/upgrade';
+    const params = new URLSearchParams();
+    
+    if (window.location.pathname) {
+      params.set('returnTo', window.location.pathname);
+    }
+    
+    return `${baseUrl}?${params.toString()}`;
+  };
+
+  return {
+    ...gateStatus,
+    PremiumGate,
+    checkAccess,
+    getUpgradeUrl,
+    
+    // Convenience methods
+    requireAuth: () => checkAccess('continue'),
+    requirePro: () => checkAccess('use this Pro feature'),
+    
+    // Status flags
+    needsAuth: !user,
+    needsUpgrade: user && !isPro,
+    
+    // Debug info (development only)
+    ...(isDevelopment && {
+      debug: {
+        isDevelopment,
+        requireProFromEnv,
+        userMetadata: user?.user_metadata,
+        environmentOverride: !requireProFromEnv
+      }
+    })
+  };
 };
 
 // Higher-order component for protecting entire pages
 export const withPremiumGate = (Component, options = {}) => {
- return function PremiumProtectedComponent(props) {
-  const { PremiumGate } = usePremiumGate(options);
-  
-  return (
-   <PremiumGate>
-    <Component {...props} />
-   </PremiumGate>
-  );
- };
+  return function PremiumProtectedComponent(props) {
+    const { PremiumGate } = usePremiumGate(options);
+    
+    return (
+      <PremiumGate>
+        <Component {...props} />
+      </PremiumGate>
+    );
+  };
 };
 
 // Utility function for feature flags
 export const useFeatureFlag = (featureName, defaultValue = false) => {
- const { user } = useAuth();
- const isPro = user?.isPro || false;
- 
- // Define feature flags
- const features = {
-  aiCoach: isPro,
-  aiReport: isPro,
-  advancedCharts: isPro,
-  exportData: isPro,
-  paymentHistory: true, // Free feature
-  basicCharts: true,  // Free feature
-  debtCalculator: true // Free feature
- };
- 
- return features[featureName] ?? defaultValue;
+  const { user } = useAuth();
+  const isPro = user?.isPro || false;
+  
+  // Define feature flags
+  const features = {
+    aiCoach: isPro,
+    aiReport: isPro,
+    advancedCharts: isPro,
+    exportData: isPro,
+    paymentHistory: true, // Free feature
+    basicCharts: true,    // Free feature
+    debtCalculator: true  // Free feature
+  };
+  
+  return features[featureName] ?? defaultValue;
 };

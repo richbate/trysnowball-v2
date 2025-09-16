@@ -1,17 +1,45 @@
-import React from 'react';
+/**
+ * TeaserSnowflakes Component
+ * Single-line teaser for snowflakes
+ * @prop {number} totalAmount - in pennies
+ * @prop {number} [monthsSooner]
+ * @prop {function} onManageClick
+ */
 
-export default function TeaserSnowflakes({ totalAmount = 0, monthsSooner = 0, onManageClick }) {
- return (
-  <div className="rounded-xl bg-slate-800/40 p-4">
-   <div className="text-slate-200 text-sm">Snowflakes</div>
-   <div className="text-white text-lg">£{Math.round(totalAmount / 100)} found</div>
-   <div className="text-slate-400 text-sm">{monthsSooner} months sooner</div>
-   <button
-    onClick={onManageClick}
-    className="mt-3 px-3 py-2 rounded bg-slate-700 text-slate-100 text-sm"
-   >
-    Manage
-   </button>
-  </div>
- );
-}
+import React from 'react';
+import { useTheme } from '../../contexts/ThemeContext';
+
+const TeaserSnowflakes = ({ totalAmount, monthsSooner, onManageClick }) => {
+  const { colors } = useTheme();
+  
+  const formatCurrency = (pennies) => {
+    return `£${(pennies / 100).toFixed(0)}`;
+  };
+  
+  return (
+    <div className={`${colors.surface} rounded-lg p-3 border ${colors.border}`}>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center space-x-2">
+          <span className="text-xl">❄️</span>
+          <div>
+            <span className="font-medium">{formatCurrency(totalAmount)} in snowflakes</span>
+            {monthsSooner > 0 && (
+              <span className="text-sm text-green-600 ml-2">
+                (-{monthsSooner} months)
+              </span>
+            )}
+          </div>
+        </div>
+        
+        <button
+          onClick={onManageClick}
+          className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+        >
+          Manage →
+        </button>
+      </div>
+    </div>
+  );
+};
+
+export default TeaserSnowflakes;

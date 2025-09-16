@@ -8,79 +8,79 @@
 import React from 'react';
 
 const ContextCTA = ({ kind, onClick }) => {
- const getContent = () => {
-  switch (kind) {
-   case 'add-debts':
-    return {
-     icon: '💳',
-     label: 'Add Your Debts',
-     sublabel: 'Start your debt-free journey',
-     variant: 'primary'
-    };
-   case 'try-boost':
-    return {
-     icon: '🚀',
-     label: 'Try a £25 Boost',
-     sublabel: 'See how much time you save',
-     variant: 'success'
-    };
-   case 'log-snowflake':
-    return {
-     icon: '❄️',
-     label: 'Log a Snowflake',
-     sublabel: 'Got extra cash? Add it here',
-     variant: 'info'
-    };
-   case 'update-balances':
-    return {
-     icon: '📊',
-     label: 'Update Balances',
-     sublabel: 'Keep your numbers accurate',
-     variant: 'warning'
-    };
-   default:
-    return {
-     icon: '→',
-     label: 'View Your Plan',
-     sublabel: '',
-     variant: 'default'
-    };
-  }
- };
- 
- const content = getContent();
- 
- const getButtonClasses = () => {
-  const base = "w-full px-6 py-4 rounded-lg font-medium transition-all transform hover:scale-105 flex items-center justify-center space-x-3";
+  const getContent = () => {
+    switch (kind) {
+      case 'add-debts':
+        return {
+          icon: '💳',
+          label: 'Add Your Debts',
+          sublabel: 'Start your debt-free journey',
+          variant: 'primary'
+        };
+      case 'try-boost':
+        return {
+          icon: '🚀',
+          label: 'Try a £25 Boost',
+          sublabel: 'See how much time you save',
+          variant: 'success'
+        };
+      case 'log-snowflake':
+        return {
+          icon: '❄️',
+          label: 'Log a Snowflake',
+          sublabel: 'Got extra cash? Add it here',
+          variant: 'info'
+        };
+      case 'update-balances':
+        return {
+          icon: '📊',
+          label: 'Update Balances',
+          sublabel: 'Keep your numbers accurate',
+          variant: 'warning'
+        };
+      default:
+        return {
+          icon: '→',
+          label: 'View Your Plan',
+          sublabel: '',
+          variant: 'default'
+        };
+    }
+  };
   
-  switch (content.variant) {
-   case 'primary':
-    return `${base} bg-blue-600 hover:bg-blue-700 text-white shadow-lg`;
-   case 'success':
-    return `${base} bg-green-600 hover:bg-green-700 text-white shadow-lg`;
-   case 'info':
-    return `${base} bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg`;
-   case 'warning':
-    return `${base} bg-yellow-500 hover:bg-yellow-600 text-white shadow-lg`;
-   default:
-    return `${base} bg-gray-600 hover:bg-gray-700 text-white shadow-lg`;
-  }
- };
- 
- return (
-  <button
-   onClick={onClick}
-   className={getButtonClasses()}
-  >
-   <span className="text-2xl">{content.icon}</span>
-   <div className="text-left">
-    <div className="font-semibold">{content.label}</div>
-    {content.sublabel && (
-     <div className="text-xs opacity-90">{content.sublabel}</div>
-    )}
-   </div>
-  </button>
- );
+  const content = getContent();
+  
+  const getButtonClasses = () => {
+    const base = "w-full px-6 py-4 rounded-lg font-medium transition-all transform hover:scale-105 flex items-center justify-center space-x-3";
+    
+    switch (content.variant) {
+      case 'primary':
+        return `${base} bg-blue-600 hover:bg-blue-700 text-white shadow-lg`;
+      case 'success':
+        return `${base} bg-green-600 hover:bg-green-700 text-white shadow-lg`;
+      case 'info':
+        return `${base} bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg`;
+      case 'warning':
+        return `${base} bg-yellow-500 hover:bg-yellow-600 text-white shadow-lg`;
+      default:
+        return `${base} bg-gray-600 hover:bg-gray-700 text-white shadow-lg`;
+    }
+  };
+  
+  return (
+    <button
+      onClick={onClick}
+      className={getButtonClasses()}
+    >
+      <span className="text-2xl">{content.icon}</span>
+      <div className="text-left">
+        <div className="font-semibold">{content.label}</div>
+        {content.sublabel && (
+          <div className="text-xs opacity-90">{content.sublabel}</div>
+        )}
+      </div>
+    </button>
+  );
 };
 
 export default ContextCTA;

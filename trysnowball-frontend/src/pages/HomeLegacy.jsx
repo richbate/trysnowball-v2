@@ -1,4 +1,4 @@
 import React from "react";
 export default function Home() {
- return <div>Home Dashboard (stub)</div>;
+  return <div>Home Dashboard (stub)</div>;
 }

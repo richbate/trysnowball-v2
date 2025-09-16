@@ -3,9 +3,7 @@ main = "auth-magic.js"
 account_id = "7e5c7c88e7d6dff2229754583610529e"
 
 [vars]
-PRICE_MONTHLY = "price_1S2VFV9OfFB3mfqArmwnxUw0"  # TrySnowball Pro Monthly £4.99/mo
-PRICE_ANNUAL = "price_1S2VFq9OfFB3mfqAiR8DaGz2"   # TrySnowball Pro Annual £19.99/yr
-PRICE_LIFETIME_BETA = "price_1QXZyqFJ5K2TUEZvT4Xs7G1K"  # Legacy beta price
+PRICE_LIFETIME_BETA = "price_1QXZyqFJ5K2TUEZvT4Xs7G1K"  # Replace with actual price ID
 
 [[kv_namespaces]]
 binding = "ENTITLEMENTS"
@@ -16,9 +14,7 @@ id = "entitlements_dev_id"  # Replace with actual KV namespace ID
 name = "trysnowball-auth-prod"       # MUST match the live route owner
 
 [env.production.vars]
-PRICE_MONTHLY = "price_1S2VFV9OfFB3mfqArmwnxUw0"  # TrySnowball Pro Monthly £4.99/mo
-PRICE_ANNUAL = "price_1S2VFq9OfFB3mfqAiR8DaGz2"   # TrySnowball Pro Annual £19.99/yr
-PRICE_LIFETIME_BETA = "price_1QXZyqFJ5K2TUEZvT4Xs7G1K"  # Legacy beta price
+PRICE_LIFETIME_BETA = "price_1QXZyqFJ5K2TUEZvT4Xs7G1K"  # Replace with actual price ID
 
 [[env.production.kv_namespaces]]
 binding = "ENTITLEMENTS"
@@ -35,9 +31,7 @@ name = "trysnowball-auth-staging"
 workers_dev = true
 
 [env.staging.vars]
-PRICE_MONTHLY = "price_1S2VFV9OfFB3mfqArmwnxUw0"  # TrySnowball Pro Monthly £4.99/mo
-PRICE_ANNUAL = "price_1S2VFq9OfFB3mfqAiR8DaGz2"   # TrySnowball Pro Annual £19.99/yr
-PRICE_LIFETIME_BETA = "price_1QXZyqFJ5K2TUEZvT4Xs7G1K"  # Legacy beta price
+PRICE_LIFETIME_BETA = "price_1QXZyqFJ5K2TUEZvT4Xs7G1K"  # Replace with actual price ID
 
 [[env.staging.kv_namespaces]]
 binding = "ENTITLEMENTS"

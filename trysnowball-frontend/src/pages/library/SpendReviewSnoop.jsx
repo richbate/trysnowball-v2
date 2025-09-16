@@ -3,26 +3,26 @@ import LibraryLayout from './LibraryLayout';
 import Article from './components/Article';
 
 export default function SpendReviewSnoop() {
- return (
-  <LibraryLayout>
-   <Article title="Tesco Is My Second Home — A Year of Spending, According to Snoop" description="What a spend review reveals — and how to turn it into faster debt payoff.">
-    <p>Snoop just crunched my bank data, and I'm equal parts fascinated and mildly concerned.</p>
-    <p>Nearly half of my tracked spending — <strong>43%</strong> — went to Tesco. That's not "a lot of grocery shopping," that's "Tesco might start charging me rent."</p>
-    <p><strong>B&Q</strong> has quietly become my weekend habit. I've spent £1,687 there this year — enough for the staff to start recognising me, and for me to know exactly which aisle the good timber's on.</p>
-    <p>Then there's <strong>TK Maxx</strong>. £1,308 gone, mostly on clothes. Which, for the record, is more than I've spent on petrol this year. My wardrobe is now 80% "last season's bargains" and I regret none of it.</p>
-    <h3>Other big hitters</h3>
-    <ul>
-     <li>Amazon: £2,121 — every box a mystery until opened</li>
-     <li>IKEA: £932 — flat‑pack is my siren song</li>
-     <li>Trainline: £980 — the cost of leaving the house</li>
-     <li>Five Guys: £153 — that's a lot of burgers</li>
-     <li>Wagamama: £150 — the price of all that katsu</li>
-    </ul>
-    <h3>What it tells me</h3>
-    <p>I'm not a little‑and‑often spender. I stockpile cash, then splurge hard on the things I love (or think I'll love when I click "buy").</p>
-    <h3>Turn it into progress</h3>
-    <p>Debt isn't just about what you owe — it's about where your money <em>leaks</em>. A spend review is a mirror. Tools like Snoop help, but pairing it with a TrySnowball plan lets you re‑route even 10–15% of those top categories into smashing balances.</p>
-   </Article>
-  </LibraryLayout>
- );
+  return (
+    <LibraryLayout>
+      <Article title="Tesco Is My Second Home — A Year of Spending, According to Snoop" description="What a spend review reveals — and how to turn it into faster debt payoff.">
+        <p>Snoop just crunched my bank data, and I'm equal parts fascinated and mildly concerned.</p>
+        <p>Nearly half of my tracked spending — <strong>43%</strong> — went to Tesco. That's not "a lot of grocery shopping," that's "Tesco might start charging me rent."</p>
+        <p><strong>B&Q</strong> has quietly become my weekend habit. I've spent £1,687 there this year — enough for the staff to start recognising me, and for me to know exactly which aisle the good timber's on.</p>
+        <p>Then there's <strong>TK Maxx</strong>. £1,308 gone, mostly on clothes. Which, for the record, is more than I've spent on petrol this year. My wardrobe is now 80% "last season's bargains" and I regret none of it.</p>
+        <h3>Other big hitters</h3>
+        <ul>
+          <li>Amazon: £2,121 — every box a mystery until opened</li>
+          <li>IKEA: £932 — flat‑pack is my siren song</li>
+          <li>Trainline: £980 — the cost of leaving the house</li>
+          <li>Five Guys: £153 — that's a lot of burgers</li>
+          <li>Wagamama: £150 — the price of all that katsu</li>
+        </ul>
+        <h3>What it tells me</h3>
+        <p>I'm not a little‑and‑often spender. I stockpile cash, then splurge hard on the things I love (or think I'll love when I click "buy").</p>
+        <h3>Turn it into progress</h3>
+        <p>Debt isn't just about what you owe — it's about where your money <em>leaks</em>. A spend review is a mirror. Tools like Snoop help, but pairing it with a TrySnowball plan lets you re‑route even 10–15% of those top categories into smashing balances.</p>
+      </Article>
+    </LibraryLayout>
+  );
 }

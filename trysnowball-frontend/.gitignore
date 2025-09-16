@@ -18,10 +18,6 @@
 .DS_Store
 .env.local
 .env.development.local
-
-# Cloudflare Workers secrets
-**/.dev.vars
-**/wrangler.toml.local
 .env.test.local
 .env.production.local
 

@@ -1,9 +1,0 @@
-# Local development environment variables for Cloudflare Workers
-# Copy this file to .dev.vars and fill in your actual values
-# NEVER commit .dev.vars to git!
-
-# JWT Secret - Generate with: node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
-JWT_SECRET="your-jwt-secret-here"
-
-# Encryption key - Generate with: node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
-ENCRYPTION_KEY="your-encryption-key-here"

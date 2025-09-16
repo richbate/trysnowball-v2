@@ -9,21 +9,21 @@
  * @returns {Array} Always returns an array of debts
  */
 export function toDebtArray(input) {
- const list = Array.isArray(input) ? input
-  : input?.items && Array.isArray(input.items) ? input.items
-  : input?.debts && Array.isArray(input.debts) ? input.debts
-  : input && typeof input === 'object' && !Array.isArray(input)
-   ? ('balance' in input || 'amount' in input) ? [input] : Object.values(input)
-  : [];
+  const list = Array.isArray(input) ? input
+    : input?.items && Array.isArray(input.items) ? input.items
+    : input?.debts && Array.isArray(input.debts) ? input.debts
+    : input && typeof input === 'object' && !Array.isArray(input)
+      ? ('balance' in input || 'amount' in input) ? [input] : Object.values(input)
+    : [];
 
- return list.map(d => ({
-  minPayment: 0,
-  interestRate: 0,
-  order: 0,
-  ...d,
-  // ensure array types
-  paymentHistory: Array.isArray(d?.paymentHistory) ? d.paymentHistory : [],
- }));
+  return list.map(d => ({
+    minPayment: 0,
+    interestRate: 0,
+    order: 0,
+    ...d,
+    // ensure array types
+    paymentHistory: Array.isArray(d?.paymentHistory) ? d.paymentHistory : [],
+  }));
 }
 
 /**
@@ -32,15 +32,15 @@ export function toDebtArray(input) {
  * @returns {number} A valid number or 0
  */
 export function safeNumber(value) {
- const num = Number(value);
- return isNaN(num) ? 0 : num;
+  const num = Number(value);
+  return isNaN(num) ? 0 : num;
 }
 
 const METRIC_DEFAULTS = {
- totalDebt: 0,
- totalMinPayments: 0,
- count: 0,
- byType: {},
+  totalDebt: 0,
+  totalMinPayments: 0,
+  count: 0,
+  byType: {},
 };
 
 /**
@@ -49,9 +49,9 @@ const METRIC_DEFAULTS = {
  * @returns {Object} Normalized metrics with safe defaults
  */
 export const normalizeMetrics = (m) => ({
- ...METRIC_DEFAULTS,
- ...(m || {}),
- totalDebt: +((m && m.totalDebt) ?? 0) || 0,
- totalMinPayments: +((m && m.totalMinPayments) ?? 0) || 0,
- count: +((m && m.count) ?? 0) || 0,
+  ...METRIC_DEFAULTS,
+  ...(m || {}),
+  totalDebt: +((m && m.totalDebt) ?? 0) || 0,
+  totalMinPayments: +((m && m.totalMinPayments) ?? 0) || 0,
+  count: +((m && m.count) ?? 0) || 0,
 });

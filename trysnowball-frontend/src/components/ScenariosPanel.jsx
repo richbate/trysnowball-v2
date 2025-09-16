@@ -4,96 +4,96 @@ const STORAGE_KEY = "SNOWBALL_SCENARIOS";
 
 // Temporary inline presets for testing
 const SCENARIO_PRESETS = [
- { id: "no_takeaways", label: "Cancel Takeaways", amount: 80, type: "monthly", icon: "🍕" },
- { id: "cancel_streaming", label: "Cancel Netflix & Spotify", amount: 25, type: "monthly", icon: "🍿" },
- { id: "sober_month", label: "Go Sober (1 month)", amount: 150, type: "one_off", month: 1, icon: "🍺" },
- { id: "sell_stuff", label: "Sell on eBay", amount: 200, type: "one_off", month: 2, icon: "📦" },
- { id: "bus_commute", label: "Swap Car for Bus", amount: 120, type: "monthly", icon: "🚌" },
- { id: "side_hustle", label: "Side Hustle", amount: 100, type: "monthly", icon: "💼" },
+  { id: "no_takeaways", label: "Cancel Takeaways", amount: 80,  type: "monthly",  icon: "🍕" },
+  { id: "cancel_streaming", label: "Cancel Netflix & Spotify", amount: 25, type: "monthly", icon: "🍿" },
+  { id: "sober_month", label: "Go Sober (1 month)", amount: 150, type: "one_off", month: 1, icon: "🍺" },
+  { id: "sell_stuff", label: "Sell on eBay", amount: 200, type: "one_off", month: 2, icon: "📦" },
+  { id: "bus_commute", label: "Swap Car for Bus", amount: 120, type: "monthly", icon: "🚌" },
+  { id: "side_hustle", label: "Side Hustle", amount: 100, type: "monthly", icon: "💼" },
 ];
 
 export default function ScenariosPanel({ onChange, impacts = [] }) {
- const [selections, setSelections] = useState(() => {
-  try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]"); }
-  catch { return []; }
- });
-
- const withPresets = useMemo(() => {
-  const map = new Map(selections.map(s => [s.id, s]));
-  return SCENARIO_PRESETS.map(p => map.get(p.id) ?? { ...p, active: false });
- }, [selections]);
-
- useEffect(() => {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(withPresets));
-  onChange(withPresets);
- }, [withPresets, onChange]);
-
- const toggle = (id) => {
-  setSelections(prev => {
-   const m = new Map(prev.map(s => [s.id, s]));
-   const cur = m.get(id);
-   let isActivating = false;
-   let scenarioData = null;
-   
-   if (cur) { 
-    isActivating = !cur.active;
-    scenarioData = { ...cur, active: isActivating };
-    m.set(id, scenarioData); 
-   }
-   else {
-    const preset = SCENARIO_PRESETS.find(p => p.id === id);
-    if (preset) {
-     isActivating = true;
-     scenarioData = { ...preset, active: true };
-     m.set(id, scenarioData);
-    }
-   }
-   
-   // Track analytics when scenario is activated
-   if (isActivating && scenarioData && window.posthog) {
-    const impact = impacts.find(i => i.scenario === id);
-    window.posthog.capture('plan_scenario_apply', {
-     scenario_id: id,
-     delta_months: impact?.monthsSaved || 0,
-     delta_interest_pennies: Math.round((impact?.interestSaved || 0) * 100),
-     boost_pennies_after: Math.round((impact?.totalBoost || 0) * 100)
-    });
-   }
-   
-   return Array.from(m.values());
+  const [selections, setSelections] = useState(() => {
+    try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]"); }
+    catch { return []; }
   });
- };
 
- // Minimal UI (cards)
- return (
-  <div className="rounded-lg border p-3 bg-slate-50">
-   <div className="font-semibold mb-2">What changes could you make?</div>
-   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-    {withPresets.map(s => {
-     const impact = impacts.find(i => i.id === s.id);
-     return (
-      <button
-       key={s.id}
-       onClick={() => toggle(s.id)}
-       className={`rounded-md border p-3 text-left hover:shadow-sm transition
-        ${s.active ? "border-emerald-500 bg-emerald-50" : "border-slate-200 bg-white"}`}
-      >
-       <div className="text-lg">{s.icon} {s.label}</div>
-       <div className="text-sm text-slate-600">
-        {s.type === "monthly" ? `+£${s.amount}/month` : `+£${s.amount} one-off${s.month ? ` (month ${s.month})` : ""}`}
-       </div>
-       {s.active && impact && (
-        <div className="text-xs mt-1 text-slate-600">
-         {impact.monthsSaved > 0 
-          ? <>≈ <b>{impact.monthsSaved}</b> months sooner</>
-          : <>Adds <b>£{s.amount}</b>{s.type === "monthly" ? "/mo" : ""} to snowball</>}
-        </div>
-       )}
-      </button>
-     );
-    })}
-    {/* TODO: Add "Custom" modal in CP-S2 */}
-   </div>
-  </div>
- );
+  const withPresets = useMemo(() => {
+    const map = new Map(selections.map(s => [s.id, s]));
+    return SCENARIO_PRESETS.map(p => map.get(p.id) ?? { ...p, active: false });
+  }, [selections]);
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(withPresets));
+    onChange(withPresets);
+  }, [withPresets, onChange]);
+
+  const toggle = (id) => {
+    setSelections(prev => {
+      const m = new Map(prev.map(s => [s.id, s]));
+      const cur = m.get(id);
+      let isActivating = false;
+      let scenarioData = null;
+      
+      if (cur) { 
+        isActivating = !cur.active;
+        scenarioData = { ...cur, active: isActivating };
+        m.set(id, scenarioData); 
+      }
+      else {
+        const preset = SCENARIO_PRESETS.find(p => p.id === id);
+        if (preset) {
+          isActivating = true;
+          scenarioData = { ...preset, active: true };
+          m.set(id, scenarioData);
+        }
+      }
+      
+      // Track analytics when scenario is activated
+      if (isActivating && scenarioData && window.posthog) {
+        const impact = impacts.find(i => i.scenario === id);
+        window.posthog.capture('plan_scenario_apply', {
+          scenario_id: id,
+          delta_months: impact?.monthsSaved || 0,
+          delta_interest_pennies: Math.round((impact?.interestSaved || 0) * 100),
+          boost_pennies_after: Math.round((impact?.totalBoost || 0) * 100)
+        });
+      }
+      
+      return Array.from(m.values());
+    });
+  };
+
+  // Minimal UI (cards)
+  return (
+    <div className="rounded-lg border p-3 bg-slate-50">
+      <div className="font-semibold mb-2">What changes could you make?</div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+        {withPresets.map(s => {
+          const impact = impacts.find(i => i.id === s.id);
+          return (
+            <button
+              key={s.id}
+              onClick={() => toggle(s.id)}
+              className={`rounded-md border p-3 text-left hover:shadow-sm transition
+                ${s.active ? "border-emerald-500 bg-emerald-50" : "border-slate-200 bg-white"}`}
+            >
+              <div className="text-lg">{s.icon} {s.label}</div>
+              <div className="text-sm text-slate-600">
+                {s.type === "monthly" ? `+£${s.amount}/month` : `+£${s.amount} one-off${s.month ? ` (month ${s.month})` : ""}`}
+              </div>
+              {s.active && impact && (
+                <div className="text-xs mt-1 text-slate-600">
+                  {impact.monthsSaved > 0 
+                    ? <>≈ <b>{impact.monthsSaved}</b> months sooner</>
+                    : <>Adds <b>£{s.amount}</b>{s.type === "monthly" ? "/mo" : ""} to snowball</>}
+                </div>
+              )}
+            </button>
+          );
+        })}
+        {/* TODO: Add "Custom" modal in CP-S2 */}
+      </div>
+    </div>
+  );
 }

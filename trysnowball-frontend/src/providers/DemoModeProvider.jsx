@@ -5,206 +5,159 @@
 
 import { createContext, useContext, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { localDebtStore } from '../data/localDebtStore';
-import { generateDemoDebts } from '../data/demoDebts';
 
 // Demo seed profiles - loaded statically for zero runtime cost
 const DEMO_SEEDS = {
- default: null, // Loaded on demand
- family: null,
- trap: null
+  default: null, // Loaded on demand
+  family: null,
+  trap: null
 };
 
 // Load seed data on demand
 const loadSeed = async (profile) => {
- if (DEMO_SEEDS[profile]) return DEMO_SEEDS[profile];
- 
- try {
-  const response = await fetch(`/demo/${profile}.json`);
-  if (!response.ok) throw new Error(`Failed to load ${profile} seed`);
-  const seed = await response.json();
-  DEMO_SEEDS[profile] = seed;
-  return seed;
- } catch (error) {
-  console.warn(`Failed to load demo seed ${profile}:`, error);
-  // Fallback to default if it's not already being loaded
-  if (profile !== 'default') {
-   return loadSeed('default');
+  if (DEMO_SEEDS[profile]) return DEMO_SEEDS[profile];
+  
+  try {
+    const response = await fetch(`/demo/${profile}.json`);
+    if (!response.ok) throw new Error(`Failed to load ${profile} seed`);
+    const seed = await response.json();
+    DEMO_SEEDS[profile] = seed;
+    return seed;
+  } catch (error) {
+    console.warn(`Failed to load demo seed ${profile}:`, error);
+    // Fallback to default if it's not already being loaded
+    if (profile !== 'default') {
+      return loadSeed('default');
+    }
+    return null;
   }
-  return null;
- }
 };
 
 // Get current demo metadata
 export const getDemoMeta = () => ({
- demo_mode: sessionStorage.getItem('DEMO_IS_ACTIVE') === '1',
- demo_profile: sessionStorage.getItem('DEMO_PROFILE') || 'default',
- demo_entry: sessionStorage.getItem('DEMO_ENTRY') || 'unknown'
+  demo_mode: sessionStorage.getItem('DEMO_IS_ACTIVE') === '1',
+  demo_profile: sessionStorage.getItem('DEMO_PROFILE') || 'default',
+  demo_entry: sessionStorage.getItem('DEMO_ENTRY') || 'unknown'
 });
 
 const DemoModeContext = createContext({
- isDemo: false,
- enterDemo: () => {},
- exitDemo: () => {},
- demoSource: null,
- getDemoMeta: () => ({})
+  isDemo: false,
+  enterDemo: () => {},
+  exitDemo: () => {},
+  demoSource: null,
+  getDemoMeta: () => ({})
 });
 
 export function DemoModeProvider({ children }) {
- const navigate = useNavigate();
- 
- // Initialize from sessionStorage - more reliable format
- const [isDemo, setIsDemo] = useState(() => {
-  return sessionStorage.getItem('DEMO_IS_ACTIVE') === '1';
- });
- 
- const [demoSource, setDemoSource] = useState(null);
- 
- // Sync with sessionStorage
- useEffect(() => {
-  if (isDemo) {
-   sessionStorage.setItem('DEMO_IS_ACTIVE', '1');
-  } else {
-   // Clear all demo data from sessionStorage
-   Object.keys(sessionStorage).forEach(key => {
-    if (key.startsWith('DEMO_') || key === 'SNOWBALL_DEMO_MODE') {
-     sessionStorage.removeItem(key);
+  const navigate = useNavigate();
+  
+  // Initialize from sessionStorage - more reliable format
+  const [isDemo, setIsDemo] = useState(() => {
+    return sessionStorage.getItem('DEMO_IS_ACTIVE') === '1';
+  });
+  
+  const [demoSource, setDemoSource] = useState(null);
+  
+  // Sync with sessionStorage
+  useEffect(() => {
+    if (isDemo) {
+      sessionStorage.setItem('DEMO_IS_ACTIVE', '1');
+    } else {
+      // Clear all demo data from sessionStorage
+      Object.keys(sessionStorage).forEach(key => {
+        if (key.startsWith('DEMO_') || key === 'SNOWBALL_DEMO_MODE') {
+          sessionStorage.removeItem(key);
+        }
+      });
     }
-   });
-  }
- }, [isDemo]);
- 
- const enterDemo = async (entry = 'unknown', profile = 'uk') => {
-  console.log('[Demo] enterDemo called with entry:', entry, 'profile:', profile);
+  }, [isDemo]);
   
-  // Check if we already have demo data in IndexedDB
-  const existingData = await localDebtStore.listDebts({ includeDemo: true });
-  console.log('[Demo] Existing demo data check:', existingData?.length || 0, 'items');
-  
-  // Idempotent: prevent double seeding if already in demo mode AND we have data
-  if (sessionStorage.getItem('DEMO_IS_ACTIVE') === '1' && existingData && existingData.length > 0) {
-   console.log('[Demo] Already in demo mode with data, skipping seed');
-   return;
-  }
-  
-  // If we're in demo mode but have no data, we need to re-seed
-  if (sessionStorage.getItem('DEMO_IS_ACTIVE') === '1' && (!existingData || existingData.length === 0)) {
-   console.log('[Demo] Demo mode active but no data found - re-seeding...');
-  }
-  
-  setDemoSource(entry);
-  setIsDemo(true);
-  
-  try {
-   // NEW: Seed IndexedDB with demo data (single source of truth)
-   console.log('[Demo] Seeding IndexedDB with demo data...', profile);
-   const demoDebts = generateDemoDebts(profile === 'uk' ? 'uk' : 'default');
-   console.log('[Demo] Generated demo debts:', demoDebts);
-   await localDebtStore.replaceAllForDemo(demoDebts);
-   console.log('[Demo] Successfully seeded', demoDebts.length, 'demo debts');
-   
-   // Verify the data was actually stored
-   const verification = await localDebtStore.listDebts({ includeDemo: true });
-   console.log('[Demo] Verification check - stored debts:', verification);
-   
-   // Set demo flags in sessionStorage
-   sessionStorage.setItem('DEMO_IS_ACTIVE', '1');
-   sessionStorage.setItem('DEMO_PROFILE', profile);
-   sessionStorage.setItem('DEMO_ENTRY', entry);
-   
-   // Legacy: Try to load seed data for settings/user (but ignore for debts)
-   try {
+  const enterDemo = async (entry = 'unknown', profile = 'default') => {
+    setDemoSource(entry);
+    setIsDemo(true);
+    
+    // Load seed data
     const seed = await loadSeed(profile);
     if (seed) {
-     // Store non-debt seed data
-     if (seed.settings) {
-      sessionStorage.setItem('DEMO_SETTINGS', JSON.stringify(seed.settings));
-     }
-     if (seed.user) {
-      sessionStorage.setItem('DEMO_USER', JSON.stringify(seed.user));
-     }
+      // Store demo metadata
+      sessionStorage.setItem('DEMO_IS_ACTIVE', '1');
+      sessionStorage.setItem('DEMO_PROFILE', profile);
+      sessionStorage.setItem('DEMO_ENTRY', entry);
+      
+      // Store seed data
+      if (seed.debts) {
+        sessionStorage.setItem('DEMO_DEBTS', JSON.stringify(seed.debts));
+      }
+      if (seed.settings) {
+        sessionStorage.setItem('DEMO_SETTINGS', JSON.stringify(seed.settings));
+      }
+      if (seed.user) {
+        sessionStorage.setItem('DEMO_USER', JSON.stringify(seed.user));
+      }
     }
-   } catch (seedError) {
-    console.warn('[Demo] Could not load seed profile:', seedError.message);
-    // Continue anyway - we have the essential demo debts from generateDemoDebts
-   }
-  } catch (error) {
-   console.error('[Demo] Failed to seed demo data:', error);
-   console.error('[Demo] Error stack:', error.stack);
-   // Don't block demo mode if seeding fails
-  }
+    
+    // Track demo session start with enhanced metadata
+    if (window.posthog) {
+      window.posthog.capture('demo_session_started', {
+        demo_mode: true,
+        demo_entry: entry,
+        demo_profile: profile,
+        entry_url: window.location.pathname,
+        referrer: document.referrer,
+        timestamp: new Date().toISOString()
+      });
+      
+      // Set person property to exclude from revenue funnels
+      window.posthog.people?.set({ is_demo_user: true });
+    }
+  };
   
-  // Track demo session start with enhanced metadata
-  if (window.posthog) {
-   window.posthog.capture('demo_session_started', {
-    demo_mode: true,
-    demo_entry: entry,
-    demo_profile: profile,
-    entry_url: window.location.pathname,
-    referrer: document.referrer,
-    timestamp: new Date().toISOString()
-   });
-   
-   // Set person property to exclude from revenue funnels
-   window.posthog.people?.set({ is_demo_user: true });
-  }
- };
- 
- const exitDemo = async (destination = '/plan/debts') => {
-  // Track analytics BEFORE clearing state
-  if (window.posthog) {
-   window.posthog.capture('demo_exit', {
-    destination,
-    source: demoSource,
-    timestamp: new Date().toISOString(),
-    demo_mode: true
-   });
-  }
+  const exitDemo = (destination = '/plan/debts') => {
+    // Track analytics BEFORE clearing state
+    if (window.posthog) {
+      window.posthog.capture('demo_exit', {
+        destination,
+        source: demoSource,
+        timestamp: new Date().toISOString(),
+        demo_mode: true
+      });
+    }
+    
+    // Clear all demo data thoroughly
+    setIsDemo(false);
+    setDemoSource(null);
+    
+    // Force clear all DEMO_ keys from sessionStorage
+    const keysToRemove = [];
+    for (let i = 0; i < sessionStorage.length; i++) {
+      const key = sessionStorage.key(i);
+      if (key && (key.startsWith('DEMO_') || key === 'SNOWBALL_DEMO_MODE')) {
+        keysToRemove.push(key);
+      }
+    }
+    keysToRemove.forEach(key => sessionStorage.removeItem(key));
+    
+    // Navigate to destination
+    navigate(destination);
+  };
   
-  try {
-   // NEW: Clear demo data from IndexedDB
-   console.log('[Demo] Clearing demo data from IndexedDB...');
-   await localDebtStore.clearDemo();
-   console.log('[Demo] Demo data cleared from IndexedDB');
-  } catch (error) {
-   console.error('[Demo] Failed to clear demo data:', error);
-  }
-  
-  // Clear all demo data thoroughly
-  setIsDemo(false);
-  setDemoSource(null);
-  
-  // Force clear all DEMO_ keys from sessionStorage
-  const keysToRemove = [];
-  for (let i = 0; i < sessionStorage.length; i++) {
-   const key = sessionStorage.key(i);
-   if (key && (key.startsWith('DEMO_') || key === 'SNOWBALL_DEMO_MODE')) {
-    keysToRemove.push(key);
-   }
-  }
-  keysToRemove.forEach(key => sessionStorage.removeItem(key));
-  
-  // Navigate to destination
-  navigate(destination);
- };
- 
- return (
-  <DemoModeContext.Provider value={{
-   isDemo,
-   enterDemo,
-   exitDemo,
-   demoSource,
-   getDemoMeta
-  }}>
-   {children}
-  </DemoModeContext.Provider>
- );
+  return (
+    <DemoModeContext.Provider value={{
+      isDemo,
+      enterDemo,
+      exitDemo,
+      demoSource,
+      getDemoMeta
+    }}>
+      {children}
+    </DemoModeContext.Provider>
+  );
 }
 
 export const useDemoMode = () => {
- const context = useContext(DemoModeContext);
- if (!context) {
-  throw new Error('useDemoMode must be used within a DemoModeProvider');
- }
- return context;
+  const context = useContext(DemoModeContext);
+  if (!context) {
+    throw new Error('useDemoMode must be used within a DemoModeProvider');
+  }
+  return context;
 };
